@@ -11,11 +11,11 @@ import qs.Widgets.Services
 Singleton {
     id: root
     readonly property int bars: 24
-    property bool active: WidgetsState.visible
+    property bool active: WidgetsState.visible && WidgetsState.cardOn("cava")
     property var values: new Array(bars).fill(0)
     property bool idle: true
     property bool available: true
-    readonly property string confPath: ApoConfig.cacheDir + "/cava.conf"
+    readonly property string confPath: WidgetsConfig.cacheDir + "/cava.conf"
     property int silentFrames: 0
 
     readonly property string conf:

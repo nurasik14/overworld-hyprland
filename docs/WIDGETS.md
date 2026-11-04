@@ -1,179 +1,169 @@
 # Desktop widgets (`quickshell/Widgets/`) — qs-widgets
 
-> **Theme system, switchable.** Overworld Hyprland is a theme system layered on top of the JaKooLit
-> Hyprland dotfiles, not a replacement for them. Turn it on with `overworld on` and off with `overworld off`
-> (the stock desktop returns in about 5 s, no logout); `overworld status` shows which state is active.
-> The desktop widgets exist only while the theme is on. `SUPER+G` hides or shows them without turning the theme off. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+The desktop widget layer: eight **Minecraft objects** on the wallpaper (layer `bottom`, namespace `overworld-widgets`,
+click-through where empty). Every card is a `WidgetCard` = `Common/McPanel` (the real GUI panel with the dark-grey title,
+centre filled at `Theme.widgetOpacity`, config `widgets.opacity`, default 0.72) + show/hide fade + drag handle. Everything is authored
+in GUI px (`Theme.px`, default 2 × at 1920×1080) with the design system's text (`McText`), buttons, slots, progress bars and
+sprites; nothing is re-implemented locally except the few widget-specific pieces listed under *Layout*.
 
-The desktop widget layer: eight framed paper cards on the wallpaper (layer `bottom`, click-through where
-empty), toggled with `widgets toggle` (SUPER+G). Every card is a `WidgetCard` (= `Common/PaperPanel` +
-show/hide animation) placed at the exact 1920×1080 slot of `docs/DESIGN.md` §7.
+Toggle with `widgets toggle` (SUPER+G); the bar chip menu (`Bar/WidgetsMenu.qml`, qs-core) switches single cards.
+How the theme switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
 
-Screenshots (dev session, user's waybar + qs-core's dev bar stacked on top, so the top title bars are
-covered there — in the real shell the bar is 0–36 and the cards start at y 60):
-`qa/screenshots/qs-widgets-light.png`, `qa/screenshots/qs-widgets-dark.png` (Music card in demo mode:
-no MPRIS player was running). Screenshots are not committed (they contain the copyrighted wallpaper).
-
-## Layout
+## Layout (1920×1080; bar 0–36; the bottom-centre ~110 px stay free for the HUD)
 
 ```
 quickshell/Widgets/
-  DesktopWidgets.qml        Variants{Quickshell.screens} → PanelWindow per screen, WlrLayer.Bottom,
-                            namespace overworld-widgets, anchors all edges, exclusionMode Ignore,
-                            color transparent, mask = union of the visible cards' rects
-  WidgetCard.qml            PaperPanel + WidgetsState.visible → opacity 0↔1 + 10 px rise, 450 ms OutQuint,
-                            40 ms stagger per `index` (reading order), reduced_motion → 0 ms / no rise
-  Weather/WeatherCard.qml   Music/MusicCard.qml   Calendar/CalendarCard.qml   SysInfo/SysInfoCard.qml
-  Cava/CavaCard.qml         Quote/QuoteCard.qml   HerbOfDay/HerbCard.qml      BrewTimer/BrewTimerCard.qml
-  Services/                 pragma Singleton services (auto-registered; no qmldir):
-    ApoConfig.qml           ~/.config/overworld/config.json view: sounds, reduced_motion, weather{lat,lon,name},
-                            brew{work,break}; stateDir / cacheDir / scriptDir
-    WidgetsState.qml        visible (persisted) + demo flag + IpcHandler "widgets"
-    WeatherService.qml      + weather-fetch.py        MusicService.qml (MPRIS)      SysInfoService.qml + sysinfo.py
-    QuoteService.qml        HerbService.qml           BrewTimer.qml (IpcHandler "brew")   CavaService.qml
-  preview/                  standalone harness: shell.qml + symlinks Common → ../../Common, Widgets → ..
-    shot.sh                 restart preview + screenshot helper (see "Running the preview")
+  DesktopWidgets.qml     Variants{Quickshell.screens} → PanelWindow per screen, WlrLayer.Bottom, anchors all edges,
+                         exclusionMode Ignore, transparent, mask = union of the visible cards (+ full-screen while dragging)
+  WidgetLayout.qml       the eight cards on their slots (an Item: also used by the offscreen render harness)
+  WidgetCard.qml         McPanel + fade/rise 250 ms OutQuad (stagger 40 ms × index) + title-bar drag + double-click reset
+  BlockPatch.qml         a square cut out of a block texture, 1 texel = 1 GUI px (weather columns, note-block cells)
+  KeyedSprite.qml        sprite drawn additively in the game (sun / moon): black → transparent (shaders/blackkey.frag.qsb)
+  Weather/  WeatherCard.qml  SkyWindow.qml        Music/  MusicCard.qml        Calendar/  CalendarCard.qml
+  SysInfo/  SysInfoCard.qml                       Cava/   CavaCard.qml         Quote/     QuoteCard.qml
+  BlockOfDay/  BlockOfDayCard.qml                 BrewTimer/  BrewTimerCard.qml
+  Services/  (pragma Singleton, auto-registered, no qmldir)
+    WidgetsConfig.qml   config.json view: sounds, reduced_motion, brew.{work,break}; stateDir / cacheDir / scriptDir   (was ApoConfig)
+    WidgetsState.qml    visible (persisted), demo, positions, per-card switches, cardOpacity, IpcHandler "widgets"
+    WeatherService.qml + weather-fetch.py    MusicService.qml (MPRIS)    SysInfoService.qml + sysinfo.py
+    QuoteService.qml    BlockOfDayService.qml    BrewTimer.qml (IpcHandler "brew")    CavaService.qml    duration.js
+  assets/weather/*.png  gen_weather_icons.py    original 16×16 pixel icons (sun moon partly_day partly_night cloud fog rain snow sleet thunder)
+  shaders/blackkey.frag(.qsb)    rebuild: /usr/lib64/qt6/bin/qsb --qt6 -o shaders/blackkey.frag.qsb shaders/blackkey.frag
+  preview/  shell.qml (the layer) · render.qml (offscreen) · skies.qml (all sky conditions) · selftest.qml · shot.sh
 ```
 
-| card | slot (x y w h) | title · subtitle · seal | data |
+| card | default slot (x y, px) | size (GUI px) | what it is |
 |---|---|---|---|
-| Weather | 24 60 460 300 | 天气 · WEATHER · 印 | Open-Meteo via `weather-fetch.py` |
-| Calendar | 1516 60 380 260 | 日历 · CALENDAR · 印 | JS Date |
-| Music | 24 376 300 420 | 音乐 · *player identity* · 猫 | `Quickshell.Services.Mpris` |
-| SysInfo | 1476 336 420 300 | 系统 · *user@host* · 印 | `sysinfo.py` |
-| Brew timer | 24 812 300 160 | 煎 · BREW · 药 | `BrewTimer` singleton |
-| Cava | 1536 652 360 180 | 声 · CAVA · 印 | `cava -p ~/.cache/overworld/cava.conf` |
-| Herb of the day | 770 812 380 220 (centred: w/2−190) | 药 · HERB OF THE DAY · 药 | `quotes/herbs.json` |
-| Quote | 1436 848 460 120 | 言 · QUOTE · 印 | `quotes/quotes.json` |
+| **Weather** | 24 60 | 190×150 | sky window + 24 h columns of blocks |
+| **Jukebox** | 24 372 | 190×106 | MPRIS player as a jukebox, record, item frame, action bar, XP bar |
+| **Brewing Stand** | 24 596 | 190×84 | the brew timer as the brewing GUI |
+| **Block of the Day** | 24 776 | 190×138 | item frame + facts + tip (`quotes/blocks-of-the-day.json`) |
+| **Clock & Calendar** | `w−404` 60 | 190×156 | the real clock item + "Day N" + month of slots |
+| **System** | `w−404` 384 | 190×148 | F3 debug text + CPU/RAM/disk boss bars |
+| **Note Block** | `w−404` 692 | 190×82 | cava equaliser built from note blocks / redstone lamps |
+| **Sign** | `w−404` 868 | 190×78 | oak sign (`quotes/quotes.json`) + pulsing splash |
 
-Right/bottom slots are re-based on other resolutions: `x = width − (1920 − x)`, `y = height − (1080 − y)`.
+`WidgetLayout` builds the slots as stacks in GUI px (left column 12 GUI px from the left edge, right column flush to 12 GUI px from
+the right edge, first card at 30 GUI px, 6 GUI px between cards), so they follow the GUI scale (`gui_scale`) and the screen width; the
+pixel numbers above are for 1920×1080 at GUI scale 2, where every card is 380 px wide. The left column ends at y 1052, the right at y
+1024: the HUD area at the bottom centre stays free. Verified renders at GUI 2 and GUI 1 (`OW_GUI=1`).
 
 ## Cards
 
-- **Weather** — glyph + temperature (Cormorant 56), city, local time at the location, condition word
-  (accent), `Precipitation / Humidity / Wind` mono lines, "feels N°", 24-bar hourly strip (ink bars, midnight
-  bar dimmed, hover → `14:00 · 26° · 40% rain`). Error state "Weather unavailable · 雲" + Retry.
-  WMO `weather_code` → Nerd `nf-md-weather_*` glyph + word table lives in `WeatherService.glyphFor/wordFor`.
-- **Music** — translucent paper (`PaperPanel.transparent`), cover from `trackArtUrl` (rounded 4, soft shadow;
-  paper square with 音 when no art), title / artist, prev · play-pause · next, seekable ink progress line with a
-  seal knob (when `canSeek && positionSupported`), elapsed / length. Player: spotify first, else any playing
-  player, else the first; `playerctld` is ignored. Position is polled each second while playing
-  (`player.positionChanged()` + re-read) and also follows the player's own `positionChanged` signal.
-  Empty state "靜 · Nothing playing" over a faint enso. **Demo**: `APO_WIDGETS_DEMO=1` or
-  `widgets demo on` shows a mocked track (cover = `assets/art/portrait-maomao.png`) when no player exists.
-- **Calendar** — Mon–Sun grid (LXGW WenKai), weekends in `accent2`, out-of-month days faded, today = seal
-  behind the number, header `October 2026 · 十月`, previous / today / next buttons.
-- **SysInfo** — Maomao portrait on the left (`assets/art/fastfetch-maomao[-dark].png`, column collapses when the
-  file is missing); rows OS · Kernel · Uptime · Packages · Shell · WM · Terminal (mono 12, nf-md glyphs); ink bars
-  CPU (two `/proc/stat` samples 350 ms apart) · RAM (`/proc/meminfo`) · Disk (`/home` if a mount, else `/`).
-  Bars refresh every 5 s only while the layer is visible; static facts every 10 min; package counts cached
-  10 min in `~/.cache/overworld/packages`.
-- **Cava** — writes `~/.cache/overworld/cava.conf` at startup (`raw`, ascii 0–100, 24 bars, 30 fps, autosens,
-  `;` delimiter) and spawns `cava -p`; 24 ink bars with 2 px rounded tops, 120 ms height smoothing; idle
-  (≈1.5 s of silence) rests the bars at 2 px with a "silence · 静" caption. The process is stopped while the
-  layer is hidden and restarted when shown. "cava not running" if the binary fails.
-- **Quote** — random entry every 10 min and on click. EB Garamond italic (18/16/15 px by length), attribution
-  right-aligned (empty for the user's line "Do things out of love, not for love"), `cjk` original above when
-  present. Falls back to the user's line if `quotes.json` is unreadable.
-- **Herb of the day** — `herbs[dayOfYear % n]`; name_cjk (brush font, auto-switches to the JP brush for 薬/kana),
-  kind badge (草 herb = success, 毒 poison = seal, both = both), name_en, reading, fact (2 lines), Maomao's note
-  (EB Garamond italic, 猫 seal). Plate (`assets/pd/plates/*.webp`, black-ink RGBA mask) tinted with
-  `Theme.text` via `MultiEffect.colorization`; the image column collapses when `plate` is null or the file is
-  missing. Left click → next herb, right click → previous.
-- **Brew timer** — brew 25 / rest 5 by default; both lengths are any duration (`25`, `50m`, `1h30`, `90s`, `1:30`,
-  rest `0` = none; grammar in `Services/duration.js`, mirrored by `brew_parse` in `scripts/overworld`), saved in
-  config `brew.work` / `brew.break`. States `idle | working | breaking | paused`; ink ring (`QtQuick.Shapes` arc,
-  vermilion for work, celadon for rest) around `mm:ss` (`h:mm:ss` from an hour up), label 煎药 · BREWING/RESTING,
-  Start/Resume/Pause (primary when idle) + reset + pencil (set) icons.
-  Setting: click the clock / pencil, or `SUPER+SHIFT+B` → the brew dialog (`quickshell/Brew/BrewDialog.qml`, layer
-  `overworld-brew`: two fields + preset chips, ⏎ save + start, ↑/↓ ±1 min); while idle, scroll on the clock =
-  brew ±1 min and on the "brew · rest" line = rest ±1 min (Shift ±5). Every save runs `overworld brew set`.
-  On finish: a sound (`brew.sound`: `minecraft` = brewing-stand `brew1/2.ogg` when the brew is done and `drink.ogg`
-  when the rest is over, fetched by `scripts/fetch-minecraft-sounds.sh` into the gitignored
-  `assets/sounds/minecraft/`; `classic` or missing files = `assets/sounds/brew-done.wav`; nothing when
-  `config.json {"sounds": false}`) + `notify-send -a Overworld "Medicine is ready" "50 min brewed. Rest for 10 min."`;
-  a finished brew rolls into the rest (or back to idle when rest is 0), a finished rest returns to idle.
+- **Weather → sky window.** `SkyWindow` is a framed window (oak planks) onto the sky at the weather's location: sky colour by
+  condition and day/night, the **sun** (`environment/celestial/sun`) or the **moon with its real phase**
+  (`environment/celestial/moon/<phase>`, synodic month from the 2000-01-06 new moon) travelling its arc by the *local* hour,
+  drifting pixel clouds, the game's own `environment/rain` / `snow` textures falling in tick steps, lightning flashes for
+  thunder, fog bands, stars on clear nights, a grass (snow-capped when snowing) strip. Right of it: the big temperature
+  (`McText units: 3`), the condition with a pixel icon (`assets/weather/*.png`: sun, moon, partly cloudy day/night, cloud, fog,
+  rain, snow, sleet, thunder — original art), Rain / Humidity / Wind, and below the window the **next 24 hours as stacked blocks**:
+  column height = temperature (1–6 blocks), block = condition — *sand* clear day, *lapis* clear night, *sandstone* / *blue wool*
+  partly cloudy, *light-grey wool* overcast, *smooth stone* fog, *water* rain, *snow block*, *packed ice* sleet, *gold block*
+  thunder. Hover a column: `14:00 · 26° · Light rain · 40%`. Error state: "Weather unavailable" + Retry.
+  Location: `config.json weather.{lat,lon,name}` → IP geolocation (ipapi.co, ip-api.com; rejected when its time-zone differs from
+  `/etc/localtime`, i.e. a VPN exit) → Kowloon 22.3167, 114.1833. Refresh every 30 min; the cache is read synchronously at startup.
+- **Music → Jukebox.** Jukebox block icon and a **spinning music disc** (a record picked from the track title, rotated in 7.5° steps
+  on the 20 TPS clock while playing), the **album art in an item frame** (sampled down to 52×52 texels like a map), elapsed /
+  length, **prev · play/pause · next** as small Minecraft buttons, the action-bar line **"Now Playing: Artist - Title" in the
+  game's rainbow colour** (scrolls on the tick when too long) and an **XP-style progress bar** (click/drag to seek when the player
+  allows it). Player: spotify first, else any playing player, else the first; `playerctld` ignored; position polled each second.
+  Empty state: idle jukebox, "Nothing playing". Demo (`OW_WIDGETS_DEMO=1` / `widgets demo on`) shows a mocked track when no
+  player exists. The buttons are wired to `MprisPlayer` but were never pressed during development (BRIEF §1.1).
+- **Calendar → clock + map.** The real **`item/clock_00…63`** animation frames: frame 0 is noon, 32 midnight, chosen with the game's
+  own celestial-angle formula `(2d + (0.5 − cos(πd)/2))/3`, `d = frac(dayTime/24000 − 0.25)`, `dayTime 0 = 06:00`; refreshed every
+  10 s. "**Day N**" = day of the year, the time and the weekday, month arrows (click the month name = back to today), the month
+  as a grid of inventory-style slots (Monday first), weekends in yellow like stack counts, **today inside the hotbar selection
+  frame** (`hud/hotbar_selection`, nine-sliced with the 4 px border).
+- **SysInfo → F3.** The fastfetch facts (name, user@host, OS, uptime, kernel, packages, shell + terminal, WM) as F3 text: white
+  Minecraft text with the grey hard shadow on translucent `#90505050` rows, one 9 GUI px row per line, left aligned like the game;
+  a grass block where the Maomao picture was; CPU, RAM and disk as **boss bars** (green < 70 %, yellow < 90 %, red above) with the
+  value in the title. CPU from two `/proc/stat` samples, RAM `/proc/meminfo`, disk `/home` mount else `/`; bars refresh every 5 s only
+  while the card is shown, static facts every 10 min (package count cached 10 min in `~/.cache/overworld/packages`).
+- **Cava → note-block equaliser.** `~/.cache/overworld/cava.conf` is written at startup (raw, ascii 0–100, 24 bars, 30 fps) and
+  `cava -p` runs **only while the card is shown** (layer visible *and* this card on). 24 columns × 7 rows of 6×6 GUI px block patches:
+  low rows note blocks, upper rows lit redstone lamps, unlit cells dark; stacks fall a row per tick; each column's **peak is a
+  note particle** (`particle/note`, tinted with the game's note colour for that pitch) that holds 8 ticks then sinks. ≈1.5 s of
+  silence = dark grid + "Silence…"; "cava not running" if the binary fails.
+- **Quote → sign + splash.** An oak sign: the real `entity/signs/oak` front face tiled at 1 texel = 1 GUI px, black sign lettering,
+  message from `quotes/quotes.json` (attribution right-aligned), and the **yellow pulsing splash** (`McSplash`, the title screen's
+  formula) on the card's top-right corner, text from `quotes/splashes.json` (seasonal entries only inside their date range, preferred
+  there) **plus Mojang's `assets/mc/texts/splashes.txt` when that file exists** (read at runtime, one in four; never copied). Click the
+  sign = next message + new splash; both rotate every 10 min.
+- **Herb → Block / Mob of the day.** `BlockOfDayService` = `quotes/blocks-of-the-day.json` `entries[(dayOfYear + offset) % n]`, so the
+  pick is deterministic by date (left click next, right click previous). Item frame with the texture (first animation frame, square
+  crop; mobs show their spawn egg `item/<id>_spawn_egg`), name, kind (Block / Item / Mob / Biome), "Since <version>", the facts one
+  at a time (rotate every 12 s, "Fact 1/3"), and the tip.
+- **Brew → brewing stand.** Blaze-powder slot + fuel bar (`container/brewing_stand/fuel_length`, burns down with the phase), a well
+  with the game's **bubbles** (heights 29/24/20/16/11/6/0, a step per 2 ticks while brewing) and the **arrow** filling downwards
+  (`brew_progress`), the time (`mm:ss`, `h:mm:ss` from an hour), the summary line, Start/Pause/Resume + reset + pencil buttons, and
+  three **bottle slots** (empty bottle → potion with glint as sessions complete, a stack count past three). Every BrewTimer feature
+  is kept: any lengths (`25` · `50m` · `1h30` · `90s` · `1:30`, grammar `Services/duration.js`, mirrored by `brew_parse` in
+  `scripts/overworld`), rest `0` = none, pencil / click the clock → brew dialog (`Brew/BrewDialog.qml`), scroll on the clock = brew
+  ±1 min and on the "brew · rest" line = rest ±1 min (Shift ±5) while idle (saved after 700 ms through `overworld brew set`), sessions
+  count, states `idle | working | breaking | paused`, finished brew rolls into the rest (or idle when rest is 0). On finish the
+  sound id **`brew.done`** (brewing stand) or **`brew.drink`** (rest over) plays through `Theme.playSound` → `scripts/ow-sound`
+  (silent when `config.json sounds:false`), `notify-send -a Overworld "Brewing complete" …`, and the events **`brew.start`**,
+  **`brew.done`**, **`rest.done`** go on the bus (`GameEvents`, BRIEF §4.4).
 
 ## IPC
 
 ```
 qs -c overworld ipc call widgets toggle | reveal | hide      # persisted in ~/.config/overworld/widgets-visible
 #   (NB `widgets show` is swallowed by the qs CLI — `show` collides with `qs ipc show` — so the alias is `reveal`)
-qs -c overworld ipc call widgets demo on|off                 # mocked music card when no player
+qs -c overworld ipc call widgets demo on|off                 # mocked track on the Jukebox when no player exists
 qs -c overworld ipc call widgets status                      # "visible (demo)"
+qs -c overworld ipc call widgets layout                      # every card back on its slot
+qs -c overworld ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|block|brew>    # toggle one (`herb` = alias of block)
+qs -c overworld ipc call widgets cards | menu
 qs -c overworld ipc call brew start 50m | startWith 50m 10m | toggle | pause | reset | add 5m | open | sound brew|rest | status | settings
-# CLI: overworld brew help   ·   preview on a headless output: quickshell/Brew/preview/shell.qml
+# CLI: overworld brew help   (`-p <preview dir>` instead of `-c overworld` for the preview instance)
 ```
-(`-p <preview dir>` instead of `-c overworld` when talking to the preview instance.)
 
 ## State, caches, config
 
 | path | what |
 |---|---|
-| `~/.config/overworld/widgets-visible` | `true` / `false` — read at startup, written by show/hide/toggle |
-| `~/.config/overworld/config.json` | `weather.{lat,lon,name}`, `brew.{work,break}`, `sounds`, `reduced_motion` (watched) |
-| `~/.cache/overworld/weather.json` | last good forecast (served with `stale: true` when offline / API down) |
-| `~/.cache/overworld/packages` | package count text, 10 min |
-| `~/.cache/overworld/cava.conf` | generated cava config |
+| `~/.config/overworld/widgets-visible` | `true` / `false`, read at startup, written by reveal/hide/toggle |
+| `~/.config/overworld/widgets-hidden.json` | list of switched-off card ids |
+| `~/.config/overworld/widget-positions.json` | `{cardId: [x, y]}` for dragged cards |
+| `~/.config/overworld/config.json` | `widgets.opacity`, `weather.{lat,lon,name}`, `brew.{work,break}`, `sounds`, `reduced_motion`, `gui_scale` |
+| `~/.cache/overworld/weather.json` | last good forecast + location (Open-Meteo JSON, `stale: true` when served from cache) |
+| `~/.cache/overworld/weather-now.json` | **for fx-world:** `{"kind": "clear|cloudy|fog|rain|thunder|snow", "code": <WMO>, "is_day": bool, "temp": °C, "precip_mm": mm, "wind": km/h, "city": str, "stale": bool, "updated": epoch}`, rewritten by `weather-fetch.py` after every fetch (startup, every 30 min, Retry) |
+| `~/.cache/overworld/packages`, `cava.conf` | package count text (10 min) · generated cava config |
 
-Weather location order (`weather-fetch.py`): config → `https://ipapi.co/json/` → `http://ip-api.com/json/` →
-Kowloon 22.3167, 114.1833. An IP result whose time-zone differs from `/etc/localtime` is rejected (VPN exit
-node abroad); on this machine the VPN exits in Singapore, so the card shows Kowloon with
-`source: "fallback (timezone mismatch …)"`. Refresh every 30 min; the cache is read synchronously at startup.
+In-process consumers (fx-world runs inside the same `qs` instance) may read `WeatherService.kind`, `.code`, `.isDay`, `.temp`
+after `import qs.Widgets.Services`; the file above is for anything outside QML. Kind mapping: 95/96/99 thunder · 71–77, 85, 86 snow ·
+51–67, 80–82 rain · 45/48 fog · 2/3 cloudy · else clear.
 
-## Click-through
+## Behaviour of the engine (kept from Apothecary)
 
-The PanelWindow `mask` is a `Region` whose children are `Region { item: <card> }` for every card (null while
-the layer is hidden, which makes the whole layer click-through). Everything outside the eight rectangles
-reaches the desktop; inside, the cards receive hover/click (weather strip hover, music seek, quote/herb click).
-Verified by construction only — no synthetic-input tool (ydotool/wtype) is installed to click through
-programmatically.
+- **Click-through.** The PanelWindow `mask` is a `Region` whose children are `Region { item: <card> }` for every visible card (null
+  while the layer or the card is hidden). Outside the rectangles the desktop receives everything; inside, cards get hover/click.
+- **Dragging.** Grab a card's title bar (the top 17 GUI px). While a drag is active `WidgetsState.dragging` adds a full-screen region
+  to the mask, so a fast flick cannot leave the card's input region. Position is saved on release; **double-click the title bar** =
+  back to the slot; IPC `widgets layout` resets all.
+- **Opacity.** Only the panel's centre fill is translucent (`Theme.widgetOpacity`, live from `config.json`); bevels, text, icons
+  stay opaque.
+- **Costs when hidden.** cava is stopped, sysinfo polling stops, tick clocks (`McTicker`) release, the weather/quote/block timers are
+  slow (30 min / 10 min / 12 s while visible).
+- **Reduced motion** (`config reduced_motion`, Options "animations" off): fades are instant, the sky/disc/marquee/bubbles/splash stop on
+  their first frame.
 
-## Running the preview
+## Running the preview (never touches the live shell)
 
 ```
 source scripts/dev-env.sh
-qs -p quickshell/Widgets/preview                    # standalone layer (Theme resolves the repo via shellDir/../../..)
-APO_WIDGETS_DEMO=1 qs -p quickshell/Widgets/preview # with the mocked music card
-quickshell/Widgets/preview/shot.sh <name> [VAR=val] # restart + capture qa/screenshots/qs-widgets-<name>.png
+OW_MODE=light qs -p quickshell/Widgets/preview                    # the layer itself (dark for Night); OW_WIDGETS_DEMO=1 mocked track
+quickshell/Widgets/preview/shot.sh <name> [light|dark] [region]   # start it, scripts/dev-shot.sh → qa/screenshots/qs-widgets-<name>.png, stop it
+qs -p quickshell/Widgets/preview/skies.qml                        # every sky condition in a grid
+# offscreen, no compositor at all (software renderer: no ShaderEffects, i.e. no sun/moon/note particles/water tint):
+OW_RENDER_OUT=/tmp/x.png OW_RENDER_BG=<wallpaper.png> OW_MODE=dark OW_WIDGETS_DEMO=1 QT_QPA_PLATFORM=offscreen qs -p quickshell/Widgets/preview/render.qml
+# logic self-test (throw-away HOME; see the header of selftest.qml)
 ```
-`preview/shell.qml` is a `ShellRoot { DesktopWidgets {} }`; `preview/Common` and `preview/Widgets` are symlinks so
-`import qs.Common` / `import qs.Widgets…` resolve with the preview directory as config root (a relative
-`import "../"` would not give singleton instances — DESIGN.md §12).
 
-`shot.sh` picks an *explicit* empty workspace id (Hyprland's `workspace empty` jumps to a populated workspace
-when the current one is already empty), verifies the active workspace has 0 windows right before `grim`
-(never captures the user's windows), hides qs-core's copy of the layer through its IPC for the capture and
-restores it (and writes `widgets-visible = true` afterwards), then switches back. When the user is actively
-switching workspaces the capture is skipped rather than forced.
+Preview-only env pins (no effect unless set): `OW_WIDGETS_OPACITY` (card fill; the live desktop's own cards would shine through a
+0.72 fill in screenshots), `OW_WIDGETS_LAYER=top` (a `bottom` layer is covered by other agents' test windows), `OW_WIDGETS_DEMO`,
+plus the design system's `OW_MODE`, `OW_GUI`, `OW_REDUCED_MOTION`.
 
-Known harmless log lines: `quickshell.dbus.properties … playerctld … NoActivePlayer` (Quickshell's Mpris module
-probing the playerctld bus when no player is controlled) and `kf.iconthemes: Icon theme … not found` (Qt
-platform theme, not ours). The layer itself produces no QML warnings.
-
-## Decisions / gaps
-
-- Both `qs -c overworld` (qs-core's shell, which already does `DesktopWidgets {}`) and the preview can run at
-  once; they are independent instances with independent `WidgetsState` (the persisted file is shared).
-- Music card: no MPRIS player was available during QA (Spotify may not be started by agents), so the committed
-  screenshots use the demo track; the real path (player pick, art, controls, seek) is wired against the
-  documented `MprisPlayer` API but was not exercised with a live player.
-- Weather "Precipitation" shows the hourly `precipitation_probability` (%) for the current hour, matching the
-  reference card; `current.precipitation` (mm) is exposed on the service but not shown.
-- Herb names in Traditional Chinese (e.g. 烏頭) fall back glyph-by-glyph from Ma Shan Zheng to Noto Sans CJK —
-  acceptable for a decorative title; the Latin name carries the meaning.
-- Brew: IPC `start` takes any duration (bare number = minutes). Nothing is left running after QA (`brew reset` verified).
-
-## Per-card switches, dragging, transparency (added after user feedback)
-
-- **Bar chip 󰕮** (right side, before the sun/moon): click → *Desk widgets* menu: `全 All widgets` (= SUPER+G) and one
-  seal checkbox per card, plus *Reset positions*. Middle-click the chip = all on/off. Click outside or Esc closes.
-  State: `~/.config/overworld/widgets-hidden.json` (list of switched-off card ids).
-  IPC: `qs -c overworld ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|herb|brew>` toggles one,
-  `widgets cards` lists them, `widgets menu` opens the menu.
-- **Dragging:** grab a card's lacquer title bar. While a drag is active the widget layer takes pointer input on the
-  whole screen (`WidgetsState.dragging` adds a full-screen region to the input mask), so a fast flick can no longer
-  leave the card's own input region and drop it. Double-click the title bar = back to its slot.
-- **Transparency:** desktop cards fill at 72 % (`WidgetsState.cardOpacity`; text, title bars and seals stay opaque;
-  the blurred shadow is dropped below 85 % so it doesn't smudge through). Override in
-  `~/.config/overworld/config.json` → `{"widgets": {"opacity": 0.6}}` (0.2–1.0, applied live).
+Known harmless log lines: `quickshell.dbus.properties … playerctld … NoActivePlayer` (Quickshell's Mpris probing the playerctld
+bus) and `kf.iconthemes: Icon theme … not found` (Qt platform theme).

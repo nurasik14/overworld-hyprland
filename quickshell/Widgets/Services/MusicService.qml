@@ -5,7 +5,7 @@ import Quickshell.Services.Mpris
 import qs.Common
 import qs.Widgets.Services
 
-/*  MusicService — the MPRIS player shown by the Music card.
+/*  MusicService — the MPRIS player shown by the Jukebox card.
  *  Player choice: spotify (by dbusName / identity) → any playing player → the first one.
  *  Position: MprisPlayer.position is interpolated by Quickshell but bindings only refresh on
  *  positionChanged(); a 1 s Timer copies it into `position` while playing (and re-emits it).
@@ -38,11 +38,11 @@ Singleton {
     }
 
     // ---- demo track
-    readonly property string demoTitle: "幾億光年"
-    readonly property string demoArtist: "Omoinotake"
-    readonly property real demoLength: 277
+    readonly property string demoTitle: "Pigstep"
+    readonly property string demoArtist: "Lena Raine"
+    readonly property real demoLength: 148
     property real demoPosition: 21
-    readonly property string demoArt: "file://" + Theme.repoDir + "/assets/art/portrait-maomao.png"
+    readonly property string demoArt: Theme.tex("painting/kebab")
     property bool demoPlaying: true
 
     // ---- unified view
@@ -58,6 +58,18 @@ Singleton {
     readonly property bool canGoPrevious: demo ? true : (player ? player.canGoPrevious : false)
     readonly property bool canToggle: demo ? true : (player ? player.canTogglePlaying : false)
     property real position: 0
+
+    // the disc on the turntable: one of the game's records, picked by the track title so a song keeps its disc
+    readonly property var discs: ["13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward", "11", "wait",
+                                  "otherside", "pigstep", "5", "relic", "creator", "precipice"]
+    readonly property string disc: {
+        let h = 0;
+        const key = title + "|" + artist;
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        return "music_disc_" + discs[h % discs.length];
+    }
+    // the action-bar line, like the game: "Now Playing: Artist - Title"
+    readonly property string nowPlaying: "Now Playing: " + (artist.length ? artist + " - " : "") + title
 
     function syncPosition() {
         if (demo) { root.position = demoPosition; return }

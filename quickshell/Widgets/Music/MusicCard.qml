@@ -1,157 +1,154 @@
 import QtQuick
-import QtQuick.Effects
 import qs.Common
 import qs.Widgets
 import qs.Widgets.Services
 
-/*  MusicCard — 音乐 · SPOTIFY (300 × 420, translucent paper over the wallpaper, like the reference).
- *  Album cover (rounded 4, soft shadow; paper square with 音 when there is no art), title, artist,
- *  prev / play-pause / next, seekable ink progress line with a seal knob, elapsed / length.
- *  Empty state: "Nothing playing · 靜" over a faint enso.
+/*  MusicCard — the Jukebox (190 × 106 GUI px).
+ *  Left: the album art pixelated into an item frame.  Right: a jukebox block with the record on the turntable (the disc
+ *  spins in 7.5° steps on the 20 TPS clock while playing), elapsed / length, prev · play/pause · next as small
+ *  Minecraft buttons.  Bottom: the action-bar line "Now Playing: Artist - Title" in the game's rainbow colour
+ *  (scrolls when it does not fit) and the XP-style progress bar (click / drag to seek when the player allows it).
+ *  Player choice and position polling live in MusicService (spotify first, else playing, else first; playerctld ignored).
+ *  Empty state: an idle jukebox and "Nothing playing".
  */
 WidgetCard {
     id: card
-    title: "音乐"
-    subtitle: MusicService.identity.length ? MusicService.identity : "Music"
-    sealGlyph: "猫"
-    transparent: true
-    width: 300
-    height: 420
+    title: MusicService.hasPlayer && MusicService.identity.length ? "Jukebox · " + MusicService.identity : "Jukebox"
+    guiW: 190
+    guiH: 106
 
     readonly property var svc: MusicService
     readonly property bool active: svc.hasPlayer && (svc.title.length > 0 || svc.artist.length > 0)
-    readonly property int coverSize: 196
 
-    Column {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        spacing: Theme.space.md
+    McTicker { id: clock; active: card.visible && card.active && card.svc.playing && !Theme.reducedMotion }
+    readonly property real discAngle: (clock.tick % 48) * 7.5
+
+    // ---------------------------------------------------------------- playing
+    Item {
+        anchors.fill: parent
         visible: card.active
 
-        // ---- cover
+        // item frame holding the cover
         Item {
-            width: card.coverSize; height: card.coverSize
-            anchors.horizontalCenter: parent.horizontalCenter
-            Rectangle {
-                id: coverShadowSrc
-                anchors.fill: parent; radius: 4; color: Theme.shadowStrong; visible: false; layer.enabled: true
+            id: frame
+            width: Theme.px(58); height: Theme.px(58)
+            Rectangle { anchors.fill: parent; color: "#5B3F22" }                       // 1 px outline
+            Rectangle { x: Theme.gui; y: Theme.gui; width: parent.width - 2 * Theme.gui; height: parent.height - 2 * Theme.gui; color: "#C8B07A" }   // fallback tan
+            Image {                                                                      // tan wooden border
+                x: Theme.gui; y: Theme.gui; width: parent.width - 2 * Theme.gui; height: parent.height - 2 * Theme.gui
+                source: Theme.tex("block/birch_planks"); fillMode: Image.Tile; smooth: false
+                visible: source.toString() !== Theme.missingTexture
+                horizontalAlignment: Image.AlignLeft; verticalAlignment: Image.AlignTop
             }
-            MultiEffect {
-                source: coverShadowSrc; anchors.fill: coverShadowSrc; anchors.topMargin: 4
-                blurEnabled: true; blur: 1.0; blurMax: 20; blurMultiplier: 0.5; autoPaddingEnabled: true
+            Rectangle { x: Theme.px(3); y: Theme.px(3); width: Theme.px(52); height: Theme.px(52); color: "#7A4A2A" }
+            Image {                                                                      // the frame's back
+                x: Theme.px(3); y: Theme.px(3); width: Theme.px(52); height: Theme.px(52)
+                source: Theme.tex("block/item_frame"); fillMode: Image.Tile; smooth: false
+                visible: source.toString() !== Theme.missingTexture
             }
-            Rectangle {   // paper fallback square
-                anchors.fill: parent
-                radius: 4
-                color: Theme.surfaceAlt
-                border.width: 1; border.color: Theme.hairline
-                Text {
-                    anchors.centerIn: parent
-                    text: "音"
-                    color: Theme.textMuted
-                    font.family: Theme.fontDisplay
-                    font.pixelSize: 72
-                    renderType: Text.NativeRendering
+            Item {                                                                       // art: sampled down to 52×52 texels, like a map
+                id: art
+                x: Theme.px(3); y: Theme.px(3); width: Theme.px(52); height: Theme.px(52)
+                visible: cover.status === Image.Ready
+                layer.enabled: true
+                layer.smooth: false
+                layer.textureSize: Qt.size(52, 52)
+                Image {
+                    id: cover
+                    anchors.fill: parent
+                    source: card.svc.artUrl
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache: false
+                    mipmap: true
+                    sourceSize: Qt.size(208, 208)
                 }
             }
-            Image {
-                id: cover
-                anchors.fill: parent
-                source: card.svc.artUrl
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                cache: false
-                sourceSize: Qt.size(card.coverSize * 2, card.coverSize * 2)
-                visible: false
+            McItemIcon {                                                                  // no art: the record itself
+                visible: cover.status !== Image.Ready
+                size: 32
+                anchors.centerIn: parent
+                name: card.svc.disc
             }
-            MultiEffect {   // rounded corners for the cover
-                source: cover
-                anchors.fill: cover
-                visible: cover.status === Image.Ready
-                maskEnabled: true
-                maskSource: coverMask
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1.0
-            }
-            Item {
-                id: coverMask
-                width: cover.width; height: cover.height
-                layer.enabled: true
-                visible: false
-                Rectangle { anchors.fill: parent; radius: 4; color: "black" }
-            }
-            Rectangle {   // 1 px ink hairline over the cover edge
-                anchors.fill: parent; radius: 4; color: "transparent"
-                border.width: 1; border.color: Theme.withAlpha(Theme.frame, 0.35)
-            }
+            Rectangle { x: Theme.px(3); y: Theme.px(3); width: Theme.px(52); height: Theme.gui; color: "#40000000" }   // inner shadow under the top rail
         }
 
-        // ---- title / artist
-        Column {
-            width: parent.parent.width
-            spacing: 1
-            InkText {
-                role: "title"
-                text: card.svc.title
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+        // jukebox + turntable
+        Item {
+            x: Theme.px(64); y: 0
+            width: Theme.px(112); height: Theme.px(18)
+            McItemIcon { id: jukebox; name: "jukebox"; size: 16 }
+            Item {   // the record, centred on a 16×16 slot, rotated in 7.5° steps
+                x: Theme.px(22); width: Theme.px(16); height: Theme.px(16)
+                rotation: card.discAngle
+                McItemIcon { anchors.fill: parent; name: card.svc.disc; }
             }
-            InkText {
-                role: "body"
-                muted: true
-                text: card.svc.artist
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+            McText {
+                x: Theme.px(44); anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(68)
+                text: card.svc.playing ? "Playing" : "Paused"
+                color: Theme.textMuted
+                units: 1
             }
         }
-
-        // ---- controls
+        McText {
+            x: Theme.px(64); y: Theme.px(21)
+            width: Theme.px(112)
+            text: card.svc.fmt(card.svc.position) + " / " + card.svc.fmt(card.svc.length)
+            color: Theme.guiText
+        }
         Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Theme.space.lg
-            InkButton { quiet: true; icon: "󰒮"; tooltip: "Previous"; enabled: card.svc.canGoPrevious; onClicked: card.svc.previous() }
-            InkButton {
-                icon: card.svc.playing ? "󰏤" : "󰐊"
+            x: Theme.px(64); y: Theme.px(36)
+            spacing: Theme.px(2)
+            McButton { width: Theme.px(34); height: Theme.px(16); glyph: "󰒮"; tooltip: "Previous"; enabled: card.svc.canGoPrevious; onClicked: card.svc.previous() }
+            McButton {
+                width: Theme.px(34); height: Theme.px(16)
+                glyph: card.svc.playing ? "󰏤" : "󰐊"
                 tooltip: card.svc.playing ? "Pause" : "Play"
                 enabled: card.svc.canToggle
-                horizontalPadding: Theme.space.lg
                 onClicked: card.svc.togglePlaying()
             }
-            InkButton { quiet: true; icon: "󰒭"; tooltip: "Next"; enabled: card.svc.canGoNext; onClicked: card.svc.next() }
+            McButton { width: Theme.px(34); height: Theme.px(16); glyph: "󰒭"; tooltip: "Next"; enabled: card.svc.canGoNext; onClicked: card.svc.next() }
         }
 
-        // ---- progress
+        // action bar: "Now Playing: Artist - Title" in the rainbow colour
+        Item {
+            id: bar
+            y: Theme.px(62)
+            width: Theme.px(176); height: Theme.px(10)
+            clip: true
+            readonly property bool overflow: line.implicitWidth > width
+            property real offset: 0
+            McTicker {
+                active: card.visible && bar.overflow && !Theme.reducedMotion
+                onTicked: n => {   // hold 30 ticks, crawl 1 GUI px per 2 ticks, hold, snap back
+                    const travel = Math.ceil((line.implicitWidth - bar.width) / Theme.gui);
+                    const cycle = 60 + travel * 2;
+                    const t = n % cycle;
+                    bar.offset = t < 30 ? 0 : Math.min(travel, Math.floor((t - 30) / 2)) * Theme.gui;
+                }
+            }
+            McText {
+                id: line
+                x: bar.overflow ? -bar.offset : (bar.width - implicitWidth) / 2
+                text: card.svc.nowPlaying
+                rainbow: true
+                wrapMode: Text.NoWrap
+            }
+        }
+
+        // XP-style progress, seekable
         Item {
             id: progress
-            width: parent.parent.width
-            height: 16
+            y: Theme.px(74)
+            width: Theme.px(176); height: Theme.px(5)
             readonly property real frac: card.svc.length > 0 ? Math.max(0, Math.min(1, card.svc.position / card.svc.length)) : 0
             property bool dragging: false
             property real dragFrac: 0
-            readonly property real shownFrac: dragging ? dragFrac : frac
-            Rectangle {   // track
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width; height: 2
-                color: Theme.hairline
-            }
-            Rectangle {   // elapsed ink
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * progress.shownFrac; height: 2
-                color: Theme.text
-                Behavior on width { enabled: !progress.dragging; NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-            }
-            Rectangle {   // seal knob
-                x: parent.width * progress.shownFrac - width / 2
-                anchors.verticalCenter: parent.verticalCenter
-                width: 8; height: 8; radius: 1
-                color: Theme.seal
-                border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.35)
-                Behavior on x { enabled: !progress.dragging; NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-            }
+            McProgressBar { anchors.fill: parent; width: parent.width; value: progress.dragging ? progress.dragFrac : progress.frac }
             MouseArea {
                 anchors.fill: parent
+                anchors.topMargin: -Theme.px(3); anchors.bottomMargin: -Theme.px(3)
                 enabled: card.svc.canSeek
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onPressed: mouse => { progress.dragging = true; progress.dragFrac = Math.max(0, Math.min(1, mouse.x / width)) }
@@ -159,44 +156,22 @@ WidgetCard {
                 onReleased: { progress.dragging = false; card.svc.seek(progress.dragFrac * card.svc.length) }
             }
         }
-        Item {
-            width: parent.parent.width; height: 14
-            InkText { role: "mono"; font.pixelSize: 11; muted: true; text: card.svc.fmt(card.svc.position); anchors.left: parent.left }
-            InkText { role: "mono"; font.pixelSize: 11; muted: true; text: card.svc.fmt(card.svc.length); anchors.right: parent.right }
-        }
     }
 
-    // ---- empty state
+    // ---------------------------------------------------------------- idle
     Item {
         anchors.fill: parent
         visible: !card.active
-        Image {
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: -20
-            width: 150; height: 150
-            source: Theme.texture("enso-ink")
-            opacity: 0.18
-            fillMode: Image.PreserveAspectFit
-            smooth: true; mipmap: true; asynchronous: true
+        McItemIcon { anchors.horizontalCenter: parent.horizontalCenter; y: Theme.px(8); size: 32; name: "jukebox" }
+        McText {
+            anchors.horizontalCenter: parent.horizontalCenter; y: Theme.px(46)
+            text: "Nothing playing"
+            color: Theme.guiText
         }
-        Column {
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: -20
-            spacing: 4
-            Text {
-                text: "靜"
-                color: Theme.textMuted
-                font.family: Theme.fontBody
-                font.pixelSize: 40
-                renderType: Text.NativeRendering
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-            InkText { role: "body"; muted: true; text: "Nothing playing"; anchors.horizontalCenter: parent.horizontalCenter }
-        }
-        InkText {
-            role: "small"; muted: true
-            anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-            text: card.svc.players.length ? card.svc.players.length + " player" + (card.svc.players.length > 1 ? "s" : "") + " · idle" : "no MPRIS player"
+        McText {
+            anchors.horizontalCenter: parent.horizontalCenter; y: Theme.px(58)
+            color: Theme.textMuted
+            text: card.svc.players.length ? card.svc.players.length + " player" + (card.svc.players.length > 1 ? "s" : "") + " idle" : "Insert a music disc (no MPRIS player)"
         }
     }
 }

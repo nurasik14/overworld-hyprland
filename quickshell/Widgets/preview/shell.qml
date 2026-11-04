@@ -8,7 +8,7 @@ import qs.Widgets
  *  `Common` → ../../Common and `Widgets` → .. are symlinks inside this directory, so `import qs.Common`,
  *  `import qs.Widgets` and `import qs.Widgets.Services` resolve exactly as in the real shell (config root =
  *  quickshell/).  The Theme singleton finds the repo via shellDir/../../.. (see docs/DESIGN.md §12).
- *  Everything else (IPC targets `widgets`, `brew`) works the same:  qs -p … ipc call widgets toggle
+ *  IPC works the same:  qs -p … ipc call widgets toggle
  */
 ShellRoot {
     DesktopWidgets {}

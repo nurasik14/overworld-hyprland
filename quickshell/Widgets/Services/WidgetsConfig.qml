@@ -4,11 +4,10 @@ import Quickshell
 import Quickshell.Io
 import "duration.js" as Dur
 
-/*  ApoConfig — read-only view of ~/.config/overworld/config.json for the widget layer.
+/*  WidgetsConfig — read-only view of ~/.config/overworld/config.json for the widget layer.
  *    sounds (bool, default true) · reduced_motion (bool) · weather{lat,lon,name}
  *    brew{work,break}: a number = minutes (25, 2.5) or a duration string ("90s", "1h30m", "1:30"); see duration.js.
- *    break may be 0 (no rest).  brew.sound: "minecraft" (default; files from scripts/fetch-minecraft-sounds.sh,
- *    falls back to classic when missing) | "classic" (assets/sounds/brew-done.wav).  Written by `overworld brew set|work|rest`.
+ *    break may be 0 (no rest).  Written by `overworld brew set|work|rest`.
  *  Paths: stateDir (~/.config/overworld), cacheDir (~/.cache/overworld), scriptDir (this directory).
  */
 Singleton {
@@ -29,7 +28,7 @@ Singleton {
         onFileChanged: reload()
     }
     function parse(t) {
-        try { root.config = JSON.parse(t || "{}") || ({}) } catch (e) { console.warn("ApoConfig: config.json parse error:", e); root.config = ({}) }
+        try { root.config = JSON.parse(t || "{}") || ({}) } catch (e) { console.warn("WidgetsConfig: config.json parse error:", e); root.config = ({}) }
     }
     function get(path, fallback) {
         let cur = root.config;
@@ -50,7 +49,6 @@ Singleton {
         const s = Dur.parse(get("brew.break", 5));
         return s >= 0 ? Math.min(s, 86400) : 300;
     }
-    readonly property string brewSound: String(get("brew.sound", "minecraft"))   // minecraft | classic
     readonly property int brewWorkMinutes: Math.round(brewWorkSeconds / 60)     // legacy (whole minutes)
     readonly property int brewBreakMinutes: Math.round(brewBreakSeconds / 60)
 

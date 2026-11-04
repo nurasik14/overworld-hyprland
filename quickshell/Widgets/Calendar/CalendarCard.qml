@@ -3,25 +3,38 @@ import qs.Common
 import qs.Widgets
 import qs.Widgets.Services
 
-/*  CalendarCard — 日历 · CALENDAR (380 × 260).  Month grid Mon–Sun, today marked with a small seal behind
- *  the number, previous / next month, header "October 2026 · 十月".  No external data.
+/*  CalendarCard — Minecraft clock + map table (190 × 148 GUI px).
+ *  Top: the real clock item (item/clock_00…63, the game's 64 frames) showing the actual time of day — frame 0 is noon,
+ *  32 midnight, chosen with the game's own celestial-angle formula, the clock's 06:00 = tick 0 — with "Day N"
+ *  (day of the year) and the time.  Below: the month as a grid of inventory slots, weekends in yellow like stack
+ *  counts, today inside the hotbar selection frame.  Month arrows; click the month name to jump back to today.
+ *  Week starts Monday.  No external data.
  */
 WidgetCard {
     id: card
-    title: "日历"
-    subtitle: "Calendar"
-    sealGlyph: "印"
-    width: 380
-    height: 260
+    title: "Clock & Calendar"
+    guiW: 190
+    guiH: 156
 
     property date today: new Date()
     property int year: today.getFullYear()
     property int month: today.getMonth()          // 0-based
-    readonly property var cjkMonths: ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
-    readonly property var dow: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    readonly property var dow: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
     readonly property bool isCurrentMonth: year === today.getFullYear() && month === today.getMonth()
+    readonly property int dayOfYear: Math.floor((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(today.getFullYear(), 0, 0)) / 86400000)
+    readonly property string timeText: ("0" + today.getHours()).slice(-2) + ":" + ("0" + today.getMinutes()).slice(-2)
 
-    Timer { interval: 60000; running: true; repeat: true; onTriggered: { const d = new Date(); if (d.getDate() !== card.today.getDate()) card.today = d } }
+    // the game's clock: angle = (2d + (0.5 − cos(πd)/2)) / 3 with d = frac(dayTime/24000 − 0.25); 64 frames, 0 = noon.
+    // dayTime 0 is 06:00, so the day fraction is (hours − 6) / 24.
+    readonly property int clockFrame: {
+        const h = today.getHours() + today.getMinutes() / 60;
+        const t = ((h - 6) / 24 + 1) % 1;
+        const d = ((t - 0.25) % 1 + 1) % 1;
+        const angle = (d * 2 + (0.5 - Math.cos(d * Math.PI) / 2)) / 3;
+        return Math.round(angle * 64) % 64;
+    }
+
+    Timer { interval: 10000; running: card.visible; repeat: true; triggeredOnStart: true; onTriggered: card.today = new Date() }
 
     function shift(n) {
         let m = month + n, y = year;
@@ -29,11 +42,10 @@ WidgetCard {
         while (m > 11) { m -= 12; y++ }
         month = m; year = y;
     }
-    function monthName() { return new Date(year, month, 1).toLocaleDateString(Qt.locale("en_GB"), "MMMM yyyy") }
-    // 42 cells; day numbers; `inMonth` flags; week starts Monday
-    readonly property var cells: {
+    function goToday() { year = today.getFullYear(); month = today.getMonth() }
+    readonly property var cells: {   // 42 cells, Monday first
         const first = new Date(year, month, 1);
-        const lead = (first.getDay() + 6) % 7;                 // Mon = 0
+        const lead = (first.getDay() + 6) % 7;
         const daysIn = new Date(year, month + 1, 0).getDate();
         const daysPrev = new Date(year, month, 0).getDate();
         const out = [];
@@ -46,91 +58,82 @@ WidgetCard {
         return out;
     }
 
-    // ---- header
+    // ---- clock + day
+    Image {
+        id: clockIcon
+        width: Theme.px(32); height: Theme.px(32)
+        source: Theme.tex("item/clock_" + ("0" + card.clockFrame).slice(-2))
+        smooth: false
+    }
+    McText { x: Theme.px(38); y: Theme.px(1); units: 2; text: "Day " + card.dayOfYear; color: Theme.guiText }
+    McText {
+        x: Theme.px(38); y: Theme.px(21); width: Theme.px(138)
+        color: Theme.textMuted
+        text: card.timeText + " · " + Qt.locale("en_GB").dayName(card.today.getDay(), Locale.LongFormat) + " " + card.today.getDate()
+    }
+
+    // ---- month bar
     Item {
-        id: header
-        anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-        height: 26
-        Row {
-            anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.space.sm
-            InkText { role: "title"; text: card.monthName(); anchors.verticalCenter: parent.verticalCenter }
-            Rectangle { width: 1; height: 12; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter }
-            Text {
-                text: card.cjkMonths[card.month]
-                color: Theme.seal
-                font.family: Theme.fontDisplay
-                font.pixelSize: 20
-                renderType: Text.NativeRendering
-                anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: Theme.durTheme } }
-            }
-        }
-        Row {
-            anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-            InkButton { quiet: true; icon: "󰅁"; tooltip: "Previous month"; implicitHeight: 24; implicitWidth: 26; onClicked: card.shift(-1) }
-            InkButton { quiet: true; icon: "󰋜"; tooltip: "Today"; implicitHeight: 24; implicitWidth: 26; visible: !card.isCurrentMonth; onClicked: { card.year = card.today.getFullYear(); card.month = card.today.getMonth() } }
-            InkButton { quiet: true; icon: "󰅂"; tooltip: "Next month"; implicitHeight: 24; implicitWidth: 26; onClicked: card.shift(1) }
+        id: monthBar
+        y: Theme.px(35); width: Theme.px(176); height: Theme.px(12)
+        McButton { width: Theme.px(22); height: Theme.px(12); text: "<"; tooltip: "Previous month"; onClicked: card.shift(-1) }
+        McButton { x: parent.width - width; width: Theme.px(22); height: Theme.px(12); text: ">"; tooltip: "Next month"; onClicked: card.shift(1) }
+        McText {
+            anchors.centerIn: parent
+            text: new Date(card.year, card.month, 1).toLocaleDateString(Qt.locale("en_GB"), "MMMM yyyy")
+            color: monthHover.containsMouse && !card.isCurrentMonth ? Theme.chatReadable("6") : Theme.guiText
+            MouseArea { id: monthHover; anchors.fill: parent; hoverEnabled: true; onClicked: card.goToday() }
         }
     }
 
-    // ---- day-of-week headers
+    // ---- weekday header + slot grid
     Row {
         id: dowRow
-        anchors.left: parent.left; anchors.right: parent.right; anchors.top: header.bottom
-        anchors.topMargin: 4
-        height: 18
+        y: Theme.px(49)
         Repeater {
             model: card.dow
-            delegate: Item {
+            McText {
                 required property string modelData
                 required property int index
-                width: dowRow.width / 7; height: dowRow.height
-                InkText {
-                    anchors.centerIn: parent
-                    role: "body"; font.pixelSize: 12; muted: true
-                    color: index >= 5 ? Theme.accent2 : Theme.textMuted
-                    text: modelData
-                }
+                width: Theme.px(25); height: Theme.px(10)
+                horizontalAlignment: Text.AlignHCenter
+                text: modelData
+                color: index >= 5 ? Theme.chatReadable("6") : Theme.textMuted
             }
         }
     }
-    InkDivider { anchors.left: parent.left; anchors.right: parent.right; anchors.top: dowRow.bottom; anchors.topMargin: 2 }
-
-    // ---- grid
     Grid {
         id: grid
-        anchors.left: parent.left; anchors.right: parent.right; anchors.top: dowRow.bottom; anchors.bottom: parent.bottom
-        anchors.topMargin: 5
+        y: Theme.px(59)
         columns: 7
-        readonly property real cellW: width / 7
-        readonly property real cellH: height / 6
         Repeater {
             model: card.cells
             delegate: Item {
+                id: cell
                 required property var modelData
                 required property int index
                 readonly property bool isToday: card.isCurrentMonth && modelData.inMonth && modelData.d === card.today.getDate()
-                readonly property bool weekend: index % 7 >= 5
-                width: grid.cellW; height: grid.cellH
-                Seal {
-                    visible: isToday
-                    anchors.centerIn: parent
-                    size: 22
-                    glyph: ""
-                    label: "Today"
-                    outline: false
-                }
-                Text {
+                width: Theme.px(25); height: Theme.px(12)
+                z: isToday ? 2 : 0
+                readonly property real dim: modelData.inMonth ? 1 : 0.45
+                Rectangle { anchors.fill: parent; color: Theme.slot; opacity: cell.dim }
+                Rectangle { width: parent.width - Theme.gui; height: Theme.gui; color: Theme.slotDark; opacity: cell.dim }
+                Rectangle { width: Theme.gui; height: parent.height - Theme.gui; color: Theme.slotDark; opacity: cell.dim }
+                Rectangle { x: Theme.gui; y: parent.height - Theme.gui; width: parent.width - Theme.gui; height: Theme.gui; color: Theme.slotLight; opacity: cell.dim }
+                Rectangle { x: parent.width - Theme.gui; y: Theme.gui; width: Theme.gui; height: parent.height - Theme.gui; color: Theme.slotLight; opacity: cell.dim }
+                McText {
                     anchors.centerIn: parent
                     text: modelData.d
-                    font.family: Theme.fontBody
-                    font.pixelSize: 13
-                    font.weight: isToday ? 600 : 400
-                    color: isToday ? Theme.textOnSeal : (!modelData.inMonth ? Theme.withAlpha(Theme.textMuted, 0.45) : (weekend ? Theme.accent2 : Theme.text))
-                    renderType: Text.NativeRendering
-                    Behavior on color { ColorAnimation { duration: Theme.durTheme } }
+                    color: !modelData.inMonth ? Theme.withAlpha(Theme.hudText, 0.5) : (index % 7 >= 5 ? Theme.chat["e"] : Theme.hudText)
+                    shadowColor: Theme.guiTextShadow
+                    shadow: modelData.inMonth
+                }
+                McNineSlice {   // today: the hotbar selection frame, a little larger than the slot
+                    visible: cell.isToday
+                    x: -Theme.px(4); y: -Theme.px(2)
+                    width: cell.width + Theme.px(8); height: cell.height + Theme.px(4)
+                    sprite: "hud/hotbar_selection"
+                    scaling: ({ type: "nine_slice", width: 24, height: 23, border: 4 })
                 }
             }
         }

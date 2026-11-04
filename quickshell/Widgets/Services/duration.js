@@ -1,5 +1,5 @@
 .pragma library
-/*  duration.js — the brew timer's duration grammar (shared by BrewTimer, ApoConfig and the brew dialog).
+/*  duration.js — the brew timer's duration grammar (shared by BrewTimer, WidgetsConfig and the brew dialog).
  *  Same rules as `brew_parse` in scripts/overworld:
  *    25 · 2.5          bare number = minutes
  *    25m · 90s · 1h    units h/hr/hour(s), m/min/minute(s), s/sec/second(s)

@@ -14,6 +14,9 @@ Location order (BRIEF §0):
   3. Kowloon, Hong Kong 22.3167, 114.1833.
 
 Cache: ~/.cache/overworld/weather.json (served with "stale": true when the network is down).
+Summary for other modules (fx-world): ~/.cache/overworld/weather-now.json, rewritten after every successful or cached
+read: {"kind": "clear|cloudy|fog|rain|thunder|snow", "code": <WMO>, "is_day": bool, "temp": °C, "precip_mm": mm,
+"wind": km/h, "city": str, "stale": bool, "updated": epoch}.
 """
 import json
 import os
@@ -25,6 +28,7 @@ HOME = os.path.expanduser("~")
 CONFIG = os.path.join(HOME, ".config", "overworld", "config.json")
 CACHE_DIR = os.path.join(HOME, ".cache", "overworld")
 CACHE = os.path.join(CACHE_DIR, "weather.json")
+NOW = os.path.join(CACHE_DIR, "weather-now.json")
 FALLBACK = {"lat": 22.3167, "lon": 114.1833, "name": "Kowloon", "source": "fallback"}
 OPEN_METEO = (
     "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
@@ -89,6 +93,38 @@ def from_ip():
     return None
 
 
+def kind_of(code):
+    """WMO weather_code -> the five world-effect kinds (+ fog)."""
+    if code in (95, 96, 99):
+        return "thunder"
+    if code in (71, 73, 75, 77, 85, 86):
+        return "snow"
+    if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82):
+        return "rain"
+    if code in (45, 48):
+        return "fog"
+    if code in (2, 3):
+        return "cloudy"
+    return "clear"
+
+
+def write_now(out):
+    try:
+        cur = out["forecast"]["current"]
+        code = int(cur.get("weather_code", 0))
+        now = {"kind": kind_of(code), "code": code, "is_day": cur.get("is_day", 1) != 0,
+               "temp": cur.get("temperature_2m"), "precip_mm": cur.get("precipitation"),
+               "wind": cur.get("wind_speed_10m"), "city": (out.get("location") or {}).get("name", ""),
+               "stale": bool(out.get("stale")), "updated": int(time.time())}
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        tmp = NOW + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(now, f)
+        os.replace(tmp, NOW)
+    except (OSError, KeyError, TypeError, ValueError):
+        pass
+
+
 def read_cache():
     try:
         with open(CACHE, encoding="utf-8") as f:
@@ -121,6 +157,7 @@ def main():
             os.replace(tmp, CACHE)
         except OSError:
             pass
+        write_now(out)
         print(json.dumps(out))
         return 0
     except Exception as e:  # offline / API down → cache
@@ -128,6 +165,7 @@ def main():
         if cached and cached.get("forecast"):
             cached["stale"] = True
             cached["error"] = str(e)
+            write_now(cached)
             print(json.dumps(cached))
             return 0
         print(json.dumps({"error": str(e), "location": loc}))

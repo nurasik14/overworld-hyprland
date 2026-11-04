@@ -15,7 +15,7 @@ Singleton {
     property var info: ({})
     property var stats: ({})
     readonly property bool ready: info.os !== undefined
-    property bool active: WidgetsState.visible
+    property bool active: WidgetsState.visible && WidgetsState.cardOn("sysinfo")
 
     readonly property string os: info.os || "—"
     readonly property string kernel: info.kernel || "—"
@@ -34,12 +34,12 @@ Singleton {
 
     Process {
         id: staticProc
-        command: ["python3", ApoConfig.scriptDir + "/sysinfo.py", "static"]
+        command: ["python3", WidgetsConfig.scriptDir + "/sysinfo.py", "static"]
         stdout: StdioCollector { onStreamFinished: { try { root.info = JSON.parse(text) } catch (e) { console.warn("SysInfoService static:", e) } } }
     }
     Process {
         id: dynamicProc
-        command: ["python3", ApoConfig.scriptDir + "/sysinfo.py", "dynamic"]
+        command: ["python3", WidgetsConfig.scriptDir + "/sysinfo.py", "dynamic"]
         stdout: StdioCollector { onStreamFinished: { try { root.stats = JSON.parse(text) } catch (e) { console.warn("SysInfoService dynamic:", e) } } }
     }
     Timer { interval: 5000; running: root.active; repeat: true; triggeredOnStart: true; onTriggered: if (!dynamicProc.running) dynamicProc.running = true }

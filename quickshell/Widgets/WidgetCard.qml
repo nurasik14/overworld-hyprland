@@ -2,27 +2,38 @@ import QtQuick
 import qs.Common
 import qs.Widgets.Services
 
-/*  WidgetCard — a PaperPanel placed on the desktop layer that follows WidgetsState.visible.
- *  Show / hide: opacity 0↔1 + 10 px rise, 450 ms OutQuint (`ink`), staggered 40 ms per `index`
- *  (reading order of the layout). Reduced motion (config.json) → no delay, no translate, 0 ms.
- *  `shown` may be overridden (previews); `index` is the stagger slot.
- *  Drag by the title bar to move the card (saved per `cardId` in WidgetsState; previews leave cardId "").
+/*  WidgetCard — a McPanel (GUI panel with the dark-grey title, see-through centre) placed on the desktop layer.
+ *    guiW, guiH     size in GUI px (multiples of the GUI scale keep the bevel crisp)
+ *    index          stagger slot: fade-in starts 40 ms × index after the layer appears
+ *    cardId         saved position key; "" (previews) disables dragging and the saved position
+ *    defaultX/Y     the layout slot; double-click the title bar or `widgets layout` returns the card there
+ *    shown          follows WidgetsState.visible + the per-card switch
+ *  Show / hide: opacity fade + a 4 GUI px rise, 250 ms OutQuad, staggered.  Reduced motion → instant.
+ *  Drag by the title bar (the top 17 GUI px).  The centre fill is Theme.widgetOpacity (config widgets.opacity);
+ *  bevels, text and icons stay opaque.
  */
-PaperPanel {
+McPanel {
     id: card
+    property int guiW: 160
+    property int guiH: 100
     property int index: 0
-    property bool shown: WidgetsState.visible && (cardId === "" || WidgetsState.cardOn(cardId))
-    fillOpacity: cardId === "" ? -1 : WidgetsState.cardOpacity
-    shadowEnabled: fillOpacity < 0 || fillOpacity >= 0.85   // a blurred shadow would smudge through a see-through card
-    readonly property bool reduced: ApoConfig.reducedMotion
-    readonly property int delay: reduced ? 0 : index * Theme.stagger
-    readonly property int duration: reduced ? 0 : 450
-    property real rise: shown ? 0 : (reduced ? 0 : 10)
-
-    // ---- position: saved (dragged) position, else the layout slot
     property string cardId: ""
     property real defaultX: 0
     property real defaultY: 0
+    property bool shown: WidgetsState.visible && (cardId === "" || WidgetsState.cardOn(cardId))
+
+    // content area (cards lay out in GUI px inside it): the panel minus 7 px margins, 17 px title row = (guiW − 14) × (guiH − 24)
+
+    width: Theme.px(guiW)
+    height: Theme.px(guiH)
+    fillOpacity: cardId === "" ? -1 : WidgetsState.cardOpacity
+
+    readonly property bool reduced: Theme.reducedMotion
+    readonly property int delay: reduced ? 0 : index * 40
+    readonly property int duration: Theme.ms(250)
+    property real rise: shown ? 0 : (reduced ? 0 : Theme.px(4))
+
+    // ---- position: saved (dragged) position, else the layout slot
     function bindPosition() {
         card.x = Qt.binding(() => WidgetsState.posX(card.cardId, card.defaultX));
         card.y = Qt.binding(() => WidgetsState.posY(card.cardId, card.defaultY));
@@ -33,13 +44,11 @@ PaperPanel {
         function onLayoutReset() { if (card.cardId !== "") card.bindPosition() }
     }
 
-    // drag handle = exactly the lacquer title bar. `parent: card` is required: PaperPanel's default property
-    // sends declared children into the padded content area (that put the handle in an invisible strip
-    // ~45 px down the card).
+    // drag handle = the title bar. `parent: card` keeps it out of McPanel's padded content area.
     Item {
         parent: card
         anchors { left: parent.left; right: parent.right; top: parent.top }
-        height: card.hasTitle ? card.titleBar.implicitHeight + card.frameWidth : 30
+        height: Theme.px(17)
         z: 100
         enabled: card.cardId !== ""
         HoverHandler { cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor }
@@ -68,13 +77,13 @@ PaperPanel {
     Behavior on opacity {
         SequentialAnimation {
             PauseAnimation { duration: card.delay }
-            NumberAnimation { duration: card.duration; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: card.duration; easing.type: Easing.OutQuad }
         }
     }
     Behavior on rise {
         SequentialAnimation {
             PauseAnimation { duration: card.delay }
-            NumberAnimation { duration: card.duration; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: card.duration; easing.type: Easing.OutQuad }
         }
     }
 }

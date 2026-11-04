@@ -4,34 +4,36 @@ import Quickshell
 import Quickshell.Io
 import qs.Common
 
-/*  HerbService — "Herb / Poison of the day" from quotes/herbs.json: herbs[dayOfYear % n], `next()` cycles.
- *  Entry: { id, name_en, name_cjk, reading, kind (herb|poison|both), fact, caution, maomao_note, plate|null }.
- *  plateUrl is "" when the plate is null or the file is missing (the card hides the image area).
+/*  BlockOfDayService — "Block / Mob of the day" from quotes/blocks-of-the-day.json (lore-writer):
+ *  entries[(dayOfYear + offset) % n], deterministic by date; `next()` / `previous()` page through, `today()` goes back.
+ *  Entry: { id, kind: block|item|mob|biome, name, texture, facts[2–3], tip, wiki_url, since_version }.
+ *  `texture` is a path under assets/mc/textures/ without .png; mobs use their spawn egg (item/<id>_spawn_egg) because the
+ *  entity textures are skin sheets, not pictures.  `textureName` is what the card draws (resolve with Theme.tex()).
  */
 Singleton {
     id: root
-    property var herbs: []
+    property var entries: []
     property int offset: 0
     readonly property int dayOfYear: {
         const now = new Date();
         const start = new Date(now.getFullYear(), 0, 0);
         return Math.floor((now - start) / 86400000);
     }
-    readonly property int index: herbs.length ? ((dayOfYear + offset) % herbs.length + herbs.length) % herbs.length : -1
-    readonly property var current: index >= 0 ? herbs[index] : ({})
-    readonly property string nameEn: current.name_en || "—"
-    readonly property string nameCjk: current.name_cjk || ""
-    readonly property string reading: current.reading || ""
-    readonly property string kind: current.kind || "herb"
-    readonly property string fact: current.fact || ""
-    readonly property string caution: current.caution || ""
-    readonly property string note: current.maomao_note || ""
-    readonly property string plate: current.plate ? current.plate : ""
-    readonly property string plateUrl: plate.length ? ("file://" + Theme.repoDir + "/" + plate) : ""
+    readonly property int index: entries.length ? ((dayOfYear + offset) % entries.length + entries.length) % entries.length : -1
+    readonly property var current: index >= 0 ? entries[index] : ({})
+    readonly property string id: current.id || ""
+    readonly property string kind: current.kind || "block"
+    readonly property string name: current.name || "—"
+    readonly property var facts: current.facts || []
+    readonly property string tip: current.tip || ""
+    readonly property string since: current.since_version || ""
+    readonly property string wikiUrl: current.wiki_url || ""
+    readonly property string textureName: kind === "mob" ? "item/" + id + "_spawn_egg" : (current.texture || "")
+    readonly property string kindLabel: kind === "mob" ? "Mob" : kind === "item" ? "Item" : kind === "biome" ? "Biome" : "Block"
 
     FileView {
         id: file
-        path: Theme.repoDir + "/quotes/herbs.json"
+        path: Theme.repoDir + "/quotes/blocks-of-the-day.json"
         blockLoading: true
         watchChanges: true
         printErrors: false
@@ -40,9 +42,9 @@ Singleton {
     }
     function parse(t) {
         try {
-            const d = JSON.parse(t || "[]");
-            root.herbs = Array.isArray(d) ? d : (d.herbs || []);
-        } catch (e) { console.warn("HerbService: herbs.json parse error:", e); root.herbs = [] }
+            const d = JSON.parse(t || "{}");
+            root.entries = Array.isArray(d) ? d : (d.entries || []);
+        } catch (e) { console.warn("BlockOfDayService: blocks-of-the-day.json parse error:", e); root.entries = [] }
     }
     function next() { root.offset += 1 }
     function previous() { root.offset -= 1 }

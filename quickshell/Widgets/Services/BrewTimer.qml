@@ -7,13 +7,12 @@ import qs.Services
 import qs.Widgets.Services
 import "duration.js" as Dur
 
-/*  BrewTimer — "Brewing medicine" focus timer (pomodoro).
+/*  BrewTimer — the brewing-stand focus timer (pomodoro).
  *    Brew (work) and rest lengths are any duration (duration.js grammar: 25 · 90s · 1h30 · 1:30), saved in
  *    config.json brew.work / brew.break (default 25 min / 5 min; rest 0 = no break).  State idle | working |
- *    breaking | paused.  On finish: a sound via pw-play (unless config.json sounds=false) and a notification.
- *    Sound (config.json brew.sound): "minecraft" = brewing stand brew1/brew2.ogg when a brew is done, drink.ogg when
- *    the rest is over (assets/sounds/minecraft/, fetched by scripts/fetch-minecraft-sounds.sh, gitignored);
- *    "classic" or missing files = assets/sounds/brew-done.wav.
+ *    breaking | paused.  On finish: the sound ids `brew.done` (brew finished) / `brew.drink` (rest over) through
+ *    Theme.playSound → scripts/ow-sound (silent when config.json sounds=false) and a notification.
+ *    Events (BRIEF §4.4): brew.start {} when a brew begins, brew.done {} when it finishes, rest.done {} when the rest is over.
  *    A finished brew rolls into the rest (if any), a finished rest returns to idle.
  *  Setting: the brew dialog (Brew/BrewDialog.qml: SUPER+SHIFT+B or click the clock), scrolling on the card
  *    (nudge(), saved after a short pause), or `overworld brew set <brew> [rest]`.  Every write goes through the CLI.
@@ -32,8 +31,8 @@ Singleton {
     // saved lengths; a pending nudge (scroll on the card) shows at once and is written after saveDelay
     property int pendingWork: -1
     property int pendingBreak: -1
-    readonly property int workSeconds: pendingWork >= 0 ? pendingWork : ApoConfig.brewWorkSeconds
-    readonly property int breakSeconds: pendingBreak >= 0 ? pendingBreak : ApoConfig.brewBreakSeconds
+    readonly property int workSeconds: pendingWork >= 0 ? pendingWork : WidgetsConfig.brewWorkSeconds
+    readonly property int breakSeconds: pendingBreak >= 0 ? pendingBreak : WidgetsConfig.brewBreakSeconds
     readonly property int workMinutes: Math.round(workSeconds / 60)      // legacy readers
     readonly property int breakMinutes: Math.round(breakSeconds / 60)
     readonly property int maxSeconds: 86400
@@ -78,6 +77,7 @@ Singleton {
     function beginWork(sec) {
         root.total = sec; root.remaining = sec;
         root.state = "working";
+        GameEvents.emit("brew.start", {});
     }
     function startBreak() {
         const r = root.sessionBreak >= 0 ? root.sessionBreak : breakSeconds;
@@ -101,16 +101,18 @@ Singleton {
     function finishPhase() {
         if (state === "working") {
             root.sessions += 1;
+            GameEvents.emit("brew.done", {});
             const r = root.sessionBreak >= 0 ? root.sessionBreak : breakSeconds;
             if (r > 0) {
-                notify("Medicine is ready", Dur.human(total) + " brewed. Rest for " + Dur.human(r) + ".", "brew");
+                notify("Brewing complete", Dur.human(total) + " brewed. Rest for " + Dur.human(r) + ".", "brew");
                 startBreak();
             } else {
-                notify("Medicine is ready", Dur.human(total) + " brewed.", "brew");
+                notify("Brewing complete", Dur.human(total) + " brewed.", "brew");
                 reset();
             }
         } else {
-            notify("Back to the workbench", "Rest over.", "rest");
+            GameEvents.emit("rest.done", {});
+            notify("Back to the crafting table", "Rest over.", "rest");
             reset();
         }
     }
@@ -140,33 +142,22 @@ Singleton {
         onExited: (code) => {
             if (code !== 0) console.warn("BrewTimer: overworld brew set failed (" + code + ")");
             if (root.resave) { root.resave = false; root.save(root.pendingWork, root.pendingBreak); return }
-            clearPending.restart();             // give ApoConfig a moment to re-read config.json
+            clearPending.restart();             // give WidgetsConfig a moment to re-read config.json
         }
     }
     Timer { id: clearPending; interval: 400; onTriggered: if (!saveDelay.running) { root.pendingWork = -1; root.pendingBreak = -1 } }
 
     function openDialog() { ShellState.open("brew") }
 
-    function soundFiles(kind) {                  // candidates in order; the first that exists is played
-        const dir = Theme.repoDir + "/assets/sounds/";
-        const classic = dir + "brew-done.wav";
-        if (ApoConfig.brewSound === "classic") return [classic];
-        if (kind === "rest") return [dir + "minecraft/drink.ogg", classic];
-        return [dir + "minecraft/brew" + (1 + Math.floor(Math.random() * 2)) + ".ogg", dir + "minecraft/brew1.ogg", classic];
-    }
-    function playSound(kind) {
-        if (!ApoConfig.sounds || player.running) return;
-        player.command = ["sh", "-c", "command -v pw-play >/dev/null || exit 0; for f; do [ -f \"$f\" ] && exec pw-play \"$f\"; done",
-                          "brew-sound"].concat(soundFiles(kind));
-        player.running = true;
+    function playSound(kind) {                   // "brew" = brewing-stand done, "rest" = drinking the potion
+        Theme.playSound(kind === "rest" ? "brew.drink" : "brew.done");
     }
     function notify(title, body, kind) {
-        notifier.command = ["notify-send", "-a", "Overworld", "-i", "alarm", title, body];
+        notifier.command = ["notify-send", "-a", "Overworld", "-i", "brewing_stand", title, body];
         notifier.running = true;
         playSound(kind);
     }
     Process { id: notifier }
-    Process { id: player }
 
     IpcHandler {
         target: "brew"

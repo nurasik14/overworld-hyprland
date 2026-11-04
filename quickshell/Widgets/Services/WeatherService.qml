@@ -14,7 +14,11 @@ import qs.Widgets.Services
  *    refresh:  every 30 min, on `refresh()` (retry button) and once at startup.
  *
  *  Exposed: ok, loading, error, stale, city, localTime, temp, apparent, humidity, wind, precipProb,
- *           code, isDay, glyph, condition, hours[] (24 × {hour, label, temp, prob, code}), minTemp, maxTemp.
+ *           code, isDay, kind (clear|cloudy|fog|rain|thunder|snow), icon (pixel-icon name), condition,
+ *           hours[] (24 × {hour, label, temp, prob, code, day, block}), minTemp, maxTemp.
+ *  For other modules (fx-world): services/weather-fetch.py also writes ~/.cache/overworld/weather-now.json
+ *  ({kind, code, is_day, temp, precip_mm, wind, city, stale, updated}) after every fetch, next to weather.json
+ *  (the full Open-Meteo forecast + location).  See docs/WIDGETS.md.
  */
 Singleton {
     id: root
@@ -42,7 +46,8 @@ Singleton {
     readonly property real precipitation: current ? current.precipitation : 0
     readonly property int code: current ? current.weather_code : -1
     readonly property bool isDay: current ? current.is_day !== 0 : true
-    readonly property string glyph: glyphFor(code, isDay)
+    readonly property string kind: kindFor(code)
+    readonly property string icon: iconFor(code, isDay)
     readonly property string condition: wordFor(code)
 
     // ---- clock at the location (ticks every 30 s)
@@ -72,7 +77,9 @@ Singleton {
                 label: hourly.time[i].slice(11, 16),
                 temp: hourly.temperature_2m[i],
                 prob: hourly.precipitation_probability ? hourly.precipitation_probability[i] : 0,
-                code: hourly.weather_code ? hourly.weather_code[i] : 0
+                code: hourly.weather_code ? hourly.weather_code[i] : 0,
+                day: h >= 6 && h < 18,
+                block: blockFor(hourly.weather_code ? hourly.weather_code[i] : 0, h >= 6 && h < 18)
             });
         }
         return out;
@@ -80,22 +87,43 @@ Singleton {
     readonly property real minTemp: hours.length ? Math.min.apply(null, hours.map(h => h.temp)) : 0
     readonly property real maxTemp: hours.length ? Math.max.apply(null, hours.map(h => h.temp)) : 1
 
-    // ---- WMO weather_code → Nerd Font (nf-md-weather_*) glyph + English word
-    function nf(cp) { return String.fromCodePoint(cp); }
-    function glyphFor(c, day) {
-        if (c === 0) return day ? nf(0xF0599) : nf(0xF0594);                   // sunny / night
-        if (c === 1 || c === 2) return day ? nf(0xF0595) : nf(0xF0F31);        // partly cloudy
-        if (c === 3) return nf(0xF0590);                                        // cloudy
-        if (c === 45 || c === 48) return nf(0xF0591);                           // fog
-        if (c >= 51 && c <= 57) return nf(0xF0597);                             // drizzle → rainy
-        if (c >= 61 && c <= 65) return c === 65 ? nf(0xF0596) : nf(0xF0597);   // rain / pouring
-        if (c === 66 || c === 67) return nf(0xF067F);                           // freezing rain (snowy-rainy)
-        if (c >= 71 && c <= 77) return nf(0xF0598);                             // snow
-        if (c >= 80 && c <= 82) return c === 82 ? nf(0xF0596) : nf(0xF0597);   // showers
-        if (c === 85 || c === 86) return nf(0xF0598);                           // snow showers
-        if (c === 95) return nf(0xF067E);                                       // thunderstorm
-        if (c === 96 || c === 99) return nf(0xF0592);                           // thunderstorm + hail
-        return nf(0xF059D);                                                     // unknown → windy
+    // ---- WMO weather_code → kind, pixel icon (Widgets/assets/weather/<name>.png) and the block a 24 h column is built from
+    function kindFor(c) {
+        if (c === 95 || c === 96 || c === 99) return "thunder";
+        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "snow";
+        if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return "rain";
+        if (c === 45 || c === 48) return "fog";
+        if (c === 2 || c === 3) return "cloudy";
+        return "clear";
+    }
+    function iconFor(c, day) {
+        if (c === 0 || c === 1) return day ? "sun" : "moon";
+        if (c === 2) return day ? "partly_day" : "partly_night";
+        if (c === 3) return "cloud";
+        if (c === 45 || c === 48) return "fog";
+        if (c === 56 || c === 57 || c === 66 || c === 67) return "sleet";
+        if ((c >= 51 && c <= 65) || (c >= 80 && c <= 82)) return "rain";
+        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "snow";
+        if (c >= 95) return "thunder";
+        return "cloud";
+    }
+    // block per condition: sunny sand, starry-night lapis, cloud wool, fog stone, rain water, snow, sleet ice, storm gold
+    function blockFor(c, day) {
+        if (c === 0 || c === 1) return day ? "sand" : "lapis_block";
+        if (c === 2) return day ? "sandstone" : "blue_wool";
+        if (c === 3) return "light_gray_wool";
+        if (c === 45 || c === 48) return "smooth_stone";
+        if (c === 56 || c === 57 || c === 66 || c === 67) return "packed_ice";
+        if ((c >= 51 && c <= 65) || (c >= 80 && c <= 82)) return "water_still";
+        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "snow";
+        if (c >= 95) return "gold_block";
+        return "stone";
+    }
+    // flat colour standing in for a block texture when no texture pack is present
+    function blockColor(b) {
+        const m = { sand: "#DBD3A0", lapis_block: "#1D47A8", sandstone: "#D8CB9B", blue_wool: "#3A4CB0", light_gray_wool: "#9D9D97",
+                    smooth_stone: "#9E9E9E", packed_ice: "#8DB4EE", water_still: "#3F76E4", snow: "#F8FEFE", gold_block: "#F9D749", stone: "#7F7F7F" };
+        return m[b] || "#808080";
     }
     function wordFor(c) {
         const t = {
@@ -113,7 +141,7 @@ Singleton {
     // ---- cache first (synchronous), then the network
     FileView {
         id: cache
-        path: ApoConfig.cacheDir + "/weather.json"
+        path: WidgetsConfig.cacheDir + "/weather.json"
         blockLoading: true
         printErrors: false
         onLoaded: root.applyText(text(), true)
@@ -138,7 +166,7 @@ Singleton {
 
     Process {
         id: fetcher
-        command: ["python3", ApoConfig.scriptDir + "/weather-fetch.py"]
+        command: ["python3", WidgetsConfig.scriptDir + "/weather-fetch.py"]
         stdout: StdioCollector { onStreamFinished: root.applyText(text, false) }
         onRunningChanged: root.loading = running
         onExited: (code, status) => { if (code !== 0 && !root.ok) root.error = root.error || ("fetch failed (" + code + ")") }
