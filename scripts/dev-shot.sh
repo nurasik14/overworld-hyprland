@@ -20,7 +20,9 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
     [[ "$(hyprctl activeworkspace -j | jq -r .id)" == "$WS" ]] && break; sleep 0.1
 done
 sleep "${DEVSHOT_SETTLE:-0.6}"
-nwin="$(hyprctl activeworkspace -j | jq -r .windows)"
+# test windows the agents open on purpose (class overworld-test*, sddm greeter test mode) are allowed
+nwin="$(hyprctl clients -j | jq --argjson ws "$WS" '[.[] | select(.workspace.id == $ws)
+        | select((.class | test("^(overworld-test|sddm-greeter)"; "i")) | not)] | length')"
 if [[ "$nwin" != 0 ]]; then
     [[ "$prev" == "$WS" ]] || hyprctl dispatch workspace "$prev" >/dev/null
     echo "dev-shot: workspace $WS has $nwin window(s); not capturing" >&2; exit 3

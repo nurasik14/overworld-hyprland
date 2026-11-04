@@ -1,0 +1,929 @@
+{
+ "_comment": "Original splash texts. Entries with 'seasonal' only show between from..to (MM-DD, inclusive, may wrap the year end). Mojang's own list lives in assets/mc/texts/splashes.txt and is not copied.",
+ "splashes": [
+  {
+   "text": "Tiling is a lifestyle!"
+  },
+  {
+   "text": "Now with 100% more hearts!"
+  },
+  {
+   "text": "Also try Apothecary!"
+  },
+  {
+   "text": "Hyprland btw!"
+  },
+  {
+   "text": "I use Fedora, btw!"
+  },
+  {
+   "text": "Powered by Quickshell!"
+  },
+  {
+   "text": "Made in Hong Kong!"
+  },
+  {
+   "text": "Greetings from Kazakhstan!"
+  },
+  {
+   "text": "Written at 3 AM!"
+  },
+  {
+   "text": "Late-night building!"
+  },
+  {
+   "text": "One more commit!"
+  },
+  {
+   "text": "It compiles! Probably!"
+  },
+  {
+   "text": "sudo make me a sandwich!"
+  },
+  {
+   "text": "Mind the semicolons!"
+  },
+  {
+   "text": "Segfault-free*!"
+  },
+  {
+   "text": "*Terms may apply!"
+  },
+  {
+   "text": "git push --force-with-lease!"
+  },
+  {
+   "text": "Hermes delivers!"
+  },
+  {
+   "text": "Ask Hermes!"
+  },
+  {
+   "text": "Hermes agent inside!"
+  },
+  {
+   "text": "Hello, CityU!"
+  },
+  {
+   "text": "CS freshman edition!"
+  },
+  {
+   "text": "Stack overflow!"
+  },
+  {
+   "text": "Off-by-one!"
+  },
+  {
+   "text": "Zero-indexed!"
+  },
+  {
+   "text": "Hot reload!"
+  },
+  {
+   "text": "Restart not required!"
+  },
+  {
+   "text": "Gaps: 10 pixels!"
+  },
+  {
+   "text": "Gaps are blocks!"
+  },
+  {
+   "text": "Kitty approved!"
+  },
+  {
+   "text": "Meow!"
+  },
+  {
+   "text": "Terminal is a crafting table!"
+  },
+  {
+   "text": "Crafting table: kitty!"
+  },
+  {
+   "text": "Ten workspaces!"
+  },
+  {
+   "text": "Workspace 77 is empty!"
+  },
+  {
+   "text": "SUPER + Return!"
+  },
+  {
+   "text": "SUPER + Q to mine!"
+  },
+  {
+   "text": "Mine your windows!"
+  },
+  {
+   "text": "Close with a pickaxe!"
+  },
+  {
+   "text": "Place a window!"
+  },
+  {
+   "text": "Now with real windows!"
+  },
+  {
+   "text": "Block-by-block!"
+  },
+  {
+   "text": "Straight from the compositor!"
+  },
+  {
+   "text": "165 Hz of blocks!"
+  },
+  {
+   "text": "RTX in a small way!"
+  },
+  {
+   "text": "Frames per second: yes!"
+  },
+  {
+   "text": "Wayland all the way!"
+  },
+  {
+   "text": "No X11 here!"
+  },
+  {
+   "text": "Pixel-perfect!"
+  },
+  {
+   "text": "Nearest-neighbour only!"
+  },
+  {
+   "text": "Never smooth!"
+  },
+  {
+   "text": "Chunky pixels!"
+  },
+  {
+   "text": "Monocraft!"
+  },
+  {
+   "text": "Square text for square people!"
+  },
+  {
+   "text": "Dark mode is Night!"
+  },
+  {
+   "text": "Light mode is Day!"
+  },
+  {
+   "text": "Nice weather today!"
+  },
+  {
+   "text": "Powered by Open-Meteo!"
+  },
+  {
+   "text": "Check the forecast!"
+  },
+  {
+   "text": "It might rain!"
+  },
+  {
+   "text": "Thunder possible!"
+  },
+  {
+   "text": "Sleep through the night!"
+  },
+  {
+   "text": "Sleep in bed!"
+  },
+  {
+   "text": "Suspend and resume!"
+  },
+  {
+   "text": "Battery: hearts!"
+  },
+  {
+   "text": "Eat something!"
+  },
+  {
+   "text": "Hunger is RAM!"
+  },
+  {
+   "text": "Free your RAM!"
+  },
+  {
+   "text": "Level up each hour!"
+  },
+  {
+   "text": "XP is uptime!"
+  },
+  {
+   "text": "Uptime is levelling!"
+  },
+  {
+   "text": "Have you hydrated?"
+  },
+  {
+   "text": "Brew a tea!"
+  },
+  {
+   "text": "Brewing: focus!"
+  },
+  {
+   "text": "Pomodoro potion!"
+  },
+  {
+   "text": "Splash potion of focus!"
+  },
+  {
+   "text": "Potion of Focus II!"
+  },
+  {
+   "text": "Drink your brew!"
+  },
+  {
+   "text": "Take a break!"
+  },
+  {
+   "text": "Rest is a mechanic!"
+  },
+  {
+   "text": "Do not disturb!"
+  },
+  {
+   "text": "Peaceful mode!"
+  },
+  {
+   "text": "Difficulty: Peaceful!"
+  },
+  {
+   "text": "Spectator for focus!"
+  },
+  {
+   "text": "Creative mode on!"
+  },
+  {
+   "text": "Survival mode!"
+  },
+  {
+   "text": "Adventure awaits!"
+  },
+  {
+   "text": "Check your advancements!"
+  },
+  {
+   "text": "Advancement made!"
+  },
+  {
+   "text": "Challenge complete!"
+  },
+  {
+   "text": "Achievement unlocked, sort of!"
+  },
+  {
+   "text": "Hot Tourist Destinations!"
+  },
+  {
+   "text": "Getting an upgrade!"
+  },
+  {
+   "text": "Open a terminal!"
+  },
+  {
+   "text": "Diamonds! (Wi-Fi)"
+  },
+  {
+   "text": "Join the server!"
+  },
+  {
+   "text": "Connected to localhost!"
+  },
+  {
+   "text": "Ping: 3 ms!"
+  },
+  {
+   "text": "Lag spike!"
+  },
+  {
+   "text": "Don't dig straight down!"
+  },
+  {
+   "text": "Don't look at the Enderman!"
+  },
+  {
+   "text": "Creeper? Aw man!"
+  },
+  {
+   "text": "Aw man!"
+  },
+  {
+   "text": "Ssss..."
+  },
+  {
+   "text": "Ssssh, the user is asleep!"
+  },
+  {
+   "text": "Watch out for kernel panics!"
+  },
+  {
+   "text": "Slain by a kernel panic!"
+  },
+  {
+   "text": "Fell out of the world!"
+  },
+  {
+   "text": "Fell off a swap file!"
+  },
+  {
+   "text": "Swap is the Nether!"
+  },
+  {
+   "text": "The Nether is /tmp!"
+  },
+  {
+   "text": "The End is /dev/null!"
+  },
+  {
+   "text": "Overworld is ~!"
+  },
+  {
+   "text": "Home is ~!"
+  },
+  {
+   "text": "cd ~ for spawn!"
+  },
+  {
+   "text": "ls for loot!"
+  },
+  {
+   "text": "grep it!"
+  },
+  {
+   "text": "Pipe dreams!"
+  },
+  {
+   "text": "Redstone is bash!"
+  },
+  {
+   "text": "Redstone engineering!"
+  },
+  {
+   "text": "Pistons and cron jobs!"
+  },
+  {
+   "text": "Enchant your dotfiles!"
+  },
+  {
+   "text": "Dotfiles forever!"
+  },
+  {
+   "text": "Version control!"
+  },
+  {
+   "text": "Commit early, commit often!"
+  },
+  {
+   "text": "No commits at 3 AM!"
+  },
+  {
+   "text": "Mending your code!"
+  },
+  {
+   "text": "Unbreaking build!"
+  },
+  {
+   "text": "Silk touch the bugs!"
+  },
+  {
+   "text": "Fortune III builds!"
+  },
+  {
+   "text": "Looting II logs!"
+  },
+  {
+   "text": "Efficiency V terminal!"
+  },
+  {
+   "text": "Infinity pipes!"
+  },
+  {
+   "text": "Fire aspect flame graph!"
+  },
+  {
+   "text": "Sharpness VII sudo!"
+  },
+  {
+   "text": "Thorns on the firewall!"
+  },
+  {
+   "text": "Fortune favors the brave!"
+  },
+  {
+   "text": "Arch is Hardcore!"
+  },
+  {
+   "text": "Fedora is Survival!"
+  },
+  {
+   "text": "Fedora 44!"
+  },
+  {
+   "text": "Rawhide is Hardcore!"
+  },
+  {
+   "text": "Lock the title screen!"
+  },
+  {
+   "text": "Singleplayer login!"
+  },
+  {
+   "text": "Press T to chat!"
+  },
+  {
+   "text": "Press / for commands!"
+  },
+  {
+   "text": "Try /time set day!"
+  },
+  {
+   "text": "Try /weather rain!"
+  },
+  {
+   "text": "Try /gamemode creative!"
+  },
+  {
+   "text": "Try /locate kitty!"
+  },
+  {
+   "text": "/seed is a secret!"
+  },
+  {
+   "text": "/kill is dramatic!"
+  },
+  {
+   "text": "F3 for debug!"
+  },
+  {
+   "text": "F3 + F4 for modes!"
+  },
+  {
+   "text": "Open the inventory!"
+  },
+  {
+   "text": "Creative inventory!"
+  },
+  {
+   "text": "Search the launcher!"
+  },
+  {
+   "text": "Pick a world!"
+  },
+  {
+   "text": "Create new world!"
+  },
+  {
+   "text": "Procedural wallpapers!"
+  },
+  {
+   "text": "Look, a village!"
+  },
+  {
+   "text": "Villagers say hmm!"
+  },
+  {
+   "text": "Hmm!"
+  },
+  {
+   "text": "Trading hall!"
+  },
+  {
+   "text": "Emerald economy!"
+  },
+  {
+   "text": "Iron golem on duty!"
+  },
+  {
+   "text": "Axolotl approved!"
+  },
+  {
+   "text": "Allay delivers!"
+  },
+  {
+   "text": "Bees are working!"
+  },
+  {
+   "text": "Bee careful!"
+  },
+  {
+   "text": "Axolotl in a bucket!"
+  },
+  {
+   "text": "Cave sounds!"
+  },
+  {
+   "text": "Did you hear that?"
+  },
+  {
+   "text": "Spooky wallpaper!"
+  },
+  {
+   "text": "Deepslate vibes!"
+  },
+  {
+   "text": "Amethyst chime!"
+  },
+  {
+   "text": "Sculk spreads!"
+  },
+  {
+   "text": "Warden is listening!"
+  },
+  {
+   "text": "Shh, I am sleeping!"
+  },
+  {
+   "text": "Pickaxe in hand!"
+  },
+  {
+   "text": "Mining windows!"
+  },
+  {
+   "text": "Wood, stone, iron!"
+  },
+  {
+   "text": "Stone age!"
+  },
+  {
+   "text": "Iron age!"
+  },
+  {
+   "text": "Diamond age!"
+  },
+  {
+   "text": "Full netherite!"
+  },
+  {
+   "text": "Welcome back, Nurasik!"
+  },
+  {
+   "text": "Nurasik was here!"
+  },
+  {
+   "text": "Қош келдіңіз!"
+  },
+  {
+   "text": "Привет, Overworld!"
+  },
+  {
+   "text": "你好, Overworld!"
+  },
+  {
+   "text": "Hong Kong nights!"
+  },
+  {
+   "text": "Victoria Harbour!"
+  },
+  {
+   "text": "Typhoon signal 1!"
+  },
+  {
+   "text": "Rainy season!"
+  },
+  {
+   "text": "Dim sum time!"
+  },
+  {
+   "text": "Milk tea o'clock!"
+  },
+  {
+   "text": "Plov for dinner!"
+  },
+  {
+   "text": "Baursak!"
+  },
+  {
+   "text": "Beshbarmak!"
+  },
+  {
+   "text": "Kumys!"
+  },
+  {
+   "text": "Steppe biome!"
+  },
+  {
+   "text": "Cherry grove vibes!"
+  },
+  {
+   "text": "Pink petals!"
+  },
+  {
+   "text": "Night is falling!"
+  },
+  {
+   "text": "Moon phase: waxing!"
+  },
+  {
+   "text": "Sunrise soon!"
+  },
+  {
+   "text": "Check the sun!"
+  },
+  {
+   "text": "Full moon tonight!"
+  },
+  {
+   "text": "Enjoy the scenery!"
+  },
+  {
+   "text": "Zero lag!"
+  },
+  {
+   "text": "Smooth workspace!"
+  },
+  {
+   "text": "Quick switch!"
+  },
+  {
+   "text": "No bloat!"
+  },
+  {
+   "text": "Light as a feather!"
+  },
+  {
+   "text": "Heavy as obsidian!"
+  },
+  {
+   "text": "Stack your windows!"
+  },
+  {
+   "text": "Stacks of 64!"
+  },
+  {
+   "text": "64 windows? No!"
+  },
+  {
+   "text": "Windows are blocks!"
+  },
+  {
+   "text": "Pixel art forever!"
+  },
+  {
+   "text": "Handcrafted pixels!"
+  },
+  {
+   "text": "Always render!"
+  },
+  {
+   "text": "Texture packs welcome!"
+  },
+  {
+   "text": "Render distance: infinite!"
+  },
+  {
+   "text": "Chunk loaded!"
+  },
+  {
+   "text": "Chunk by chunk!"
+  },
+  {
+   "text": "Biome: Desktop!"
+  },
+  {
+   "text": "Biome: Terminal!"
+  },
+  {
+   "text": "Seed: your desktop!"
+  },
+  {
+   "text": "Loading terrain..."
+  },
+  {
+   "text": "Generating terrain..."
+  },
+  {
+   "text": "Done in 0.4 s!"
+  },
+  {
+   "text": "Saved screenshot!"
+  },
+  {
+   "text": "F2 for screenshots!"
+  },
+  {
+   "text": "Smile!"
+  },
+  {
+   "text": "Say cheese!"
+  },
+  {
+   "text": "Take a picture!"
+  },
+  {
+   "text": "Snap!"
+  },
+  {
+   "text": "Ping!"
+  },
+  {
+   "text": "Item pickup!"
+  },
+  {
+   "text": "Exp orb!"
+  },
+  {
+   "text": "Pop!"
+  },
+  {
+   "text": "Click!"
+  },
+  {
+   "text": "Boom!"
+  },
+  {
+   "text": "Poof!"
+  },
+  {
+   "text": "Happy Nauryz!",
+   "seasonal": {
+    "from": "03-21",
+    "to": "03-23"
+   }
+  },
+  {
+   "text": "Nauryz meiramy!",
+   "seasonal": {
+    "from": "03-21",
+    "to": "03-23"
+   }
+  },
+  {
+   "text": "Nauryz kozhe time!",
+   "seasonal": {
+    "from": "03-21",
+    "to": "03-23"
+   }
+  },
+  {
+   "text": "Spring equinox!",
+   "seasonal": {
+    "from": "03-20",
+    "to": "03-22"
+   }
+  },
+  {
+   "text": "Happy New Year!",
+   "seasonal": {
+    "from": "12-31",
+    "to": "01-02"
+   }
+  },
+  {
+   "text": "Happy New Year, Nurasik!",
+   "seasonal": {
+    "from": "12-31",
+    "to": "01-02"
+   }
+  },
+  {
+   "text": "Countdown to midnight!",
+   "seasonal": {
+    "from": "12-31",
+    "to": "12-31"
+   }
+  },
+  {
+   "text": "Merry Christmas!",
+   "seasonal": {
+    "from": "12-24",
+    "to": "12-26"
+   }
+  },
+  {
+   "text": "Ho ho ho, Hyprland!",
+   "seasonal": {
+    "from": "12-24",
+    "to": "12-26"
+   }
+  },
+  {
+   "text": "Snow in the Overworld!",
+   "seasonal": {
+    "from": "12-24",
+    "to": "12-26"
+   }
+  },
+  {
+   "text": "Happy Halloween!",
+   "seasonal": {
+    "from": "10-30",
+    "to": "11-01"
+   }
+  },
+  {
+   "text": "Spooky season!",
+   "seasonal": {
+    "from": "10-25",
+    "to": "10-31"
+   }
+  },
+  {
+   "text": "Boo! It's a Phantom!",
+   "seasonal": {
+    "from": "10-30",
+    "to": "11-01"
+   }
+  },
+  {
+   "text": "Treat or trick!",
+   "seasonal": {
+    "from": "10-31",
+    "to": "10-31"
+   }
+  },
+  {
+   "text": "Pumpkins everywhere!",
+   "seasonal": {
+    "from": "10-25",
+    "to": "10-31"
+   }
+  },
+  {
+   "text": "Happy Lunar New Year!",
+   "seasonal": {
+    "from": "01-25",
+    "to": "02-15"
+   }
+  },
+  {
+   "text": "Gung hei fat choi!",
+   "seasonal": {
+    "from": "01-25",
+    "to": "02-15"
+   }
+  },
+  {
+   "text": "Happy Mid-Autumn!",
+   "seasonal": {
+    "from": "09-10",
+    "to": "10-05"
+   }
+  },
+  {
+   "text": "Moon cake season!",
+   "seasonal": {
+    "from": "09-10",
+    "to": "10-05"
+   }
+  },
+  {
+   "text": "Kazakhstan Day!",
+   "seasonal": {
+    "from": "12-16",
+    "to": "12-16"
+   }
+  },
+  {
+   "text": "Happy birthday, Minecraft!",
+   "seasonal": {
+    "from": "05-17",
+    "to": "05-17"
+   }
+  },
+  {
+   "text": "Happy Programmer's Day!",
+   "seasonal": {
+    "from": "09-13",
+    "to": "09-13"
+   }
+  },
+  {
+   "text": "Happy Pi Day!",
+   "seasonal": {
+    "from": "03-14",
+    "to": "03-14"
+   }
+  },
+  {
+   "text": "Happy Linux birthday!",
+   "seasonal": {
+    "from": "08-25",
+    "to": "08-25"
+   }
+  },
+  {
+   "text": "May the 4th be with you!",
+   "seasonal": {
+    "from": "05-04",
+    "to": "05-04"
+   }
+  },
+  {
+   "text": "Exam season!",
+   "seasonal": {
+    "from": "12-01",
+    "to": "12-20"
+   }
+  },
+  {
+   "text": "Finals week! Good luck!",
+   "seasonal": {
+    "from": "12-01",
+    "to": "12-20"
+   }
+  }
+ ]
+}

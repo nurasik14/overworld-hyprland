@@ -1,0 +1,1011 @@
+{
+ "_comment": "Desktop advancements. See quotes/README.md for the trigger vocabulary. Tabs: overworld, adventure, husbandry, nether, end. Each tab has one root (parent null).",
+ "advancements": [
+  {
+   "id": "overworld/root",
+   "tab": "overworld",
+   "parent": null,
+   "frame": "task",
+   "title": "Overworld",
+   "description": "Open your first window.",
+   "icon": "grass_block",
+   "trigger": {
+    "event": "window.open",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/terminal",
+   "tab": "overworld",
+   "parent": "overworld/root",
+   "frame": "task",
+   "title": "Getting an Upgrade",
+   "description": "Open a terminal.",
+   "icon": "stone_pickaxe",
+   "trigger": {
+    "event": "window.open",
+    "count": 1,
+    "condition": {
+     "where": {
+      "cls": {
+       "in": [
+        "kitty",
+        "foot",
+        "Alacritty",
+        "org.wezfurlong.wezterm",
+        "com.mitchellh.ghostty"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/launch",
+   "tab": "overworld",
+   "parent": "overworld/root",
+   "frame": "task",
+   "title": "Acquire Hardware",
+   "description": "Launch an app from the launcher.",
+   "icon": "iron_ingot",
+   "trigger": {
+    "event": "launcher.launch",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/browser",
+   "tab": "overworld",
+   "parent": "overworld/launch",
+   "frame": "task",
+   "title": "Cartographer",
+   "description": "Open a web browser.",
+   "icon": "map",
+   "trigger": {
+    "event": "window.open",
+    "count": 1,
+    "condition": {
+     "where": {
+      "cls": {
+       "in": [
+        "zen",
+        "zen-browser",
+        "app.zen_browser.zen",
+        "firefox",
+        "chromium",
+        "brave-browser"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/wifi",
+   "tab": "overworld",
+   "parent": "overworld/launch",
+   "frame": "task",
+   "title": "Diamonds!",
+   "description": "Connect to Wi-Fi.",
+   "icon": "diamond",
+   "trigger": {
+    "event": "net.connect",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/uptime3",
+   "tab": "overworld",
+   "parent": "overworld/launch",
+   "frame": "goal",
+   "title": "Isn't It Iron Pick",
+   "description": "Keep the session running for 3 hours.",
+   "icon": "iron_pickaxe",
+   "trigger": {
+    "event": "xp.levelup",
+    "count": 1,
+    "condition": {
+     "where": {
+      "level": {
+       "gte": 3
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/uptime12",
+   "tab": "overworld",
+   "parent": "overworld/uptime3",
+   "frame": "goal",
+   "title": "Diamond Pickaxe Shift",
+   "description": "Reach XP level 12 (12 hours of uptime).",
+   "icon": "diamond_pickaxe",
+   "trigger": {
+    "event": "xp.levelup",
+    "count": 1,
+    "condition": {
+     "where": {
+      "level": {
+       "gte": 12
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/uptime30",
+   "tab": "overworld",
+   "parent": "overworld/uptime12",
+   "frame": "challenge",
+   "title": "Netherite Marathon",
+   "description": "Reach XP level 30 in a single session.",
+   "icon": "netherite_pickaxe",
+   "trigger": {
+    "event": "xp.levelup",
+    "count": 1,
+    "condition": {
+     "where": {
+      "level": {
+       "gte": 30
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/mode_night",
+   "tab": "overworld",
+   "parent": "overworld/root",
+   "frame": "task",
+   "title": "Moonrise",
+   "description": "Switch to Night mode.",
+   "icon": "clock",
+   "trigger": {
+    "event": "mode",
+    "count": 1,
+    "condition": {
+     "where": {
+      "mode": "dark"
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/mode_day",
+   "tab": "overworld",
+   "parent": "overworld/mode_night",
+   "frame": "task",
+   "title": "Rise and Shine",
+   "description": "Switch back to Day mode.",
+   "icon": "clock",
+   "trigger": {
+    "event": "mode",
+    "count": 1,
+    "condition": {
+     "where": {
+      "mode": "light"
+     }
+    }
+   }
+  },
+  {
+   "id": "overworld/wallpaper",
+   "tab": "overworld",
+   "parent": "overworld/root",
+   "frame": "task",
+   "title": "Interior Designer",
+   "description": "Change your wallpaper.",
+   "icon": "painting",
+   "trigger": {
+    "event": "wallpaper.set",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/wallpapers10",
+   "tab": "overworld",
+   "parent": "overworld/wallpaper",
+   "frame": "goal",
+   "title": "Changing Scenery",
+   "description": "Change the wallpaper 10 times.",
+   "icon": "item_frame",
+   "trigger": {
+    "event": "wallpaper.set",
+    "count": 10
+   }
+  },
+  {
+   "id": "overworld/new_world",
+   "tab": "overworld",
+   "parent": "overworld/wallpaper",
+   "frame": "goal",
+   "title": "Create New World",
+   "description": "Generate a new world wallpaper.",
+   "icon": "map",
+   "trigger": {
+    "event": "world.created",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/screenshot",
+   "tab": "overworld",
+   "parent": "overworld/root",
+   "frame": "task",
+   "title": "Say Cheese",
+   "description": "Take a screenshot.",
+   "icon": "spyglass",
+   "trigger": {
+    "event": "screenshot",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/screenshot25",
+   "tab": "overworld",
+   "parent": "overworld/screenshot",
+   "frame": "goal",
+   "title": "Photojournalist",
+   "description": "Take 25 screenshots.",
+   "icon": "filled_map",
+   "trigger": {
+    "event": "screenshot",
+    "count": 25
+   }
+  },
+  {
+   "id": "overworld/chat",
+   "tab": "overworld",
+   "parent": "overworld/root",
+   "frame": "task",
+   "title": "Local Chat",
+   "description": "Run your first chat command.",
+   "icon": "writable_book",
+   "trigger": {
+    "event": "chat.command",
+    "count": 1
+   }
+  },
+  {
+   "id": "overworld/chat50",
+   "tab": "overworld",
+   "parent": "overworld/chat",
+   "frame": "goal",
+   "title": "Server Operator",
+   "description": "Run 50 chat commands.",
+   "icon": "command_block",
+   "trigger": {
+    "event": "chat.command",
+    "count": 50
+   }
+  },
+  {
+   "id": "overworld/locate",
+   "tab": "overworld",
+   "parent": "overworld/chat",
+   "frame": "task",
+   "title": "Where Are We?",
+   "description": "Use /locate to find an app.",
+   "icon": "compass",
+   "trigger": {
+    "event": "chat.command",
+    "count": 1,
+    "condition": {
+     "where": {
+      "cmd": {
+       "startswith": "/locate"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/root",
+   "tab": "adventure",
+   "parent": null,
+   "frame": "task",
+   "title": "Adventure",
+   "description": "Switch your first workspace.",
+   "icon": "map",
+   "trigger": {
+    "event": "workspace",
+    "count": 1
+   }
+  },
+  {
+   "id": "adventure/hunter",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Monster Hunter",
+   "description": "Mine (close) a window with the pickaxe.",
+   "icon": "iron_sword",
+   "trigger": {
+    "event": "window.kill",
+    "count": 1
+   }
+  },
+  {
+   "id": "adventure/hunted",
+   "tab": "adventure",
+   "parent": "adventure/hunter",
+   "frame": "challenge",
+   "title": "Monsters Hunted",
+   "description": "Mine 100 windows.",
+   "icon": "diamond_sword",
+   "trigger": {
+    "event": "window.kill",
+    "count": 100
+   }
+  },
+  {
+   "id": "adventure/travel",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "goal",
+   "title": "Adventuring Time",
+   "description": "Visit all 10 workspaces.",
+   "icon": "diamond_boots",
+   "trigger": {
+    "event": "workspace",
+    "count": 10,
+    "condition": {
+     "distinct": "id"
+    }
+   }
+  },
+  {
+   "id": "adventure/hotbar5",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Hotbar Shuffle",
+   "description": "Switch workspaces 50 times.",
+   "icon": "oak_boat",
+   "trigger": {
+    "event": "workspace",
+    "count": 50
+   }
+  },
+  {
+   "id": "adventure/hotbar500",
+   "tab": "adventure",
+   "parent": "adventure/hotbar5",
+   "frame": "goal",
+   "title": "Fast Travel",
+   "description": "Switch workspaces 500 times.",
+   "icon": "ender_pearl",
+   "trigger": {
+    "event": "workspace",
+    "count": 500
+   }
+  },
+  {
+   "id": "adventure/title",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "The Title Is Yours",
+   "description": "Set a /title for a workspace.",
+   "icon": "oak_sign",
+   "trigger": {
+    "event": "chat.command",
+    "count": 1,
+    "condition": {
+     "where": {
+      "cmd": {
+       "startswith": "/title"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/tp",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Teleporter",
+   "description": "Use /tp to jump to a workspace.",
+   "icon": "ender_eye",
+   "trigger": {
+    "event": "chat.command",
+    "count": 1,
+    "condition": {
+     "where": {
+      "cmd": {
+       "startswith": "/tp"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/give",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Creative Giver",
+   "description": "Use /give to launch an app.",
+   "icon": "barrel",
+   "trigger": {
+    "event": "chat.command",
+    "count": 1,
+    "condition": {
+     "where": {
+      "cmd": {
+       "startswith": "/give"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/spectate",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Spectator Seat",
+   "description": "Enter spectator mode for focus.",
+   "icon": "ender_eye",
+   "trigger": {
+    "event": "gamemode",
+    "count": 1,
+    "condition": {
+     "where": {
+      "mode": "spectator"
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/creative",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Creative Mind",
+   "description": "Enter creative mode.",
+   "icon": "grass_block",
+   "trigger": {
+    "event": "gamemode",
+    "count": 1,
+    "condition": {
+     "where": {
+      "mode": "creative"
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/adventure_mode",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Road Less Travelled",
+   "description": "Enter adventure (performance) mode.",
+   "icon": "map",
+   "trigger": {
+    "event": "gamemode",
+    "count": 1,
+    "condition": {
+     "where": {
+      "mode": "adventure"
+     }
+    }
+   }
+  },
+  {
+   "id": "adventure/all_modes",
+   "tab": "adventure",
+   "parent": "adventure/creative",
+   "frame": "challenge",
+   "title": "Gamemode Collector",
+   "description": "Use all four game modes.",
+   "icon": "stick",
+   "trigger": {
+    "event": "gamemode",
+    "count": 4,
+    "condition": {
+     "distinct": "mode"
+    }
+   }
+  },
+  {
+   "id": "adventure/ten_windows",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Crowded Village",
+   "description": "Open 10 windows.",
+   "icon": "emerald",
+   "trigger": {
+    "event": "window.open",
+    "count": 10
+   }
+  },
+  {
+   "id": "adventure/hundred_windows",
+   "tab": "adventure",
+   "parent": "adventure/ten_windows",
+   "frame": "goal",
+   "title": "Mass Builder",
+   "description": "Open 100 windows.",
+   "icon": "bricks",
+   "trigger": {
+    "event": "window.open",
+    "count": 100
+   }
+  },
+  {
+   "id": "adventure/death",
+   "tab": "adventure",
+   "parent": "adventure/root",
+   "frame": "task",
+   "title": "Postmortem",
+   "description": "Run out of battery and see the death screen.",
+   "icon": "bone",
+   "trigger": {
+    "event": "death",
+    "count": 1
+   },
+   "hidden": true
+  },
+  {
+   "id": "adventure/plugged",
+   "tab": "adventure",
+   "parent": "adventure/death",
+   "frame": "task",
+   "title": "Respawn Point",
+   "description": "Reach 100 % battery after discharging.",
+   "icon": "redstone",
+   "trigger": {
+    "event": "battery",
+    "count": 1,
+    "condition": {
+     "where": {
+      "percent": {
+       "gte": 100
+      },
+      "charging": true
+     }
+    }
+   }
+  },
+  {
+   "id": "husbandry/root",
+   "tab": "husbandry",
+   "parent": null,
+   "frame": "task",
+   "title": "Husbandry",
+   "description": "Start your first brew.",
+   "icon": "hay_block",
+   "trigger": {
+    "event": "brew.start",
+    "count": 1
+   }
+  },
+  {
+   "id": "husbandry/brewery",
+   "tab": "husbandry",
+   "parent": "husbandry/root",
+   "frame": "task",
+   "title": "Local Brewery",
+   "description": "Finish your first brew.",
+   "icon": "brewing_stand",
+   "trigger": {
+    "event": "brew.done",
+    "count": 1
+   }
+  },
+  {
+   "id": "husbandry/brewed10",
+   "tab": "husbandry",
+   "parent": "husbandry/brewery",
+   "frame": "goal",
+   "title": "Brewed Awakening",
+   "description": "Finish 10 brews.",
+   "icon": "potion",
+   "trigger": {
+    "event": "brew.done",
+    "count": 10
+   }
+  },
+  {
+   "id": "husbandry/brewed100",
+   "tab": "husbandry",
+   "parent": "husbandry/brewed10",
+   "frame": "challenge",
+   "title": "Master Alchemist",
+   "description": "Finish 100 brews.",
+   "icon": "dragon_breath",
+   "trigger": {
+    "event": "brew.done",
+    "count": 100
+   }
+  },
+  {
+   "id": "husbandry/rest",
+   "tab": "husbandry",
+   "parent": "husbandry/brewery",
+   "frame": "task",
+   "title": "A Balanced Diet",
+   "description": "Finish a rest break.",
+   "icon": "bread",
+   "trigger": {
+    "event": "rest.done",
+    "count": 1
+   }
+  },
+  {
+   "id": "husbandry/rest20",
+   "tab": "husbandry",
+   "parent": "husbandry/rest",
+   "frame": "goal",
+   "title": "Well Fed",
+   "description": "Finish 20 rest breaks.",
+   "icon": "golden_apple",
+   "trigger": {
+    "event": "rest.done",
+    "count": 20
+   }
+  },
+  {
+   "id": "husbandry/fresh",
+   "tab": "husbandry",
+   "parent": "husbandry/root",
+   "frame": "task",
+   "title": "Sleep Through the Night",
+   "description": "Suspend and resume the machine.",
+   "icon": "clock",
+   "trigger": {
+    "event": "$resume",
+    "count": 1
+   }
+  },
+  {
+   "id": "husbandry/night_owl",
+   "tab": "husbandry",
+   "parent": "husbandry/fresh",
+   "frame": "goal",
+   "title": "Night Owl",
+   "description": "Be active after 02:00.",
+   "icon": "spider_eye",
+   "trigger": {
+    "event": "$time",
+    "count": 1,
+    "condition": {
+     "time": {
+      "from": "02:00",
+      "to": "05:00"
+     }
+    }
+   }
+  },
+  {
+   "id": "husbandry/early_bird",
+   "tab": "husbandry",
+   "parent": "husbandry/fresh",
+   "frame": "goal",
+   "title": "Early Bird",
+   "description": "Be active between 05:00 and 07:00.",
+   "icon": "egg",
+   "trigger": {
+    "event": "$time",
+    "count": 1,
+    "condition": {
+     "time": {
+      "from": "05:00",
+      "to": "07:00"
+     }
+    }
+   }
+  },
+  {
+   "id": "husbandry/week",
+   "tab": "husbandry",
+   "parent": "husbandry/root",
+   "frame": "goal",
+   "title": "Hero of the Village",
+   "description": "Use the desktop on 7 different days.",
+   "icon": "emerald_block",
+   "trigger": {
+    "event": "$day",
+    "count": 7,
+    "condition": {
+     "distinct": "date"
+    }
+   }
+  },
+  {
+   "id": "husbandry/month",
+   "tab": "husbandry",
+   "parent": "husbandry/week",
+   "frame": "challenge",
+   "title": "Beekeeper",
+   "description": "Use the desktop on 30 different days.",
+   "icon": "honeycomb",
+   "trigger": {
+    "event": "$day",
+    "count": 30,
+    "condition": {
+     "distinct": "date"
+    }
+   }
+  },
+  {
+   "id": "nether/root",
+   "tab": "nether",
+   "parent": null,
+   "frame": "task",
+   "title": "Nether",
+   "description": "Receive your first notification.",
+   "icon": "netherrack",
+   "trigger": {
+    "event": "notify",
+    "count": 1
+   }
+  },
+  {
+   "id": "nether/debris",
+   "tab": "nether",
+   "parent": "nether/root",
+   "frame": "challenge",
+   "title": "Cover Me in Debris",
+   "description": "Receive 100 notifications.",
+   "icon": "ancient_debris",
+   "trigger": {
+    "event": "notify",
+    "count": 100
+   }
+  },
+  {
+   "id": "nether/urgent",
+   "tab": "nether",
+   "parent": "nether/root",
+   "frame": "task",
+   "title": "Uneasy Alliance",
+   "description": "Receive an urgent notification.",
+   "icon": "ghast_tear",
+   "trigger": {
+    "event": "notify",
+    "count": 1,
+    "condition": {
+     "where": {
+      "urgency": "critical"
+     }
+    }
+   }
+  },
+  {
+   "id": "nether/hot",
+   "tab": "nether",
+   "parent": "nether/root",
+   "frame": "task",
+   "title": "Hot Tourist Destinations",
+   "description": "Switch to Night mode.",
+   "icon": "lava_bucket",
+   "trigger": {
+    "event": "mode",
+    "count": 1,
+    "condition": {
+     "where": {
+      "mode": "dark"
+     }
+    }
+   }
+  },
+  {
+   "id": "nether/thousand",
+   "tab": "nether",
+   "parent": "nether/debris",
+   "frame": "challenge",
+   "title": "Ghast Mail",
+   "description": "Receive 1000 notifications.",
+   "icon": "ghast_tear",
+   "trigger": {
+    "event": "notify",
+    "count": 1000
+   }
+  },
+  {
+   "id": "nether/low",
+   "tab": "nether",
+   "parent": "nether/root",
+   "frame": "task",
+   "title": "Withering Hearts",
+   "description": "Let the battery drop to 20 % or less.",
+   "icon": "wither_rose",
+   "trigger": {
+    "event": "battery",
+    "count": 1,
+    "condition": {
+     "where": {
+      "percent": {
+       "lte": 20
+      },
+      "charging": false
+     }
+    }
+   }
+  },
+  {
+   "id": "nether/critical",
+   "tab": "nether",
+   "parent": "nether/low",
+   "frame": "goal",
+   "title": "Hardcore",
+   "description": "Let the battery drop to 5 % or less.",
+   "icon": "bone",
+   "trigger": {
+    "event": "battery",
+    "count": 1,
+    "condition": {
+     "where": {
+      "percent": {
+       "lte": 5
+      },
+      "charging": false
+     }
+    }
+   }
+  },
+  {
+   "id": "nether/regen",
+   "tab": "nether",
+   "parent": "nether/low",
+   "frame": "task",
+   "title": "Regeneration",
+   "description": "Plug in the charger while below 30 %.",
+   "icon": "golden_apple",
+   "trigger": {
+    "event": "battery",
+    "count": 1,
+    "condition": {
+     "where": {
+      "percent": {
+       "lte": 30
+      },
+      "charging": true
+     }
+    }
+   }
+  },
+  {
+   "id": "end/root",
+   "tab": "end",
+   "parent": null,
+   "frame": "task",
+   "title": "The End?",
+   "description": "Close your first window.",
+   "icon": "end_stone",
+   "trigger": {
+    "event": "window.kill",
+    "count": 1
+   }
+  },
+  {
+   "id": "end/free",
+   "tab": "end",
+   "parent": "end/root",
+   "frame": "challenge",
+   "title": "Free the End",
+   "description": "Mine (close) 1000 windows.",
+   "icon": "dragon_egg",
+   "trigger": {
+    "event": "window.kill",
+    "count": 1000
+   }
+  },
+  {
+   "id": "end/level",
+   "tab": "end",
+   "parent": "end/root",
+   "frame": "goal",
+   "title": "Great View From Up Here",
+   "description": "Reach XP level 6 (6 hours of uptime).",
+   "icon": "shulker_shell",
+   "trigger": {
+    "event": "xp.levelup",
+    "count": 1,
+    "condition": {
+     "where": {
+      "level": {
+       "gte": 6
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "end/elytra",
+   "tab": "end",
+   "parent": "end/level",
+   "frame": "challenge",
+   "title": "Sky's the Limit",
+   "description": "Reach XP level 24 (24 hours of uptime).",
+   "icon": "elytra",
+   "trigger": {
+    "event": "xp.levelup",
+    "count": 1,
+    "condition": {
+     "where": {
+      "level": {
+       "gte": 24
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "end/everything",
+   "tab": "end",
+   "parent": "end/root",
+   "frame": "challenge",
+   "title": "How Did We Get Here?",
+   "description": "Do a bit of everything: 10 brews, 100 mined windows, a screenshot, a new world, all game modes, Night mode and all 10 workspaces.",
+   "icon": "beacon",
+   "trigger": {
+    "all": [
+     {
+      "event": "brew.done",
+      "count": 10
+     },
+     {
+      "event": "window.kill",
+      "count": 100
+     },
+     {
+      "event": "screenshot",
+      "count": 1
+     },
+     {
+      "event": "world.created",
+      "count": 1
+     },
+     {
+      "event": "gamemode",
+      "count": 4,
+      "condition": {
+       "distinct": "mode"
+      }
+     },
+     {
+      "event": "mode",
+      "count": 1,
+      "condition": {
+       "where": {
+        "mode": "dark"
+       }
+      }
+     },
+     {
+      "event": "workspace",
+      "count": 10,
+      "condition": {
+       "distinct": "id"
+      }
+     }
+    ]
+   },
+   "hidden": true
+  },
+  {
+   "id": "end/all_adv",
+   "tab": "end",
+   "parent": "end/everything",
+   "frame": "challenge",
+   "title": "Advancing Time",
+   "description": "Unlock every other advancement.",
+   "icon": "nether_star",
+   "trigger": {
+    "event": "advancement",
+    "count": 1,
+    "condition": {
+     "unlocked_at_least": "all_others"
+    }
+   },
+   "hidden": true
+  }
+ ]
+}

@@ -1,0 +1,390 @@
+{
+ "_comment": "Chat console texts. {player} is the user's display name (default Nurasik). Placeholders in braces are substituted at runtime.",
+ "player_default": "Nurasik",
+ "help": {
+  "per_page": 7,
+  "header": "--- Showing help page {page} of {pages} (/help <page>) ---",
+  "usage": "Usage: {usage}",
+  "footer": "Tip: press Tab to complete a command.",
+  "commands": [
+   {
+    "name": "advancement",
+    "usage": "/advancement",
+    "description": "Opens the advancements screen.",
+    "args": []
+   },
+   {
+    "name": "brew",
+    "usage": "/brew <duration|stop>",
+    "description": "Starts a brew (focus timer), e.g. 25m, 1h30m, or stops the running one.",
+    "args": [
+     {
+      "name": "duration",
+      "type": "duration",
+      "choices": [
+       "5m",
+       "15m",
+       "25m",
+       "45m",
+       "1h",
+       "stop"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "clear",
+    "usage": "/clear",
+    "description": "Clears the chat history.",
+    "args": []
+   },
+   {
+    "name": "f3",
+    "usage": "/f3 [on|off]",
+    "description": "Toggles the debug screen.",
+    "args": [
+     {
+      "name": "state",
+      "type": "choice",
+      "choices": [
+       "on",
+       "off"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "gamemode",
+    "usage": "/gamemode <survival|creative|adventure|spectator>",
+    "description": "Sets your game mode: normal, everything on, performance, or focus.",
+    "args": [
+     {
+      "name": "mode",
+      "type": "choice",
+      "choices": [
+       "survival",
+       "creative",
+       "adventure",
+       "spectator"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "give",
+    "usage": "/give <app>",
+    "description": "Gives you an app: launches it into your inventory.",
+    "args": [
+     {
+      "name": "app",
+      "type": "app"
+     }
+    ]
+   },
+   {
+    "name": "help",
+    "usage": "/help [page|command]",
+    "description": "Shows help pages or the usage of a command.",
+    "args": [
+     {
+      "name": "command",
+      "type": "command"
+     }
+    ]
+   },
+   {
+    "name": "kill",
+    "usage": "/kill",
+    "description": "Mines the focused window.",
+    "args": []
+   },
+   {
+    "name": "locate",
+    "usage": "/locate <app>",
+    "description": "Finds where an app is running and takes you there.",
+    "args": [
+     {
+      "name": "app",
+      "type": "app"
+     }
+    ]
+   },
+   {
+    "name": "reload",
+    "usage": "/reload",
+    "description": "Reloads the shell, config and quotes.",
+    "args": []
+   },
+   {
+    "name": "seed",
+    "usage": "/seed",
+    "description": "Shows the seed of the current wallpaper world.",
+    "args": []
+   },
+   {
+    "name": "stats",
+    "usage": "/stats",
+    "description": "Opens the statistics screen.",
+    "args": []
+   },
+   {
+    "name": "time",
+    "usage": "/time <set day|set night|set auto|query>",
+    "description": "Switches Day/Night mode, follows the sun, or tells the time.",
+    "args": [
+     {
+      "name": "action",
+      "type": "choice",
+      "choices": [
+       "set",
+       "query"
+      ]
+     },
+     {
+      "name": "value",
+      "type": "choice",
+      "choices": [
+       "day",
+       "night",
+       "auto"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "title",
+    "usage": "/title <workspace> <text>",
+    "description": "Sets the title shown when you enter a workspace.",
+    "args": [
+     {
+      "name": "workspace",
+      "type": "workspace",
+      "choices": [
+       "1",
+       "2",
+       "3",
+       "4",
+       "5",
+       "6",
+       "7",
+       "8",
+       "9",
+       "10"
+      ]
+     },
+     {
+      "name": "text",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "name": "tp",
+    "usage": "/tp <workspace>",
+    "description": "Teleports you to workspace 1 to 10.",
+    "args": [
+     {
+      "name": "workspace",
+      "type": "workspace",
+      "choices": [
+       "1",
+       "2",
+       "3",
+       "4",
+       "5",
+       "6",
+       "7",
+       "8",
+       "9",
+       "10"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "weather",
+    "usage": "/weather <clear|rain|thunder|snow|auto>",
+    "description": "Overrides the weather overlay, or follows the real forecast.",
+    "args": [
+     {
+      "name": "weather",
+      "type": "choice",
+      "choices": [
+       "clear",
+       "rain",
+       "thunder",
+       "snow",
+       "auto"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "errors": {
+  "unknown_command": "Unknown or incomplete command, see below for error",
+  "unknown_command_hint": "Unknown command. Type \"/help\" for help.",
+  "incorrect_argument": "Incorrect argument for command",
+  "here": "<--[HERE]",
+  "expected": "Expected {what}",
+  "unknown_option": "Unknown option '{value}'",
+  "invalid_workspace": "Workspace must be between 1 and 10",
+  "no_such_app": "No app matching '{value}' was found",
+  "not_running": "{value} is not running",
+  "no_window": "There is no window to mine",
+  "invalid_duration": "Invalid duration '{value}'. Try 25m or 1h30m",
+  "duration_too_long": "Duration must be at most 12 hours",
+  "no_permission": "You do not have permission to use this command",
+  "not_available": "That command is not available in this game mode",
+  "cooldown": "Slow down! Wait a moment before sending more commands",
+  "empty_title": "The title text cannot be empty",
+  "empty_message": "Cannot send an empty message"
+ },
+ "ok": {
+  "time_day": "Set the time to Day",
+  "time_night": "Set the time to Night",
+  "time_auto": "The day/night cycle now follows the sun",
+  "time_query": "The time is {time}",
+  "weather_clear": "Changing to clear weather",
+  "weather_rain": "Changing to rainy weather",
+  "weather_thunder": "Changing to rain and thunder",
+  "weather_snow": "Changing to snowy weather",
+  "weather_auto": "The weather now follows the real forecast",
+  "gamemode": "Set own game mode to {mode} Mode",
+  "tp": "Teleported {player} to workspace {ws}",
+  "give": "Gave 1 [{app}] to {player}",
+  "kill": "Killed {title}",
+  "locate": "The nearest {app} is at workspace {ws} ({title})",
+  "seed": "Seed: [{seed}]",
+  "brew_start": "Started brewing {task} for {duration}",
+  "brew_stop": "Stopped the brew",
+  "title_set": "Set the title of workspace {ws} to \"{text}\"",
+  "title_cleared": "Reset the title of workspace {ws}",
+  "clear": "Cleared the chat history",
+  "f3_on": "Debug screen enabled",
+  "f3_off": "Debug screen disabled",
+  "reload": "Reloaded!",
+  "reload_warn": "Note: the shell may flicker while reloading."
+ },
+ "system": {
+  "join": "{player} joined the game",
+  "leave": "{player} left the game",
+  "saved_screenshot": "Saved screenshot as {file}",
+  "advancement_task": "{player} has made the advancement [{title}]",
+  "advancement_goal": "{player} has reached the goal [{title}]",
+  "advancement_challenge": "{player} has completed the challenge [{title}]",
+  "level_up": "{player} reached experience level {level}",
+  "brew_done": "{player} finished brewing {task}",
+  "rest_done": "{player} is well rested",
+  "peaceful_on": "Difficulty set to Peaceful",
+  "peaceful_off": "Difficulty set to Normal",
+  "wifi_joined": "{player} joined {ssid}",
+  "wifi_left": "{player} lost connection to {ssid}",
+  "wifi_lost": "Disconnected: Connection lost",
+  "mode_day": "Daybreak! The time is now Day",
+  "mode_night": "Night has fallen",
+  "wallpaper": "World changed: {name}",
+  "world_created": "Created new world: {name}",
+  "low_battery": "{player} is on low health ({percent}%)",
+  "charging": "{player} is regenerating",
+  "unplugged": "{player} is no longer regenerating",
+  "gamemode": "{player}'s game mode is now {mode} Mode",
+  "kill": "{player} mined a window ({title})",
+  "unread_notification": "<{app}> {summary}",
+  "message": "<{player}> {text}",
+  "motd": "Welcome to Overworld. Type /help for a list of commands."
+ },
+ "death_messages": [
+  "{player} ran out of battery",
+  "{player} was slain by a kernel panic",
+  "{player} was killed by an out-of-memory killer",
+  "{player} fell from a high stack trace",
+  "{player} tried to swim in /dev/null",
+  "{player} was blown up by a segmentation fault",
+  "{player} hit the ground too hard (unsaved changes)",
+  "{player} was shot by a runaway process",
+  "{player} drowned in a swap partition",
+  "{player} starved to death (free memory: 0)",
+  "{player} suffocated in a wall of notifications",
+  "{player} experienced kinetic energy at 0 % charge",
+  "{player} was pummeled by a for loop without an exit",
+  "{player} went up in flames after rm -rf",
+  "{player} was squashed by a falling anvil (a fork bomb)",
+  "{player} withered away in the dark",
+  "{player} was killed by a power cut",
+  "{player} tried to charge a dead outlet",
+  "{player} died because the charger was left at home",
+  "{player} walked into a cactus while looking for the charger",
+  "{player} fell out of the world (the lid closed)",
+  "{player} discovered the floor was lava (the battery was low)",
+  "{player} didn't want to live in the same world as a 3 % battery",
+  "{player} was slain by a drained battery"
+ ],
+ "death_screen": {
+  "title": "You died!",
+  "subtitle": "{message}",
+  "score": "Score: {score}",
+  "respawn": "Respawn",
+  "title_screen": "Title Screen",
+  "hardcore_title": "Game over!",
+  "hardcore_title_screen": "Lock the Session",
+  "note": "Score = uptime hours reached this session."
+ },
+ "tips": [
+  "Press SUPER+F3 to see the debug screen",
+  "Press SUPER+F4 to open the game mode switcher",
+  "Press SUPER+Slash to start a chat command",
+  "Press SUPER+Space to open the creative inventory",
+  "Press SUPER+Return to open a terminal",
+  "Press SUPER+Q to mine the window you are looking at",
+  "Press SUPER+N to open the multiplayer server list",
+  "Press SUPER+W to pick a world for your wallpaper",
+  "Press SUPER+B to start a brew",
+  "Press SUPER+I to read your chat history of notifications",
+  "Press SUPER+SHIFT+I to switch the difficulty to Peaceful",
+  "Press SUPER+T to flip between Day and Night",
+  "Scroll over the hotbar to cycle your workspaces",
+  "Use /tp 5 to jump straight to workspace 5",
+  "Use /title 3 Library to rename a workspace",
+  "Use /locate kitty to find your terminal",
+  "Use /give kitty to open an app from chat",
+  "Use /time set auto to let the sun pick Day or Night",
+  "Use /weather rain for a cozy coding session",
+  "Use /gamemode spectator to hide the bar and focus",
+  "Use /brew 25m to start a 25-minute focus brew",
+  "Hover over an inventory slot to see the app's tooltip",
+  "Mining a window shows crack stages before it closes",
+  "Your battery is hearts; below 20 % they start to jiggle",
+  "Your memory is hunger; keep it filled",
+  "Your uptime is XP: one level each hour",
+  "Finish brews to fill the bottles in the brewing stand",
+  "Notifications arrive as toasts; urgent ones are challenges",
+  "Create New World renders a fresh wallpaper from a seed",
+  "Adventure mode turns off animations for performance",
+  "Creative mode silences hunger and heart warnings",
+  "Peaceful difficulty is Do Not Disturb",
+  "Advancements are unlocked by counting events, never keystrokes",
+  "Type /help to list every command",
+  "Press Tab to complete a chat command",
+  "Press Up in the chat to repeat an old command",
+  "Right-click is not required, but the tooltip is nice",
+  "You can resize the GUI scale in Options",
+  "Dark mode is Night, light mode is Day",
+  "Take a screenshot with Print; it lands in your chat",
+  "Hold the pickaxe: a closed window is a mined block",
+  "Don't dig straight down. Save your files first"
+ ],
+ "now_playing": {
+  "format": "Now Playing: {artist} - {title}",
+  "format_no_artist": "Now Playing: {title}",
+  "paused": "Paused: {title}",
+  "boss_bar_brew": "Brewing: {task}",
+  "record": "Now Playing: {title}"
+ },
+ "misc": {
+  "chat_placeholder": "Chat message...",
+  "chat_hint_command": "Type / for commands",
+  "tab_complete_none": "No completions",
+  "history_cleared": "Chat history cleared"
+ }
+}

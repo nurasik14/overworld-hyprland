@@ -1,0 +1,230 @@
+{
+ "_comment": "Workspace /title content. 'defaults' are used when the user set no title; 'subtitles' are picked per dominant-app category. {count} = number of windows, {app} = app display name.",
+ "defaults": [
+  {
+   "ws": 1,
+   "title": "Spawn",
+   "subtitle": "Where it all begins",
+   "icon": "oak_door"
+  },
+  {
+   "ws": 2,
+   "title": "The Workshop",
+   "subtitle": "Crafting table within reach",
+   "icon": "crafting_table"
+  },
+  {
+   "ws": 3,
+   "title": "Library",
+   "subtitle": "Quiet, with bookshelves",
+   "icon": "bookshelf"
+  },
+  {
+   "ws": 4,
+   "title": "Redstone Lab",
+   "subtitle": "Wires, clocks and bugs",
+   "icon": "redstone"
+  },
+  {
+   "ws": 5,
+   "title": "The Village",
+   "subtitle": "Chat with the neighbours",
+   "icon": "emerald"
+  },
+  {
+   "ws": 6,
+   "title": "Mushroom Fields",
+   "subtitle": "Peaceful and a bit strange",
+   "icon": "red_mushroom"
+  },
+  {
+   "ws": 7,
+   "title": "Deep Dark",
+   "subtitle": "Tread quietly",
+   "icon": "sculk"
+  },
+  {
+   "ws": 8,
+   "title": "The Nether",
+   "subtitle": "Hot, loud and full of ghosts",
+   "icon": "netherrack"
+  },
+  {
+   "ws": 9,
+   "title": "The End",
+   "subtitle": "Far from spawn",
+   "icon": "end_stone"
+  },
+  {
+   "ws": 10,
+   "title": "Offhand",
+   "subtitle": "Always within reach",
+   "icon": "iron_chestplate"
+  }
+ ],
+ "subtitles": {
+  "terminal": [
+   "Command block online",
+   "Type /help for help",
+   "Commands run here",
+   "Where the redstone is bash",
+   "Pipes and potions"
+  ],
+  "browser": [
+   "Exploring new chunks",
+   "The map is huge",
+   "Travelling the world wide web",
+   "Tabs are chests",
+   "Out on the open server"
+  ],
+  "editor": [
+   "Building block by block",
+   "Writing the blueprint",
+   "Enchanting source code",
+   "Careful with that semicolon",
+   "One more commit"
+  ],
+  "files": [
+   "Sorting the chests",
+   "Inventory management",
+   "Everything has a place",
+   "Mind the stack size"
+  ],
+  "media": [
+   "Jukebox spinning",
+   "Now playing something nice",
+   "Note blocks in tune",
+   "Volume at a fair level"
+  ],
+  "chat": [
+   "Chat is open",
+   "Messages from the server",
+   "Neighbours are talking",
+   "Mind the notifications"
+  ],
+  "system": [
+   "Redstone control room",
+   "Watching the gauges",
+   "Checking the hearts and hunger",
+   "Maintenance time"
+  ],
+  "game": [
+   "Loading terrain...",
+   "Adventure mode",
+   "Another world",
+   "Creeper nearby"
+  ],
+  "docs": [
+   "Reading the books",
+   "Written in a lectern",
+   "Study time",
+   "Pages of knowledge"
+  ],
+  "design": [
+   "Pixel by pixel",
+   "Painting with dyes",
+   "Item frames and banners",
+   "Creative mode"
+  ],
+  "empty": [
+   "Nothing here yet",
+   "A fresh chunk",
+   "Empty plains",
+   "Room to build"
+  ],
+  "default": [
+   "A quiet corner of the world",
+   "Another day in the Overworld",
+   "Windows: {count}",
+   "Hello from workspace"
+  ]
+ },
+ "categories": {
+  "terminal": [
+   "kitty",
+   "foot",
+   "alacritty",
+   "wezterm",
+   "ghostty",
+   "konsole",
+   "gnome-terminal"
+  ],
+  "browser": [
+   "zen",
+   "zen-browser",
+   "app.zen_browser.zen",
+   "firefox",
+   "chromium",
+   "brave-browser",
+   "google-chrome"
+  ],
+  "editor": [
+   "nvim",
+   "code",
+   "code-oss",
+   "vscodium",
+   "emacs",
+   "kate",
+   "gedit"
+  ],
+  "files": [
+   "spf",
+   "superfile",
+   "nautilus",
+   "dolphin",
+   "thunar",
+   "nemo"
+  ],
+  "media": [
+   "spotify",
+   "mpv",
+   "vlc",
+   "youtube-music",
+   "cava",
+   "pavucontrol"
+  ],
+  "chat": [
+   "telegram",
+   "org.telegram.desktop",
+   "discord",
+   "vesktop",
+   "element",
+   "signal"
+  ],
+  "system": [
+   "btop",
+   "htop",
+   "nvtop",
+   "fastfetch",
+   "nm-connection-editor",
+   "systemsettings"
+  ],
+  "game": [
+   "minecraft",
+   "tlauncher",
+   "steam",
+   "prismlauncher",
+   "lutris"
+  ],
+  "docs": [
+   "evince",
+   "zathura",
+   "okular",
+   "libreoffice",
+   "obsidian"
+  ],
+  "design": [
+   "inkscape",
+   "gimp",
+   "krita",
+   "blender",
+   "figma",
+   "swappy"
+  ]
+ },
+ "title_format": {
+  "fade_in_ticks": 10,
+  "stay_ticks": 70,
+  "fade_out_ticks": 20
+ }
+}

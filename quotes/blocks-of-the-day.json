@@ -1,0 +1,1724 @@
+{
+ "_comment": "Block/item/mob/biome of the day. Facts verified against minecraft.wiki (current Java Edition) at write time; since_version is the Java version named on that page's History.",
+ "entries": [
+  {
+   "id": "crafting_table",
+   "kind": "block",
+   "name": "Crafting Table",
+   "texture": "block/crafting_table_front",
+   "facts": [
+    "Two damaged same-material items in the grid merge durability plus a 5% bonus.",
+    "Grid repairs strip enchantments from the items.",
+    "It can generate in a hidden room of trial chambers."
+   ],
+   "tip": "Repair enchanted gear on an anvil, not in the grid, to keep its enchantments.",
+   "wiki_url": "https://minecraft.wiki/w/Crafting_Table",
+   "since_version": "Indev 0.31"
+  },
+  {
+   "id": "furnace",
+   "kind": "block",
+   "name": "Furnace",
+   "texture": "block/furnace_front",
+   "facts": [
+    "It smelts one item every 200 ticks, or 10 seconds.",
+    "An active furnace gives off light level 13.",
+    "Fuel keeps burning even after the input runs out."
+   ],
+   "tip": "A coal lump smelts 8 items, so load full stacks to avoid wasting fuel.",
+   "wiki_url": "https://minecraft.wiki/w/Furnace",
+   "since_version": "Indev 0.31"
+  },
+  {
+   "id": "bookshelf",
+   "kind": "block",
+   "name": "Bookshelf",
+   "texture": "block/bookshelf",
+   "facts": [
+    "Breaking one drops three books.",
+    "Fifteen nearby bookshelves unlock level 30 enchantments.",
+    "A bookshelf works as furnace fuel for 1.5 items."
+   ],
+   "tip": "Use an axe to break it fast, or Silk Touch to keep the bookshelf block.",
+   "wiki_url": "https://minecraft.wiki/w/Bookshelf",
+   "since_version": "Classic 0.26 SURVIVAL TEST"
+  },
+  {
+   "id": "tnt",
+   "kind": "block",
+   "name": "TNT",
+   "texture": "block/tnt_side",
+   "facts": [
+    "Primed TNT usually explodes after 80 ticks, which is 4 seconds.",
+    "Its default explosion power is 4.",
+    "Primed TNT can travel through Nether portals, fuse intact."
+   ],
+   "tip": "TNT usually cannot destroy blocks underwater.",
+   "wiki_url": "https://minecraft.wiki/w/TNT",
+   "since_version": "Classic 0.26 SURVIVAL TEST"
+  },
+  {
+   "id": "obsidian",
+   "kind": "block",
+   "name": "Obsidian",
+   "texture": "block/obsidian",
+   "facts": [
+    "Only diamond or netherite pickaxes can mine it.",
+    "Its blast resistance is 1,200, so normal explosions spare it.",
+    "The wither is the only mob that can break it."
+   ],
+   "tip": "Breaking an ender chest without Silk Touch drops 8 obsidian.",
+   "wiki_url": "https://minecraft.wiki/w/Obsidian",
+   "since_version": "Classic 0.28"
+  },
+  {
+   "id": "anvil",
+   "kind": "block",
+   "name": "Anvil",
+   "texture": "block/anvil",
+   "facts": [
+    "A placed anvil cannot be moved by pistons.",
+    "Item names typed at an anvil can be up to 50 characters.",
+    "Anvil sounds got slightly quieter in 1.21.11."
+   ],
+   "tip": "An iron ingot or diamond repairs 25% of an item's maximum durability.",
+   "wiki_url": "https://minecraft.wiki/w/Anvil",
+   "since_version": "1.4.2"
+  },
+  {
+   "id": "beacon",
+   "kind": "block",
+   "name": "Beacon",
+   "texture": "block/beacon",
+   "facts": [
+    "Its beam reaches 2048 blocks high since 1.21.5.",
+    "Effect range is 20, 30, 40 or 50 blocks by pyramid level.",
+    "Effects last roughly 11 to 17 seconds per refresh."
+   ],
+   "tip": "Build a level 4 pyramid to unlock Regeneration and a level II primary power.",
+   "wiki_url": "https://minecraft.wiki/w/Beacon",
+   "since_version": "1.4.2"
+  },
+  {
+   "id": "enchanting_table",
+   "kind": "block",
+   "name": "Enchanting Table",
+   "texture": "block/enchanting_table_top",
+   "facts": [
+    "It gives off light level 7.",
+    "Pistons cannot push it, and sticky pistons cannot pull it.",
+    "Fifteen bookshelves around it enable level 30 enchantments."
+   ],
+   "tip": "Leave one block of gap between each bookshelf and the table.",
+   "wiki_url": "https://minecraft.wiki/w/Enchanting_Table",
+   "since_version": "Beta 1.9 Prerelease 3"
+  },
+  {
+   "id": "lodestone",
+   "kind": "block",
+   "name": "Lodestone",
+   "texture": "block/lodestone_side",
+   "facts": [
+    "Pistons cannot push or pull it.",
+    "Since 1.21.5 it is crafted with an iron ingot, not netherite.",
+    "Since 1.21.5 it can appear in chests of ruined portals."
+   ],
+   "tip": "Since 1.21.5 lodestones are renewable, as they need only an iron ingot.",
+   "wiki_url": "https://minecraft.wiki/w/Lodestone",
+   "since_version": "1.16"
+  },
+  {
+   "id": "note_block",
+   "kind": "block",
+   "name": "Note Block",
+   "texture": "block/note_block",
+   "facts": [
+    "It plays on attack, on redstone power, or when used.",
+    "It needs air or a mob head directly above to make sound.",
+    "Each instrument has 25 pitches, then it wraps around."
+   ],
+   "tip": "Press F3 while looking at one to read its note value from 0 to 24.",
+   "wiki_url": "https://minecraft.wiki/w/Note_Block",
+   "since_version": "Beta 1.2"
+  },
+  {
+   "id": "jukebox",
+   "kind": "block",
+   "name": "Jukebox",
+   "texture": "block/jukebox_side",
+   "facts": [
+    "A playing jukebox outputs a redstone signal of strength 15.",
+    "Allays dance within 3 blocks of a playing jukebox.",
+    "A comparator reads which disc is inside."
+   ],
+   "tip": "A minecart with hopper can pull a disc out before the track ends.",
+   "wiki_url": "https://minecraft.wiki/w/Jukebox",
+   "since_version": "Alpha 1.0.14"
+  },
+  {
+   "id": "composter",
+   "kind": "block",
+   "name": "Composter",
+   "texture": "block/composter_side",
+   "facts": [
+    "It is ready for bone meal at level 8.",
+    "Breaking a composter loses the compost inside.",
+    "Leaf litter and wildflowers became compostable in 1.21.5."
+   ],
+   "tip": "Items in the 100% group, like cake, fill a composter fastest.",
+   "wiki_url": "https://minecraft.wiki/w/Composter",
+   "since_version": "1.14"
+  },
+  {
+   "id": "observer",
+   "kind": "block",
+   "name": "Observer",
+   "texture": "block/observer_front",
+   "facts": [
+    "It emits a power-15 pulse lasting 2 game ticks.",
+    "In Java it detects shape updates, like crop growth.",
+    "Moving a powered observer turns it off, with no pulse."
+   ],
+   "tip": "Two observers facing each other make a compact fast clock.",
+   "wiki_url": "https://minecraft.wiki/w/Observer",
+   "since_version": "1.11"
+  },
+  {
+   "id": "piston",
+   "kind": "block",
+   "name": "Piston",
+   "texture": "block/piston_side",
+   "facts": [
+    "A piston can push at most 12 blocks.",
+    "In Java, pistons can be powered from one block above.",
+    "Blocks needing support are safe on a piston's back."
+   ],
+   "tip": "Put levers and similar support-needing blocks on a piston's back.",
+   "wiki_url": "https://minecraft.wiki/w/Piston",
+   "since_version": "Beta 1.7"
+  },
+  {
+   "id": "hopper",
+   "kind": "block",
+   "name": "Hopper",
+   "texture": "block/hopper_outside",
+   "facts": [
+    "A full block above stops it picking up item entities.",
+    "Pistons cannot move hoppers in Java Edition.",
+    "Hoppers generate above barrels at trial chamber entrances."
+   ],
+   "tip": "Mine a hopper with a pickaxe, or it drops only its contents.",
+   "wiki_url": "https://minecraft.wiki/w/Hopper",
+   "since_version": "1.5"
+  },
+  {
+   "id": "lectern",
+   "kind": "block",
+   "name": "Lectern",
+   "texture": "block/lectern_front",
+   "facts": [
+    "Turning a page sends a full-power pulse for 2 ticks.",
+    "In Java, punching the lectern retrieves its book."
+   ],
+   "tip": "An axe breaks a lectern fastest, and its book drops too.",
+   "wiki_url": "https://minecraft.wiki/w/Lectern",
+   "since_version": "1.14"
+  },
+  {
+   "id": "grindstone",
+   "kind": "block",
+   "name": "Grindstone",
+   "texture": "block/grindstone_side",
+   "facts": [
+    "It does not remove curses or custom names.",
+    "It needs no supporting block when placed.",
+    "Pale oak planks work in its recipe since 1.21.2."
+   ],
+   "tip": "Put two damaged same-type tools in it for one repaired, unenchanted tool.",
+   "wiki_url": "https://minecraft.wiki/w/Grindstone",
+   "since_version": "1.14"
+  },
+  {
+   "id": "smithing_table",
+   "kind": "block",
+   "name": "Smithing Table",
+   "texture": "block/smithing_table_front",
+   "facts": [
+    "Netherite upgrades need a template, diamond gear and an ingot.",
+    "Applying a template costs no experience.",
+    "It can serve as furnace fuel for 1.5 items."
+   ],
+   "tip": "Upgrades keep the item's enchantments and custom name.",
+   "wiki_url": "https://minecraft.wiki/w/Smithing_Table",
+   "since_version": "1.14"
+  },
+  {
+   "id": "cartography_table",
+   "kind": "block",
+   "name": "Cartography Table",
+   "texture": "block/cartography_table_side1",
+   "facts": [
+    "It can clone, zoom out and lock maps.",
+    "It generates in cartographer houses and trail ruins."
+   ],
+   "tip": "Zooming out needs an existing map, so make a base map first.",
+   "wiki_url": "https://minecraft.wiki/w/Cartography_Table",
+   "since_version": "1.14"
+  },
+  {
+   "id": "campfire",
+   "kind": "block",
+   "name": "Campfire",
+   "texture": "block/campfire_log_lit",
+   "facts": [
+    "Its fire never spreads to nearby blocks.",
+    "Pistons cannot move or break it.",
+    "It cannot be extinguished from its bottom face."
+   ],
+   "tip": "Put one within 5 blocks below a hive with open air to harvest honey calmly.",
+   "wiki_url": "https://minecraft.wiki/w/Campfire",
+   "since_version": "1.14"
+  },
+  {
+   "id": "lantern",
+   "kind": "block",
+   "name": "Lantern",
+   "texture": "block/lantern",
+   "facts": [
+    "It gives off light level 15.",
+    "It melts snow within 2 blocks and ice within 3.",
+    "A piston destroys a lantern instead of moving it."
+   ],
+   "tip": "Hang a lantern from a chain; the two connect seamlessly.",
+   "wiki_url": "https://minecraft.wiki/w/Lantern",
+   "since_version": "1.14"
+  },
+  {
+   "id": "glowstone",
+   "kind": "block",
+   "name": "Glowstone",
+   "texture": "block/glowstone",
+   "facts": [
+    "It gives off light level 15, the maximum.",
+    "Redstone power passes up through it but not down.",
+    "Monsters cannot spawn on it."
+   ],
+   "tip": "A powered dispenser holding glowstone can charge a respawn anchor.",
+   "wiki_url": "https://minecraft.wiki/w/Glowstone",
+   "since_version": "Alpha 1.2.0"
+  },
+  {
+   "id": "sea_lantern",
+   "kind": "block",
+   "name": "Sea Lantern",
+   "texture": "block/sea_lantern",
+   "facts": [
+    "It gives off light level 15.",
+    "Monsters cannot spawn on it in Java.",
+    "Without Silk Touch it drops 2 to 3 prismarine crystals."
+   ],
+   "tip": "Use Silk Touch to keep the sea lantern block itself.",
+   "wiki_url": "https://minecraft.wiki/w/Sea_Lantern",
+   "since_version": "1.8"
+  },
+  {
+   "id": "honey_block",
+   "kind": "block",
+   "name": "Honey Block",
+   "texture": "block/honey_block_side",
+   "facts": [
+    "It does not carry redstone signals.",
+    "Landing on it cuts fall damage by four-fifths.",
+    "It slows walking noticeably."
+   ],
+   "tip": "Slide down a honey block wall to descend slowly and avoid fall damage.",
+   "wiki_url": "https://minecraft.wiki/w/Honey_Block",
+   "since_version": "1.15"
+  },
+  {
+   "id": "tinted_glass",
+   "kind": "block",
+   "name": "Tinted Glass",
+   "texture": "block/tinted_glass",
+   "facts": [
+    "It blocks light and beacon beams completely.",
+    "Mobs cannot spawn on top of it.",
+    "It drops itself when broken by any means."
+   ],
+   "tip": "No Silk Touch needed: tinted glass always drops when broken.",
+   "wiki_url": "https://minecraft.wiki/w/Tinted_Glass",
+   "since_version": "1.17"
+  },
+  {
+   "id": "lightning_rod",
+   "kind": "block",
+   "name": "Lightning Rod",
+   "texture": "block/lightning_rod",
+   "facts": [
+    "A rod topping its column diverts strikes within 128 blocks.",
+    "A struck rod emits a power-15 pulse for 8 ticks.",
+    "Any non-air block above the rod blocks diversion."
+   ],
+   "tip": "Keep flammable blocks away from the rod; strikes can ignite nearby blocks.",
+   "wiki_url": "https://minecraft.wiki/w/Lightning_Rod",
+   "since_version": "1.17"
+  },
+  {
+   "id": "target",
+   "kind": "block",
+   "name": "Target",
+   "texture": "block/target_side",
+   "facts": [
+    "Arrows and tridents keep it powered for 20 ticks.",
+    "Most other projectiles keep it powered for 8 ticks.",
+    "Targets are flammable and burn from lava."
+   ],
+   "tip": "A hoe breaks a target fastest.",
+   "wiki_url": "https://minecraft.wiki/w/Target",
+   "since_version": "1.16"
+  },
+  {
+   "id": "daylight_detector",
+   "kind": "block",
+   "name": "Daylight Detector",
+   "texture": "block/daylight_detector_top",
+   "facts": [
+    "Pistons cannot move it.",
+    "Its output refreshes once per second.",
+    "A non-inverted one gives no signal in the Nether or End."
+   ],
+   "tip": "Use the inverted mode with a redstone lamp for automatic night lighting.",
+   "wiki_url": "https://minecraft.wiki/w/Daylight_Detector",
+   "since_version": "1.5"
+  },
+  {
+   "id": "redstone_lamp",
+   "kind": "block",
+   "name": "Redstone Lamp",
+   "texture": "block/redstone_lamp",
+   "facts": [
+    "It lights instantly but takes 4 ticks to turn off.",
+    "A lit lamp gives off light level 15.",
+    "A redstone torch does not power the lamp it is attached to."
+   ],
+   "tip": "Power a lamp with a redstone block, repeater, or a torch under a solid block.",
+   "wiki_url": "https://minecraft.wiki/w/Redstone_Lamp",
+   "since_version": "1.2.1"
+  },
+  {
+   "id": "command_block",
+   "kind": "block",
+   "name": "Command Block",
+   "texture": "block/command_block_front",
+   "facts": [
+    "It only runs when the command_blocks_work game rule is on.",
+    "Java command blocks run at operator level 2.",
+    "Commands like /stop and /op cannot run in them."
+   ],
+   "tip": "Ctrl plus pick block copies a command block's command and settings.",
+   "wiki_url": "https://minecraft.wiki/w/Command_Block",
+   "since_version": "1.4.2"
+  },
+  {
+   "id": "brewing_stand",
+   "kind": "block",
+   "name": "Brewing Stand",
+   "texture": "block/brewing_stand",
+   "facts": [
+    "In Java it emits light level 1.",
+    "Pistons cannot push it in Java Edition.",
+    "Since 1.21.4 it drops when broken with any tool."
+   ],
+   "tip": "Hoppers can feed it: from above for ingredients, from the side for bottles and fuel.",
+   "wiki_url": "https://minecraft.wiki/w/Brewing_Stand",
+   "since_version": "Beta 1.9 Prerelease 3"
+  },
+  {
+   "id": "dispenser",
+   "kind": "block",
+   "name": "Dispenser",
+   "texture": "block/dispenser_front",
+   "facts": [
+    "Pistons cannot move dispensers in Java Edition.",
+    "It waits 4 ticks after activation and ignores input meanwhile.",
+    "Each activation ejects one item from a random slot."
+   ],
+   "tip": "It fires only on a rising signal edge, so use a clock for repeated shots.",
+   "wiki_url": "https://minecraft.wiki/w/Dispenser",
+   "since_version": "Beta 1.2"
+  },
+  {
+   "id": "dropper",
+   "kind": "block",
+   "name": "Dropper",
+   "texture": "block/dropper_front",
+   "facts": [
+    "Pistons cannot move droppers in Java Edition.",
+    "It waits 4 ticks after activation and ignores input meanwhile.",
+    "Java droppers can be triggered by quasi-connectivity."
+   ],
+   "tip": "One pulse ejects only one item, so use a clock to move several.",
+   "wiki_url": "https://minecraft.wiki/w/Dropper",
+   "since_version": "1.5"
+  },
+  {
+   "id": "loom",
+   "kind": "block",
+   "name": "Loom",
+   "texture": "block/loom_front",
+   "facts": [
+    "It is the shepherd villager's job site block.",
+    "Any tool breaks it, and it always drops itself.",
+    "It can burn as furnace fuel for 1.5 items."
+   ],
+   "tip": "An axe breaks a loom fastest.",
+   "wiki_url": "https://minecraft.wiki/w/Loom",
+   "since_version": "1.14"
+  },
+  {
+   "id": "respawn_anchor",
+   "kind": "block",
+   "name": "Respawn Anchor",
+   "texture": "block/respawn_anchor_side4",
+   "facts": [
+    "Hoglins avoid respawn anchors, even uncharged ones.",
+    "Since 1.21.2, entering an End exit portal uses no charge.",
+    "The ender dragon cannot destroy it."
+   ],
+   "tip": "Charge it with glowstone blocks, and mine it with a diamond pickaxe or better.",
+   "wiki_url": "https://minecraft.wiki/w/Respawn_Anchor",
+   "since_version": "1.16"
+  },
+  {
+   "id": "amethyst_block",
+   "kind": "block",
+   "name": "Block of Amethyst",
+   "texture": "block/amethyst_block",
+   "facts": [
+    "Mining it with any pickaxe drops the block; other tools drop nothing.",
+    "Next to a sculk sensor it re-emits vibrations, so chains can relay signals.",
+    "Hit by a projectile, it rings louder than it does under ordinary interaction."
+   ],
+   "tip": "Bring a wooden pickaxe or better; it is required to mine this block.",
+   "wiki_url": "https://minecraft.wiki/w/Block_of_Amethyst",
+   "since_version": "1.17"
+  },
+  {
+   "id": "budding_amethyst",
+   "kind": "block",
+   "name": "Budding Amethyst",
+   "texture": "block/budding_amethyst",
+   "facts": [
+    "Each growth attempt has a 20% chance per side; full growth averages about 2h16m.",
+    "Pistons destroy it, and sticky pistons or slime/honey blocks cannot pull it.",
+    "It cannot be obtained in Survival; breaking it drops nothing, even with Silk Touch."
+   ],
+   "tip": "Buds only grow when attached directly to a budding amethyst block.",
+   "wiki_url": "https://minecraft.wiki/w/Budding_Amethyst",
+   "since_version": "1.17"
+  },
+  {
+   "id": "calcite",
+   "kind": "block",
+   "name": "Calcite",
+   "texture": "block/calcite",
+   "facts": [
+    "It generates in amethyst geodes between the smooth basalt and amethyst layers.",
+    "Real-world calcite is the most stable form of calcium carbonate.",
+    "Bare-handed breaking takes 13.75 seconds in Java Edition."
+   ],
+   "tip": "Mine it with any pickaxe, or it will not drop as an item.",
+   "wiki_url": "https://minecraft.wiki/w/Calcite",
+   "since_version": "1.17"
+  },
+  {
+   "id": "deepslate",
+   "kind": "block",
+   "name": "Deepslate",
+   "texture": "block/deepslate",
+   "facts": [
+    "Hardness is 3, so it takes much longer to mine than regular stone.",
+    "It makes up most solid blocks below Y=0 and is common in ancient cities.",
+    "Without Silk Touch it drops cobbled deepslate instead of itself."
+   ],
+   "tip": "Smelt cobbled deepslate in a furnace to turn it back into deepslate.",
+   "wiki_url": "https://minecraft.wiki/w/Deepslate",
+   "since_version": "1.17"
+  },
+  {
+   "id": "tuff",
+   "kind": "block",
+   "name": "Tuff",
+   "texture": "block/tuff",
+   "facts": [
+    "It generates in blobs in the Overworld between Y=-64 and Y=0, in all biomes.",
+    "Ores generating inside tuff turn into deepslate variants below Y=0.",
+    "It also appears in trial chamber corridors and supply chests."
+   ],
+   "tip": "Mine it with a pickaxe; without one it drops nothing.",
+   "wiki_url": "https://minecraft.wiki/w/Tuff",
+   "since_version": "1.17"
+  },
+  {
+   "id": "dripstone_block",
+   "kind": "block",
+   "name": "Dripstone Block",
+   "texture": "block/dripstone_block",
+   "facts": [
+    "Hardness is 1.5 and blast resistance is 1; it needs a pickaxe to drop.",
+    "Four pointed dripstone craft into one dripstone block.",
+    "Mason villagers sell it, which makes it renewable."
+   ],
+   "tip": "Put water above a stalactite on a dripstone block to make it grow slowly.",
+   "wiki_url": "https://minecraft.wiki/w/Dripstone_Block",
+   "since_version": "1.17"
+  },
+  {
+   "id": "moss_block",
+   "kind": "block",
+   "name": "Moss Block",
+   "texture": "block/moss_block",
+   "facts": [
+    "It generates on floors and ceilings in lush caves.",
+    "Composting one has a 65% chance to raise the compost level.",
+    "Sniffer eggs hatch faster when placed on moss blocks."
+   ],
+   "tip": "Break moss blocks with a hoe; it is the fastest tool.",
+   "wiki_url": "https://minecraft.wiki/w/Moss_Block",
+   "since_version": "1.17"
+  },
+  {
+   "id": "sculk_sensor",
+   "kind": "block",
+   "name": "Sculk Sensor",
+   "texture": "block/sculk_sensor_top",
+   "facts": [
+    "It detects vibrations within an 8-block spherical radius.",
+    "After a signal it stays active for 30 game ticks (1.5 seconds).",
+    "It generates naturally in the deep dark and in ancient cities."
+   ],
+   "tip": "Sneak near a sensor; sneaking stops movement from creating vibrations.",
+   "wiki_url": "https://minecraft.wiki/w/Sculk_Sensor",
+   "since_version": "1.17"
+  },
+  {
+   "id": "sculk_shrieker",
+   "kind": "block",
+   "name": "Sculk Shrieker",
+   "texture": "block/sculk_shrieker_top",
+   "facts": [
+    "It generates in the deep dark, far more often in ancient cities.",
+    "Player-placed or catalyst-spawned shriekers cannot summon wardens or cause Darkness.",
+    "Mined without Silk Touch, it drops 5 experience instead of the block."
+   ],
+   "tip": "Break it with a hoe, the fastest tool for it.",
+   "wiki_url": "https://minecraft.wiki/w/Sculk_Shrieker",
+   "since_version": "1.19"
+  },
+  {
+   "id": "sculk_catalyst",
+   "kind": "block",
+   "name": "Sculk Catalyst",
+   "texture": "block/sculk_catalyst_top",
+   "facts": [
+    "It blooms when a living entity dies within 8 blocks in Java Edition.",
+    "A warden drops one on death, the only renewable source.",
+    "It emits light level 6."
+   ],
+   "tip": "Use a hoe to mine it, and Silk Touch if you want the block itself.",
+   "wiki_url": "https://minecraft.wiki/w/Sculk_Catalyst",
+   "since_version": "1.19"
+  },
+  {
+   "id": "mangrove_roots",
+   "kind": "block",
+   "name": "Mangrove Roots",
+   "texture": "block/mangrove_roots_side",
+   "facts": [
+    "Hardness and blast resistance are both 0.7.",
+    "They can be waterlogged, and are flammable, catching fire from lava.",
+    "In a composter they have a 30% chance to add a compost level."
+   ],
+   "tip": "You can break roots by hand, but an axe is quickest.",
+   "wiki_url": "https://minecraft.wiki/w/Mangrove_Roots",
+   "since_version": "1.19"
+  },
+  {
+   "id": "bamboo_block",
+   "kind": "block",
+   "name": "Block of Bamboo",
+   "texture": "block/bamboo_block",
+   "facts": [
+    "Hardness and blast resistance are both 2.",
+    "It cannot be crafted back into bamboo or smelted into charcoal.",
+    "As furnace fuel one block smelts 1.5 items."
+   ],
+   "tip": "Craft it into planks first: two planks as fuel smelt 3 items, double the block.",
+   "wiki_url": "https://minecraft.wiki/w/Block_of_Bamboo",
+   "since_version": "1.20"
+  },
+  {
+   "id": "ancient_debris",
+   "kind": "block",
+   "name": "Ancient Debris",
+   "texture": "block/ancient_debris_side",
+   "facts": [
+    "It generates in the Nether only where not exposed to air, replacing netherrack, basalt or blackstone.",
+    "Taking out smelted netherite scrap grants 2 experience points.",
+    "It was added in Java Edition 1.16 snapshot 20w06a."
+   ],
+   "tip": "Mine it with a diamond or netherite pickaxe; other tools drop nothing.",
+   "wiki_url": "https://minecraft.wiki/w/Ancient_Debris",
+   "since_version": "1.16"
+  },
+  {
+   "id": "crying_obsidian",
+   "kind": "block",
+   "name": "Crying Obsidian",
+   "texture": "block/crying_obsidian",
+   "facts": [
+    "Piglin bartering is its only renewable source, about 8.5% chance for 1-3 blocks.",
+    "In ruined portals each obsidian block has a 15% chance to be crying obsidian.",
+    "It is crafted with glowstone into a respawn anchor."
+   ],
+   "tip": "Use a diamond or netherite pickaxe; weaker tools are slow and drop nothing.",
+   "wiki_url": "https://minecraft.wiki/w/Crying_Obsidian",
+   "since_version": "1.16"
+  },
+  {
+   "id": "soul_sand",
+   "kind": "block",
+   "name": "Soul Sand",
+   "texture": "block/soul_sand",
+   "facts": [
+    "Without Soul Speed boots it slows movement by about 41.9%.",
+    "Four soul sand in a T with three wither skeleton skulls summon a wither.",
+    "Solid cover thicker than half a block removes its slowing effect."
+   ],
+   "tip": "Cover soul sand with a solid block thicker than half a block to walk normally.",
+   "wiki_url": "https://minecraft.wiki/w/Soul_Sand",
+   "since_version": "Alpha v1.2.0"
+  },
+  {
+   "id": "magma_block",
+   "kind": "block",
+   "name": "Magma Block",
+   "texture": "block/magma",
+   "facts": [
+    "It emits light level 3.",
+    "Underwater it makes a downward bubble column that pulls entities down.",
+    "A pickaxe is required for it to drop anything."
+   ],
+   "tip": "Sneak while standing on a magma block to avoid its burning damage.",
+   "wiki_url": "https://minecraft.wiki/w/Magma_Block",
+   "since_version": "1.10"
+  },
+  {
+   "id": "blue_ice",
+   "kind": "block",
+   "name": "Blue Ice",
+   "texture": "block/blue_ice",
+   "facts": [
+    "One block needs 81 ice, crafted via packed ice.",
+    "Its slipperiness is 0.989, above ice and packed ice at 0.98.",
+    "Boats reach about 72.7 m/s on it versus 40 m/s on ice."
+   ],
+   "tip": "Place blue ice under a water current to speed up items travelling in it.",
+   "wiki_url": "https://minecraft.wiki/w/Blue_Ice",
+   "since_version": "1.13"
+  },
+  {
+   "id": "packed_ice",
+   "kind": "block",
+   "name": "Packed Ice",
+   "texture": "block/packed_ice",
+   "facts": [
+    "Unlike regular ice, it does not melt near light sources.",
+    "Nine ice craft one packed ice, making it renewable.",
+    "It never turns into water when broken, and drops nothing without Silk Touch."
+   ],
+   "tip": "A pickaxe is the fastest tool for breaking it.",
+   "wiki_url": "https://minecraft.wiki/w/Packed_Ice",
+   "since_version": "1.7.2"
+  },
+  {
+   "id": "end_stone",
+   "kind": "block",
+   "name": "End Stone",
+   "texture": "block/end_stone",
+   "facts": [
+    "Its blast resistance is 9, three more than ordinary stone.",
+    "Endermen cannot pick it up and the ender dragon cannot destroy it.",
+    "It is the only block chorus flowers can be planted on."
+   ],
+   "tip": "Mine it with a pickaxe; by hand it drops nothing.",
+   "wiki_url": "https://minecraft.wiki/w/End_Stone",
+   "since_version": "Beta 1.9 Prerelease 4"
+  },
+  {
+   "id": "chorus_flower",
+   "kind": "block",
+   "name": "Chorus Flower",
+   "texture": "block/chorus_flower",
+   "facts": [
+    "It drops as an item only when broken directly or hit by a projectile.",
+    "Bone meal has no effect on its growth.",
+    "It grows regardless of light level when planted on end stone."
+   ],
+   "tip": "A flower that stopped growing at age 5 can be harvested and replanted to reset it.",
+   "wiki_url": "https://minecraft.wiki/w/Chorus_Flower",
+   "since_version": "1.9"
+  },
+  {
+   "id": "bedrock",
+   "kind": "block",
+   "name": "Bedrock",
+   "texture": "block/bedrock",
+   "facts": [
+    "Its hardness is -1, so it cannot be broken, and blast resistance is 3,600,000.",
+    "In Survival it is only available via Creative, pick block, or commands.",
+    "Mobs cannot spawn on it."
+   ],
+   "tip": "A bedrock setup like the exit portal's can securely trap a wither in Java Edition.",
+   "wiki_url": "https://minecraft.wiki/w/Bedrock",
+   "since_version": "Classic 0.0.12a"
+  },
+  {
+   "id": "spawner",
+   "kind": "block",
+   "name": "Monster Spawner",
+   "texture": "block/spawner",
+   "facts": [
+    "Survival players cannot obtain one, even with Silk Touch.",
+    "A player within a 16-block spherical radius of its center activates it.",
+    "Each cycle attempts 4 mobs, then waits 10 to 39.95 seconds."
+   ],
+   "tip": "For dark-only spawners, a torch on any side or top disables the whole spawning volume.",
+   "wiki_url": "https://minecraft.wiki/w/Monster_Spawner",
+   "since_version": "Infdev 20100625-1917"
+  },
+  {
+   "id": "sponge",
+   "kind": "block",
+   "name": "Sponge",
+   "texture": "block/sponge",
+   "facts": [
+    "Sponges can only be found in ocean monuments.",
+    "A wet sponge placed in the Nether dries instantly into a normal sponge.",
+    "It absorbs water up to 6 blocks away but no more than 118 water blocks."
+   ],
+   "tip": "Mine sponges with a hoe; it breaks them faster than other tools.",
+   "wiki_url": "https://minecraft.wiki/w/Sponge",
+   "since_version": "Classic 0.0.19a"
+  },
+  {
+   "id": "cobweb",
+   "kind": "block",
+   "name": "Cobweb",
+   "texture": "block/cobweb",
+   "facts": [
+    "Players move at roughly 25% of normal speed while touching one.",
+    "Since 1.21, entities with Weaving spawn 2-3 cobwebs on death, making it renewable.",
+    "They generate in mineshafts, strongholds, trial chambers and more."
+   ],
+   "tip": "Break cobwebs with shears; they are quickest and drop the cobweb itself.",
+   "wiki_url": "https://minecraft.wiki/w/Cobweb",
+   "since_version": "Beta 1.5"
+  },
+  {
+   "id": "mud_bricks",
+   "kind": "block",
+   "name": "Mud Bricks",
+   "texture": "block/mud_bricks",
+   "facts": [
+    "They are crafted from 4 packed mud.",
+    "They generate naturally in trail ruins, added in 1.20.",
+    "They were announced at Minecraft Live 2021."
+   ],
+   "tip": "Mine them with a pickaxe; any other tool drops nothing.",
+   "wiki_url": "https://minecraft.wiki/w/Mud_Bricks",
+   "since_version": "1.19"
+  },
+  {
+   "id": "copper_block",
+   "kind": "block",
+   "name": "Block of Copper",
+   "texture": "block/copper_block",
+   "facts": [
+    "Unwaxed copper has four oxidation stages, counting the initial state.",
+    "A non-oxidized block equals nine copper ingots.",
+    "It needs at least a stone pickaxe to drop anything."
+   ],
+   "tip": "Use a stonecutter for slabs and stairs; it yields four times as many as crafting would.",
+   "wiki_url": "https://minecraft.wiki/w/Block_of_Copper",
+   "since_version": "1.17"
+  },
+  {
+   "id": "diamond_block",
+   "kind": "block",
+   "name": "Block of Diamond",
+   "texture": "block/diamond_block",
+   "facts": [
+    "It equals nine diamonds.",
+    "It generates in woodland mansion obsidian and lava rooms.",
+    "It needs an iron pickaxe or better to mine."
+   ],
+   "tip": "A 3x3 of diamond blocks under a beacon powers it; layers can mix in other mineral blocks.",
+   "wiki_url": "https://minecraft.wiki/w/Block_of_Diamond",
+   "since_version": "Indev 0.31 20100128-2200"
+  },
+  {
+   "id": "netherite_block",
+   "kind": "block",
+   "name": "Block of Netherite",
+   "texture": "block/netherite_block",
+   "facts": [
+    "It is made from nine netherite ingots.",
+    "Its blast resistance is 1,200, the same as obsidian.",
+    "Its item form is immune to fire and lava, but a cactus can destroy it."
+   ],
+   "tip": "Unlike obsidian, pistons can push netherite blocks, handy in redstone builds.",
+   "wiki_url": "https://minecraft.wiki/w/Block_of_Netherite",
+   "since_version": "1.16"
+  },
+  {
+   "id": "shroomlight",
+   "kind": "block",
+   "name": "Shroomlight",
+   "texture": "block/shroomlight",
+   "facts": [
+    "It emits light level 15, the highest in the game.",
+    "It generates near the top of huge crimson and warped fungi.",
+    "Since 20w12a it is renewable and no longer burns from lava."
+   ],
+   "tip": "Break shroomlights with a hoe, the fastest tool for them.",
+   "wiki_url": "https://minecraft.wiki/w/Shroomlight",
+   "since_version": "1.16"
+  },
+  {
+   "id": "nether_wart_block",
+   "kind": "block",
+   "name": "Nether Wart Block",
+   "texture": "block/nether_wart_block",
+   "facts": [
+    "It cannot be crafted back into nether wart.",
+    "It generates in huge crimson fungi in crimson forests.",
+    "Composting one has an 85% chance to raise the compost level."
+   ],
+   "tip": "A hoe is the fastest way to break it.",
+   "wiki_url": "https://minecraft.wiki/w/Nether_Wart_Block",
+   "since_version": "1.10"
+  },
+  {
+   "id": "diamond",
+   "kind": "item",
+   "name": "Diamond",
+   "texture": "item/diamond",
+   "facts": [
+    "Diamond ore is found at Y 15 or lower, most commonly between -50 and -64.",
+    "Diamonds are needed for diamond tools, armor and enchanting tables."
+   ],
+   "tip": "Fortune III on an iron or better pickaxe can drop up to 4 diamonds per ore.",
+   "wiki_url": "https://minecraft.wiki/w/Diamond",
+   "since_version": "Indev 0.31"
+  },
+  {
+   "id": "ender_pearl",
+   "kind": "item",
+   "name": "Ender Pearl",
+   "texture": "item/ender_pearl",
+   "facts": [
+    "Pearls first appeared alongside endermen, with no use at first.",
+    "Teleporting arrived in Beta 1.9 Prerelease 2, when stacks were cut to 16.",
+    "They became an ingredient for eyes of ender in Beta 1.9 Prerelease 3."
+   ],
+   "tip": "Throwing a pearl just before landing replaces fall damage with the pearl's damage.",
+   "wiki_url": "https://minecraft.wiki/w/Ender_Pearl",
+   "since_version": "Beta 1.8"
+  },
+  {
+   "id": "eye_of_ender",
+   "kind": "item",
+   "name": "Eye of Ender",
+   "texture": "item/ender_eye",
+   "facts": [
+    "Each throw has a 20% chance of shattering the eye.",
+    "An eye can be placed in an End portal frame or thrown to locate a stronghold."
+   ],
+   "tip": "Eyes only locate strongholds in the Overworld; they do nothing in the Nether or End.",
+   "wiki_url": "https://minecraft.wiki/w/Eye_of_Ender",
+   "since_version": "Beta 1.9 Prerelease 3"
+  },
+  {
+   "id": "golden_apple",
+   "kind": "item",
+   "name": "Golden Apple",
+   "texture": "item/golden_apple",
+   "facts": [
+    "At first golden apples healed fully and were the best food in the game.",
+    "Apples were unobtainable then, so golden apples were too."
+   ],
+   "tip": "Unlike most foods, a golden apple can be eaten with a full hunger bar.",
+   "wiki_url": "https://minecraft.wiki/w/Golden_Apple",
+   "since_version": "Infdev 20100227-1414"
+  },
+  {
+   "id": "elytra",
+   "kind": "item",
+   "name": "Elytra",
+   "texture": "item/elytra",
+   "facts": [
+    "Java elytra have 432 durability, about 7 minutes 12 seconds of gliding.",
+    "Phantom membrane replaced leather for anvil repairs in 1.13."
+   ],
+   "tip": "For a long cruise, aim at the horizon at the altitude limit of your glide.",
+   "wiki_url": "https://minecraft.wiki/w/Elytra",
+   "since_version": "1.9"
+  },
+  {
+   "id": "compass",
+   "kind": "item",
+   "name": "Compass",
+   "texture": "item/compass_00",
+   "facts": [
+    "Librarian villagers started selling compasses in 1.3.1 (12w21a).",
+    "Lodestone compasses came in 1.16 along with lodestones."
+   ],
+   "tip": "Craft a lodestone compass to point at a specific lodestone block.",
+   "wiki_url": "https://minecraft.wiki/w/Compass",
+   "since_version": "Alpha 1.1.0"
+  },
+  {
+   "id": "recovery_compass",
+   "kind": "item",
+   "name": "Recovery Compass",
+   "texture": "item/recovery_compass_00",
+   "facts": [
+    "It is crafted from an echo shard and a compass.",
+    "In 1.21.2 its rarity was changed from Common to Uncommon."
+   ],
+   "tip": "It is useless in Hardcore mode, since players there cannot respawn.",
+   "wiki_url": "https://minecraft.wiki/w/Recovery_Compass",
+   "since_version": "1.19"
+  },
+  {
+   "id": "clock",
+   "kind": "item",
+   "name": "Clock",
+   "texture": "item/clock_00",
+   "facts": [
+    "Librarians started selling clocks in 1.3.1, making them renewable.",
+    "Shipwreck map rooms can contain clocks since 1.13."
+   ],
+   "tip": "You can sleep a few seconds after the clock shows exactly dusk.",
+   "wiki_url": "https://minecraft.wiki/w/Clock",
+   "since_version": "Alpha 1.2.0"
+  },
+  {
+   "id": "spyglass",
+   "kind": "item",
+   "name": "Spyglass",
+   "texture": "item/spyglass",
+   "facts": [
+    "It was revealed at Minecraft Live 2020 under the name telescope.",
+    "Zoom is 1/10 of your field of view, so 70 degrees becomes 7."
+   ],
+   "tip": "Press F1 while zoomed to hide the scope overlay in Java Edition.",
+   "wiki_url": "https://minecraft.wiki/w/Spyglass",
+   "since_version": "1.17"
+  },
+  {
+   "id": "totem_of_undying",
+   "kind": "item",
+   "name": "Totem of Undying",
+   "texture": "item/totem_of_undying",
+   "facts": [
+    "It became renewable in 1.14 when evokers began appearing in raids.",
+    "Evokers always drop one totem, and Looting does not affect it."
+   ],
+   "tip": "The totem must be held in a hand to work; one in the hotbar does nothing.",
+   "wiki_url": "https://minecraft.wiki/w/Totem_of_Undying",
+   "since_version": "1.11"
+  },
+  {
+   "id": "trident",
+   "kind": "item",
+   "name": "Trident",
+   "texture": "item/trident",
+   "facts": [
+    "Tridents were unobtainable in Survival until drowned arrived.",
+    "Durability was lowered from 251 to 250 in snapshot 18w30b."
+   ],
+   "tip": "A Loyalty trident acts as a Nether bow substitute; it returns even from lava.",
+   "wiki_url": "https://minecraft.wiki/w/Trident",
+   "since_version": "1.13"
+  },
+  {
+   "id": "nether_star",
+   "kind": "item",
+   "name": "Nether Star",
+   "texture": "item/nether_star",
+   "facts": [
+    "Nether stars are dropped by the wither.",
+    "Dropped stars became immune to explosions in 1.4.6 (12w49a)."
+   ],
+   "tip": "A dropped Nether star despawns after 10 minutes, so grab it promptly.",
+   "wiki_url": "https://minecraft.wiki/w/Nether_Star",
+   "since_version": "1.4.2"
+  },
+  {
+   "id": "heart_of_the_sea",
+   "kind": "item",
+   "name": "Heart of the Sea",
+   "texture": "item/heart_of_the_sea",
+   "facts": [
+    "Every buried treasure chest holds exactly one.",
+    "Its rarity was changed from Common to Uncommon in 18w21a."
+   ],
+   "tip": "Buried treasure maps with a red X are found in ocean ruins and shipwrecks.",
+   "wiki_url": "https://minecraft.wiki/w/Heart_of_the_Sea",
+   "since_version": "1.13"
+  },
+  {
+   "id": "echo_shard",
+   "kind": "item",
+   "name": "Echo Shard",
+   "texture": "item/echo_shard",
+   "facts": [
+    "Echo shards are found only in ancient city chests, 1 to 3 per chest.",
+    "Their only use is crafting recovery compasses."
+   ],
+   "tip": "Combine one echo shard with a compass to craft a recovery compass.",
+   "wiki_url": "https://minecraft.wiki/w/Echo_Shard",
+   "since_version": "1.19"
+  },
+  {
+   "id": "bundle",
+   "kind": "item",
+   "name": "Bundle",
+   "texture": "item/bundle",
+   "facts": [
+    "Bundles needed an experimental data pack until snapshot 24w39a (1.21.2).",
+    "In 24w33a the recipe became one string plus one leather."
+   ],
+   "tip": "Right-click a bundle with an empty cursor to take out the last item added.",
+   "wiki_url": "https://minecraft.wiki/w/Bundle",
+   "since_version": "1.17"
+  },
+  {
+   "id": "brush",
+   "kind": "item",
+   "name": "Brush",
+   "texture": "item/brush",
+   "facts": [
+    "Brushes first appeared in snapshot 23w07a behind an experimental pack.",
+    "Brushing a single suspicious block takes 96 game ticks, or 4.8 seconds."
+   ],
+   "tip": "Keep brushing without interruption, or the block gradually reverts.",
+   "wiki_url": "https://minecraft.wiki/w/Brush",
+   "since_version": "1.20"
+  },
+  {
+   "id": "lead",
+   "kind": "item",
+   "name": "Lead",
+   "texture": "item/lead",
+   "facts": [
+    "Leads were added in snapshot 13w16a, originally called leashes.",
+    "They can tether horses, pigs, cows, chickens, sheep and mooshrooms."
+   ],
+   "tip": "Sneak while using a fence on a leashed mob to tie it to the fence.",
+   "wiki_url": "https://minecraft.wiki/w/Lead",
+   "since_version": "1.6.1"
+  },
+  {
+   "id": "name_tag",
+   "kind": "item",
+   "name": "Name Tag",
+   "texture": "item/name_tag",
+   "facts": [
+    "Name tags were first found in dungeon chests.",
+    "Fishing made them renewable in 1.7.2 (13w36a)."
+   ],
+   "tip": "Rename a full stack of tags at once; it costs 1 experience level per stack.",
+   "wiki_url": "https://minecraft.wiki/w/Name_Tag",
+   "since_version": "1.6.1"
+  },
+  {
+   "id": "firework_rocket",
+   "kind": "item",
+   "name": "Firework Rocket",
+   "texture": "item/firework_rocket",
+   "facts": [
+    "Rockets arrived in snapshot 12w49a.",
+    "At first they could not be taken from the Creative inventory."
+   ],
+   "tip": "A rocket without a firework star has no explosion, so a crossbow shot does no damage.",
+   "wiki_url": "https://minecraft.wiki/w/Firework_Rocket",
+   "since_version": "1.4.6"
+  },
+  {
+   "id": "blaze_rod",
+   "kind": "item",
+   "name": "Blaze Rod",
+   "texture": "item/blaze_rod",
+   "facts": [
+    "Blaze rods became usable for blaze powder in Beta 1.9 Prerelease 2.",
+    "They became a brewing stand ingredient in Prerelease 3."
+   ],
+   "tip": "Blazes drop rods only when killed by a player or a tamed wolf.",
+   "wiki_url": "https://minecraft.wiki/w/Blaze_Rod",
+   "since_version": "Beta 1.9 Prerelease"
+  },
+  {
+   "id": "honeycomb",
+   "kind": "item",
+   "name": "Honeycomb",
+   "texture": "item/honeycomb",
+   "facts": [
+    "Honeycomb arrived in snapshot 19w34a, used to craft beehives.",
+    "Trial chamber chests can hold it since snapshot 23w45a."
+   ],
+   "tip": "Put a campfire under a hive before shearing so the bees stay calm.",
+   "wiki_url": "https://minecraft.wiki/w/Honeycomb",
+   "since_version": "1.15"
+  },
+  {
+   "id": "glow_berries",
+   "kind": "item",
+   "name": "Glow Berries",
+   "texture": "item/glow_berries",
+   "facts": [
+    "They arrived in snapshot 21w05a together with cave vines.",
+    "Eating one restores 2 hunger points; foxes can be bred with them."
+   ],
+   "tip": "Right-click a berry-bearing cave vine to pick berries without breaking it.",
+   "wiki_url": "https://minecraft.wiki/w/Glow_Berries",
+   "since_version": "1.17"
+  },
+  {
+   "id": "sweet_berries",
+   "kind": "item",
+   "name": "Sweet Berries",
+   "texture": "item/sweet_berries",
+   "facts": [
+    "They arrived in snapshot 18w49a along with sweet berry bushes.",
+    "Foxes could be bred with them from 19w07a."
+   ],
+   "tip": "Bone meal on a sweet berry bush advances its growth by one stage.",
+   "wiki_url": "https://minecraft.wiki/w/Sweet_Berries",
+   "since_version": "1.14"
+  },
+  {
+   "id": "cookie",
+   "kind": "item",
+   "name": "Cookie",
+   "texture": "item/cookie",
+   "facts": [
+    "Cookies originally healed 1 HP and stacked to 8.",
+    "Stack size became 64 in Beta 1.8 Pre-release."
+   ],
+   "tip": "Cookies are a good compost input: each has an 85% chance to raise the level.",
+   "wiki_url": "https://minecraft.wiki/w/Cookie",
+   "since_version": "Beta 1.4"
+  },
+  {
+   "id": "amethyst_shard",
+   "kind": "item",
+   "name": "Amethyst Shard",
+   "texture": "item/amethyst_shard",
+   "facts": [
+    "A fully grown amethyst cluster drops 4 shards.",
+    "Shards can duplicate an allay near an active jukebox, with a 5-minute cooldown."
+   ],
+   "tip": "Mine clusters without Silk Touch or Fortune to get the 4 shards.",
+   "wiki_url": "https://minecraft.wiki/w/Amethyst_Shard",
+   "since_version": "1.17"
+  },
+  {
+   "id": "netherite_ingot",
+   "kind": "item",
+   "name": "Netherite Ingot",
+   "texture": "item/netherite_ingot",
+   "facts": [
+    "Ingots were added in snapshot 20w06a.",
+    "The ingot itself is immune to being destroyed by fire and lava."
+   ],
+   "tip": "A smithing table upgrades diamond gear using an ingot and an upgrade template.",
+   "wiki_url": "https://minecraft.wiki/w/Netherite_Ingot",
+   "since_version": "1.16"
+  },
+  {
+   "id": "phantom_membrane",
+   "kind": "item",
+   "name": "Phantom Membrane",
+   "texture": "item/phantom_membrane",
+   "facts": [
+    "Tamed cats can bring membranes as gifts since 1.14.",
+    "Its texture was changed in snapshot 19w08a."
+   ],
+   "tip": "One membrane in an anvil restores 25% of an elytra's durability, keeping enchantments.",
+   "wiki_url": "https://minecraft.wiki/w/Phantom_Membrane",
+   "since_version": "1.13"
+  },
+  {
+   "id": "wind_charge",
+   "kind": "item",
+   "name": "Wind Charge",
+   "texture": "item/wind_charge",
+   "facts": [
+    "Wind charges debuted in snapshot 23w45a under an experimental pack.",
+    "They can be crafted from breeze rods since 24w11a."
+   ],
+   "tip": "Wind charges have a 0.5 second cooldown that covers all stacks in your inventory.",
+   "wiki_url": "https://minecraft.wiki/w/Wind_Charge",
+   "since_version": "1.21"
+  },
+  {
+   "id": "mace",
+   "kind": "item",
+   "name": "Mace",
+   "texture": "item/mace",
+   "facts": [
+    "Maces first appeared in snapshot 24w11a.",
+    "Durability was raised from 250 to 500 in 24w18a."
+   ],
+   "tip": "Repair a mace in an anvil with a breeze rod for 25% durability; enchantments stay.",
+   "wiki_url": "https://minecraft.wiki/w/Mace",
+   "since_version": "1.21"
+  },
+  {
+   "id": "fishing_rod",
+   "kind": "item",
+   "name": "Fishing Rod",
+   "texture": "item/fishing_rod",
+   "facts": [
+    "At first rods had no function and were held backward.",
+    "Rods could catch fish from any water in Alpha 1.2.0, with 64 durability."
+   ],
+   "tip": "A carrot on a stick needs the fishing rod diagonally above the carrot.",
+   "wiki_url": "https://minecraft.wiki/w/Fishing_Rod",
+   "since_version": "Alpha 1.1.1"
+  },
+  {
+   "id": "creeper",
+   "kind": "mob",
+   "name": "Creeper",
+   "texture": "entity/creeper/creeper",
+   "facts": [
+    "Its fuse lasts 30 ticks (1.5 seconds) once it is within 3 blocks of you.",
+    "Lightning within 4 blocks charges it, raising explosion power from 3 to 6.",
+    "Cats and ocelots scare creepers away within 6 blocks."
+   ],
+   "tip": "Break line of sight during the fuse and the explosion is cancelled.",
+   "wiki_url": "https://minecraft.wiki/w/Creeper",
+   "since_version": "Classic 0.24_SURVIVAL_TEST"
+  },
+  {
+   "id": "enderman",
+   "kind": "mob",
+   "name": "Enderman",
+   "texture": "entity/enderman/enderman",
+   "facts": [
+    "It is the only mob that spawns naturally in all three dimensions.",
+    "Looking at its eyes within 64 blocks for 5 ticks provokes it.",
+    "Rain, water and splash water bottles hurt it."
+   ],
+   "tip": "Wear a carved pumpkin so looking at endermen will not anger them.",
+   "wiki_url": "https://minecraft.wiki/w/Enderman",
+   "since_version": "Beta 1.8"
+  },
+  {
+   "id": "axolotl",
+   "kind": "mob",
+   "name": "Axolotl",
+   "texture": "entity/axolotl/axolotl_lucy",
+   "facts": [
+    "Blue axolotls do not spawn naturally; babies have a 1/1200 chance of being blue.",
+    "Hurt underwater, it may play dead for 10 seconds and gain Regeneration I.",
+    "Out of water with no deep water nearby, it dies after 5 minutes."
+   ],
+   "tip": "Feed a baby a bucket of tropical fish; each use cuts 10% of its remaining growth time.",
+   "wiki_url": "https://minecraft.wiki/w/Axolotl",
+   "since_version": "1.17"
+  },
+  {
+   "id": "allay",
+   "kind": "mob",
+   "name": "Allay",
+   "texture": "entity/allay/allay",
+   "facts": [
+    "It spawns only in pillager outpost cages and woodland mansion cells, in groups of 1-3.",
+    "It collects dropped items matching the one you gave it, searching within 32 blocks.",
+    "Giving an amethyst shard to a dancing allay duplicates it."
+   ],
+   "tip": "Give it an item, then drop more of that item nearby and it will gather them for you.",
+   "wiki_url": "https://minecraft.wiki/w/Allay",
+   "since_version": "1.19"
+  },
+  {
+   "id": "warden",
+   "kind": "mob",
+   "name": "Warden",
+   "texture": "entity/warden/warden",
+   "facts": [
+    "It appears after a player triggers sculk shriekers four times.",
+    "Its sonic boom ignores armor and shields and passes through blocks.",
+    "It always drops one sculk catalyst when killed."
+   ],
+   "tip": "Sneaking avoids vibration detection, but it can still smell you, so keep your distance.",
+   "wiki_url": "https://minecraft.wiki/w/Warden",
+   "since_version": "1.19"
+  },
+  {
+   "id": "bee",
+   "kind": "mob",
+   "name": "Bee",
+   "texture": "entity/bee/bee",
+   "facts": [
+    "A bee that stings loses its stinger and dies about a minute later.",
+    "Each hive holds up to 3 bees and needs honey level 5 to harvest.",
+    "It is the only arthropod mob that can spawn on Peaceful difficulty."
+   ],
+   "tip": "Put a campfire under a hive before harvesting so the bees stay calm.",
+   "wiki_url": "https://minecraft.wiki/w/Bee",
+   "since_version": "1.15"
+  },
+  {
+   "id": "fox",
+   "kind": "mob",
+   "name": "Fox",
+   "texture": "entity/fox/fox",
+   "facts": [
+    "Red foxes live in taigas; snow foxes live in snowy taigas and groves.",
+    "Foxes can fall 5 blocks before taking damage, versus 3 for most mobs.",
+    "They hunt fish in water and will swim to do it."
+   ],
+   "tip": "Sneak toward a fox; it will not flee until you are right next to it.",
+   "wiki_url": "https://minecraft.wiki/w/Fox",
+   "since_version": "1.14"
+  },
+  {
+   "id": "frog",
+   "kind": "mob",
+   "name": "Frog",
+   "texture": "entity/frog/temperate_frog",
+   "facts": [
+    "Frogs come in temperate, warm and cold variants, set by biome.",
+    "Eating a magma cube makes a frog drop a froglight matching its variant.",
+    "Frogs can jump up to 8 blocks high."
+   ],
+   "tip": "Hold a slimeball within 6 blocks to lure frogs, then feed two to breed them.",
+   "wiki_url": "https://minecraft.wiki/w/Frog",
+   "since_version": "1.19"
+  },
+  {
+   "id": "goat",
+   "kind": "mob",
+   "name": "Goat",
+   "texture": "entity/goat/goat",
+   "facts": [
+    "About 2% of goats are screaming goats, with different sounds and more ramming.",
+    "Ramming stone, logs or packed ice can knock off a horn, dropping a goat horn.",
+    "An adult goat can be milked with a bucket."
+   ],
+   "tip": "Hold wheat near a goat that is winding up a ram and it will walk to you instead.",
+   "wiki_url": "https://minecraft.wiki/w/Goat",
+   "since_version": "1.17"
+  },
+  {
+   "id": "iron_golem",
+   "kind": "mob",
+   "name": "Iron Golem",
+   "texture": "entity/iron_golem/iron_golem",
+   "facts": [
+    "It is built from four iron blocks in a T shape topped with a carved pumpkin.",
+    "An iron ingot heals it by 25 HP.",
+    "It cracks visibly as it takes damage."
+   ],
+   "tip": "Stand on a three-block pillar to hit golems without being reached.",
+   "wiki_url": "https://minecraft.wiki/w/Iron_Golem",
+   "since_version": "1.2.1"
+  },
+  {
+   "id": "snow_golem",
+   "kind": "mob",
+   "name": "Snow Golem",
+   "texture": "entity/snow_golem",
+   "facts": [
+    "It is made from two snow blocks and a carved pumpkin or jack o'lantern.",
+    "Its snowballs do no damage except to blazes, but they knock mobs back.",
+    "Rain, water and hot biomes damage it."
+   ],
+   "tip": "Fire Resistance lets a snow golem survive in deserts and other hot biomes.",
+   "wiki_url": "https://minecraft.wiki/w/Snow_Golem",
+   "since_version": "Beta 1.9 Prerelease"
+  },
+  {
+   "id": "villager",
+   "kind": "mob",
+   "name": "Villager",
+   "texture": "entity/villager/villager",
+   "facts": [
+    "A baby villager becomes an adult after 20 minutes.",
+    "Breeding needs 12 nutrition points; bread counts for 4, carrots and potatoes for 1.",
+    "Nitwits cannot trade or take a profession."
+   ],
+   "tip": "Once you trade with a villager, its profession is locked for good.",
+   "wiki_url": "https://minecraft.wiki/w/Villager",
+   "since_version": "Beta 1.9 Prerelease"
+  },
+  {
+   "id": "wandering_trader",
+   "kind": "mob",
+   "name": "Wandering Trader",
+   "texture": "entity/wandering_trader",
+   "facts": [
+    "Each trader offers nine trades.",
+    "It arrives with two leashed trader llamas.",
+    "In Java, it despawns after 48,000 ticks nearby; name tags do not stop this."
+   ],
+   "tip": "A trader summoned by egg or command has a DespawnDelay of 0, so it stays put.",
+   "wiki_url": "https://minecraft.wiki/w/Wandering_Trader",
+   "since_version": "1.14"
+  },
+  {
+   "id": "wolf",
+   "kind": "mob",
+   "name": "Wolf",
+   "texture": "entity/wolf/wolf",
+   "facts": [
+    "Each bone has a 1/3 chance of taming a wild wolf.",
+    "Tamed wolves have 40 HP; wild ones have 8 HP.",
+    "There are 9 wolf variants, each tied to a biome."
+   ],
+   "tip": "Feed a hurt tamed wolf cooked porkchop to restore 16 HP per item.",
+   "wiki_url": "https://minecraft.wiki/w/Wolf",
+   "since_version": "Beta 1.4"
+  },
+  {
+   "id": "panda",
+   "kind": "mob",
+   "name": "Panda",
+   "texture": "entity/panda/panda",
+   "facts": [
+    "Pandas have seven personalities, with brown the rarest at about 1.6%.",
+    "Lazy pandas are the slowest land mob in the game.",
+    "Since 24w21a they panic only from cactus, freezing, fire and lightning damage."
+   ],
+   "tip": "To breed pandas, keep at least one bamboo plant within a 7x7x3 area.",
+   "wiki_url": "https://minecraft.wiki/w/Panda",
+   "since_version": "1.14"
+  },
+  {
+   "id": "parrot",
+   "kind": "mob",
+   "name": "Parrot",
+   "texture": "entity/parrot/parrot_red_blue",
+   "facts": [
+    "Parrots cannot breed, and baby parrots do not exist.",
+    "They imitate nearby mobs' idle sounds within 20 blocks.",
+    "Seeds tame them with a 1/10 chance each; cookies kill them."
+   ],
+   "tip": "Bring plenty of seeds, since each has only a 1/10 chance to tame a parrot.",
+   "wiki_url": "https://minecraft.wiki/w/Parrot",
+   "since_version": "1.12"
+  },
+  {
+   "id": "sniffer",
+   "kind": "mob",
+   "name": "Sniffer",
+   "texture": "entity/sniffer/sniffer",
+   "facts": [
+    "Sniffers cannot spawn naturally and only come from hatched eggs.",
+    "They dig up torchflower seeds or pitcher pods with equal chance.",
+    "A snifflet takes 40 minutes to grow up, twice as long as most babies."
+   ],
+   "tip": "Place sniffer eggs on moss blocks to hatch them in 10 minutes instead of 20.",
+   "wiki_url": "https://minecraft.wiki/w/Sniffer",
+   "since_version": "1.20"
+  },
+  {
+   "id": "camel",
+   "kind": "mob",
+   "name": "Camel",
+   "texture": "entity/camel/camel",
+   "facts": [
+    "One camel spawns in the center of each non-abandoned desert village.",
+    "Two players can ride one camel at once.",
+    "Camels can fall 6 blocks safely, versus 3 for most mobs."
+   ],
+   "tip": "Feed a baby camel cactus to shave 10 seconds off its remaining growth time.",
+   "wiki_url": "https://minecraft.wiki/w/Camel",
+   "since_version": "1.20"
+  },
+  {
+   "id": "ender_dragon",
+   "kind": "mob",
+   "name": "Ender Dragon",
+   "texture": "entity/enderdragon/dragon",
+   "facts": [
+    "It has 200 HP but takes about 75% less damage unless hit on the head.",
+    "The first defeat drops 12,000 XP.",
+    "Respawning it needs four End crystals around the exit portal."
+   ],
+   "tip": "Aim for the head; other hitboxes take heavy damage reduction.",
+   "wiki_url": "https://minecraft.wiki/w/Ender_Dragon",
+   "since_version": "Beta 1.9 Prerelease 6"
+  },
+  {
+   "id": "wither",
+   "kind": "mob",
+   "name": "Wither",
+   "texture": "entity/wither/wither",
+   "facts": [
+    "It is the only source of nether stars, needed for beacons.",
+    "It is the only mob that can destroy obsidian.",
+    "Below half health it gains armor that blocks arrows."
+   ],
+   "tip": "Summon it far from your base; its spawn explosion wrecks nearby blocks.",
+   "wiki_url": "https://minecraft.wiki/w/Wither",
+   "since_version": "1.4.2"
+  },
+  {
+   "id": "ghast",
+   "kind": "mob",
+   "name": "Ghast",
+   "texture": "entity/ghast/ghast",
+   "facts": [
+    "Ghasts are the only source of ghast tears.",
+    "A fireball deflected back into a ghast kills it instantly.",
+    "Once it targets you, it fires a fireball every 3 seconds."
+   ],
+   "tip": "Hit its fireball back from a distance to kill it in one shot.",
+   "wiki_url": "https://minecraft.wiki/w/Ghast",
+   "since_version": "Alpha v1.2.0"
+  },
+  {
+   "id": "strider",
+   "kind": "mob",
+   "name": "Strider",
+   "texture": "entity/strider/strider",
+   "facts": [
+    "Striders spawn in groups of 2 to 4 on lava in all Nether biomes.",
+    "Lava does not hurt them and they walk on top of it.",
+    "Out of lava they turn purple, shiver and slow down."
+   ],
+   "tip": "Face a solid block before dismounting so you do not land in lava.",
+   "wiki_url": "https://minecraft.wiki/w/Strider",
+   "since_version": "1.16"
+  },
+  {
+   "id": "turtle",
+   "kind": "mob",
+   "name": "Turtle",
+   "texture": "entity/turtle/big_sea_turtle",
+   "facts": [
+    "Turtles are the only source of turtle scutes, dropped by growing babies.",
+    "After breeding, a Java turtle lays 1-4 eggs and has a 5-minute cooldown.",
+    "Babies take 20 minutes to grow up."
+   ],
+   "tip": "Feed baby turtles seagrass; each use cuts 10% of their remaining growth time.",
+   "wiki_url": "https://minecraft.wiki/w/Turtle",
+   "since_version": "1.13"
+  },
+  {
+   "id": "glow_squid",
+   "kind": "mob",
+   "name": "Glow Squid",
+   "texture": "entity/squid/glow_squid",
+   "facts": [
+    "It is the only source of glow ink sacs.",
+    "It won the 2020 mob vote.",
+    "Java spawns them in groups of 4 to 6."
+   ],
+   "tip": "Use Looting III to raise the average ink sac yield from 2 to 3.5 per kill.",
+   "wiki_url": "https://minecraft.wiki/w/Glow_Squid",
+   "since_version": "1.17"
+  },
+  {
+   "id": "slime",
+   "kind": "mob",
+   "name": "Slime",
+   "texture": "entity/slime/slime",
+   "facts": [
+    "A killed large slime splits into two to four medium slimes.",
+    "About one in ten chunks is a slime chunk, decided by the world seed.",
+    "Slimes ignore lava and cactus because they move straight at their target."
+   ],
+   "tip": "Slimes need a clear 2.08-block cube of space to spawn; any solid block blocks them.",
+   "wiki_url": "https://minecraft.wiki/w/Slime",
+   "since_version": "Alpha v1.0.11"
+  },
+  {
+   "id": "shulker",
+   "kind": "mob",
+   "name": "Shulker",
+   "texture": "entity/shulker/shulker",
+   "facts": [
+    "Shulkers are found only in End cities.",
+    "They are the only source of shulker shells, used for shulker boxes.",
+    "Their bullets apply Levitation for 10 seconds in Java Edition."
+   ],
+   "tip": "Raise a shield to block shulker bullets and avoid Levitation.",
+   "wiki_url": "https://minecraft.wiki/w/Shulker",
+   "since_version": "1.9"
+  },
+  {
+   "id": "cherry_grove",
+   "kind": "biome",
+   "name": "Cherry Grove",
+   "texture": "block/cherry_leaves",
+   "facts": [
+    "Villages cannot generate here, but pillager outposts can.",
+    "Sugar cane and pumpkin patches do not generate in it in Java.",
+    "Dripstone caves and the deep dark are common beneath it."
+   ],
+   "tip": "Look at lower plains beside a grove if you want a nearby village.",
+   "wiki_url": "https://minecraft.wiki/w/Cherry_Grove",
+   "since_version": "1.20"
+  },
+  {
+   "id": "deep_dark",
+   "kind": "biome",
+   "name": "Deep Dark",
+   "texture": "block/sculk",
+   "facts": [
+    "It is the only biome where ancient cities can generate.",
+    "Regular hostile mobs do not spawn; only the warden can appear.",
+    "It is the only Overworld biome without lava lakes."
+   ],
+   "tip": "Bone meal grows flowers here as in plains, so you can plant tulips underground.",
+   "wiki_url": "https://minecraft.wiki/w/Deep_Dark",
+   "since_version": "1.19"
+  },
+  {
+   "id": "lush_caves",
+   "kind": "biome",
+   "name": "Lush Caves",
+   "texture": "block/moss_block",
+   "facts": [
+    "It is the only biome where axolotls spawn.",
+    "It generates most often under humid biomes like dark forests and old growth taigas.",
+    "Java Edition lush caves have rain, unlike Bedrock's arid ones."
+   ],
+   "tip": "Azalea trees on the surface hint that a lush cave lies below.",
+   "wiki_url": "https://minecraft.wiki/w/Lush_Caves",
+   "since_version": "1.17"
+  },
+  {
+   "id": "mushroom_fields",
+   "kind": "biome",
+   "name": "Mushroom Fields",
+   "texture": "block/mycelium_top",
+   "facts": [
+    "Mushroom fields always generate as islands surrounded by deep ocean.",
+    "Mooshrooms spawn naturally only here.",
+    "It covers about 0.14% of the Overworld, a very rare surface biome."
+   ],
+   "tip": "Natural hostile mobs skip its surface, but spawners and raids still work.",
+   "wiki_url": "https://minecraft.wiki/w/Mushroom_Fields",
+   "since_version": "Beta 1.9 Prerelease"
+  }
+ ]
+}

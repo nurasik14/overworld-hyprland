@@ -1,44 +1,58 @@
 # quotes/ — text content for the Overworld Hyprland theme
 
-> **Theme system, switchable.** Overworld Hyprland is a theme system layered on top of the JaKooLit
-> Hyprland dotfiles, not a replacement for them. Turn it on with `overworld on` and off with `overworld off`
-> (the stock desktop returns in about 5 s, no logout); `overworld status` shows which state is active.
-> The quotes and herbs here appear on the desktop widgets, which are shown only while the theme is on. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+All text here is original writing (own words, no copied passages). Minecraft facts were checked against
+minecraft.wiki when written; Mojang's own `assets/mc/texts/splashes.txt` is **not** copied (the shell may mix lines
+from it in at runtime). Validate everything with `python3 quotes/check.py [assets/mc]` (JSON syntax, limits, every
+texture/icon path, advancement tree, event names).
 
-**Decorative content, not medical advice.** `herbs.json` exists to put a pretty
-"Herb / Poison of the day" card on a desktop. The `fact` and `caution` fields
-summarise widely documented pharmacology and history in one sentence each and
-were written cautiously, but they are not dosing guidance and must never be used
-as such. Consult a physician or pharmacist for anything real.
+Placeholders in `{braces}` are filled in at runtime. `{player}` defaults to `Nurasik`.
+
+## splashes.json
+`{"splashes": [{"text", "seasonal"?: {"from": "MM-DD", "to": "MM-DD"}}]}` — 272 splashes, text ≤ 40 chars.
+`seasonal` entries show only inside the (inclusive, year-wrapping) date range, e.g. Nauryz Mar 21–23, New Year
+Dec 31–Jan 2, Halloween Oct 30–Nov 1; on those dates prefer them like the game does.
+
+## blocks-of-the-day.json
+`{"entries": [{id, kind: "block"|"item"|"mob"|"biome", name, texture, facts[2–3], tip, wiki_url, since_version}]}` —
+125 entries. `texture` is a path under `assets/mc/textures/` without `.png` (`block/…`, `item/…`, `entity/…`; biomes
+use a representative block texture). Pick `entries[dayOfYear % n]`. `since_version` is the Java version named in
+the wiki page's History.
+
+## advancements.json
+`{"advancements": [{id, tab, parent, frame, title ≤ 24, description, icon, trigger, hidden?}]}` — 60 entries.
+- `tab`: overworld | adventure | husbandry | nether | end; exactly one root per tab (`parent: null`).
+- `frame`: task | goal | challenge. `icon`: item/block name from assets/mc (resolved as `item/<n>`, `block/<n>`,
+  `block/<n>_front|_side|_top`, or `item/<n>_00` for animated clocks/compasses).
+- `trigger`: `{event, count?, condition?}` or `{all: [trigger, …]}` (every sub-trigger satisfied; counts are
+  cumulative lifetime counts, default 1). `event` is a BRIEF §4.4 event, plus three derived pseudo-events the
+  engine computes itself: `$resume` (wall clock jumped forward > 2 min = suspend/resume), `$time` (checked once a
+  minute while the session is active), `$day` (once per local day of activity).
+- `condition` keys (all optional, AND-combined, evaluated on the event's data):
+  - `where`: `{field: value}` equals; or `{field: {in:[…]|gte:n|lte:n|startswith:s}}`. Window class compare is
+    case-insensitive.
+  - `distinct`: field name — `count` then means *distinct values seen* of that field (workspace ids, modes, dates).
+    `$day` uses `distinct: "date"` over `YYYY-MM-DD`.
+  - `time`: `{from:"HH:MM", to:"HH:MM"}` local time (wraps midnight).
+  - `unlocked_at_least: "all_others"` — on `advancement` events: every other advancement unlocked.
+- Uptime advancements use `xp.levelup {level}` (level = hours of uptime).
+
+## chat.json
+`player_default`, `help` (`per_page`, `header`, `usage`, `footer`, `commands[]` with `name`, `usage`,
+`description`, `args[]` for tab completion: `{name, type: choice|duration|workspace|app|text|command, choices?}`),
+`errors` (game-voice error lines), `ok` (command success lines), `system` (join/leave, screenshot, advancement
+chat lines, battery, Wi-Fi …), `death_messages[]` (24, low-battery screen), `death_screen` (title/buttons/hardcore
+variant), `tips[]` (42 loading-screen tips; key names follow BRIEF §4.7 and must stay in sync with
+docs/KEYBINDS.md), `now_playing` (media/boss-bar formats), `misc`.
+
+## titles.json
+`defaults[]` — `{ws, title, subtitle, icon}` for workspaces 1–10 (used when the user has no title);
+`subtitles{category: [lines]}` — random /title subtitle by dominant-app category (`{count}` = window count);
+`categories{category: [window classes]}` — class → category map; `title_format` — the real /title tick timings.
 
 ## quotes.json
+`[{text, attribution, source: "original", lang}]` — short lines for the Quote widget, hyprlock and fastfetch
+(same shape the Apothecary consumers read).
 
-Array of `{"text", "attribution", "source", "lang", "cjk"?}`.
-
-| source | what it is |
-|---|---|
-| `Dhammapada N (tr. F. Max Müller, 1881, public domain)` | Verses from Müller's 1881 translation (*Sacred Books of the East* vol. X), checked against the Project Gutenberg text (#2017). Verse numbers follow Müller. |
-| `Analects b:c (tr. James Legge, 1893, public domain)` | James Legge, *The Chinese Classics* vol. 1 (2nd ed. 1893), checked against the Wikisource transcription. Book:chapter follow Legge's numbering where it differs from modern editions (noted in `source`). `cjk` carries the Chinese original. |
-| `The Overworld Diaries, ep 1` | Short lines from the TV anime (Crunchyroll English subtitles) as transcribed on the fan wiki's episode‑1 transcript. Only lines that could be checked against that transcript are included. |
-| `original` | Original in‑character lines written for this theme (not from the novel or anime). `attribution` is empty on purpose. |
-| `user` | The user's own line, unattributed by request. |
-
-## herbs.json
-
-Array of `{"id", "name_en", "name_cjk", "reading", "kind", "fact", "caution", "maomao_note", "plate"}`.
-
-- `kind` is `herb`, `poison` or `both` (useful drug *and* dangerous).
-- `reading` is pinyin and/or Japanese romanisation.
-- `maomao_note` lines are **original writing** in Maomao's deadpan voice. They are
-  not quotations from Natsu Hyuuga's novels, the manga or the anime.
-- `plate` points to a theme‑recolourable ink mask (black ink on alpha, WebP) cut
-  from a public‑domain plate of *植物名實圖考* (Wu Qijun, 1848, Wikimedia Commons);
-  see `assets/pd/plates/` and `assets/CREDITS.md`. 14 entries have one (ginseng,
-  licorice, ephedra, angelica, safflower, chrysanthemum, lotus, jujube, aconite,
-  poppy, ginger, mugwort, goji, cinnamon). `null` means no mask is committed:
-  seven more are mapped in `assets/pd/plates/fetch-plates.py` but not yet fetched
-  (rhubarb, mint, camphor, apricot, gelsemium, henbane, oleander — run
-  `fetch-plates.py` then `make-masks.py`, which refreshes this field); the rest
-  (datura, foxglove, belladonna, hemlock, castor bean, star anise, clove, lily of
-  the valley, reishi, and the minerals/animal drugs) have no plate in that book.
-  Widgets must treat `null` as "show the fallback glyph".
+## herbs.json (legacy)
+Apothecary leftover, still read by `quickshell/Widgets/Services/HerbService.qml`; remove once qs-widgets switches
+the card to `blocks-of-the-day.json` (see docs/REQUESTS.md).
