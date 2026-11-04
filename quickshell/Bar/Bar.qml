@@ -1,247 +1,261 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Services.SystemTray
-import Quickshell.Services.UPower
-import Quickshell.Bluetooth
 import qs.Common
 import qs.Services
-import qs.Widgets.Services
 
-/*  Bar — 36 px top bar (DESIGN §7.1), one per screen, namespace overworld-bar.
- *  left: 猫 seal (launcher) · workspaces 一…十 · focused title    centre: HH:MM · 時辰 · date
- *  right: tray · wifi · bluetooth · battery · volume · mode toggle · bell · power
+/*  Bar — the HUD, one per screen, namespace overworld-bar (layer top, bottom edge). It replaces Apothecary's top bar, and the
+ *  numbers are the game's own (GUI px from the bottom):
+ *    hotbar y-22 · XP bar y-29, level y-35 · hearts (battery) y-39 left · hunger (free RAM) y-39 right · air (CPU headroom) y-49 right
+ *    item name y-59, fades after 2 s
+ *  The flanks hold what the old bar held: launcher, widgets, window title on the left; tray, wifi, bluetooth, volume, day/night,
+ *  bell, game menu, clock on the right.
+ *  Reserves 40 GUI px (80 px at scale 2) of the bottom edge. The surface is taller, for tooltips and the item name; everything
+ *  but the widgets is click-through (mask). Hidden in spectator mode and by `ipc call hud hide`.
+ *  The air row is the only part drawn over windows: it stays small on purpose (see docs/QUICKSHELL.md for why air and not armour).
  */
 Variants {
     model: Quickshell.screens
 
     PanelWindow {
-        id: bar
+        id: hud
         required property var modelData
         screen: modelData
         WlrLayershell.namespace: "overworld-bar"
         WlrLayershell.layer: WlrLayer.Top
-        anchors { top: true; left: true; right: true }
-        implicitHeight: Theme.sizes.bar_height || 36
-        exclusiveZone: implicitHeight
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        anchors { bottom: true; left: true; right: true }
+        implicitHeight: Theme.px(150)
+        exclusiveZone: ShellState.preview ? 0 : Theme.px(40)
+        exclusionMode: ShellState.preview ? ExclusionMode.Ignore : ExclusionMode.Normal
         color: "transparent"
+        visible: !ConfigService.isSpectator && !ShellState.hudHidden
 
-        readonly property real sideWidth: Math.max(leftRow.implicitWidth, rightRow.implicitWidth)
+        mask: Region {
+            Region { item: hotbar }
+            Region { item: stats }
+            Region { item: leftFlank }
+            Region { item: rightFlank }
+            Region { item: clockText }
+        }
 
-        Rectangle {   // bg0 @ 0.92 + hairline bottom
-            anchors.fill: parent
-            color: Theme.withAlpha(Theme.bg0, Theme.opacity.bar !== undefined ? Theme.opacity.bar : 0.92)
-            Behavior on color { ColorAnimation { duration: Theme.durTheme; easing.type: Easing.OutCubic } }
-            Rectangle {
-                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-                height: 1
-                color: Theme.hairline
-                Behavior on color { ColorAnimation { duration: Theme.durTheme } }
+        function showItemName(id) { itemName.reveal(id); }      // previews
+        readonly property int centerX: Math.round(width / 2 / Theme.gui) * Theme.gui
+        readonly property int hotbarLeft: centerX - Theme.px(91)
+        readonly property bool warnings: !ConfigService.isCreative
+        // Big GUI scales or a full tray: the clock moves above the slots rather than into the hotbar.
+        readonly property bool clockStacked: rightFlank.implicitWidth + clockText.implicitWidth + Theme.px(6)
+            > width - (centerX + Theme.px(91 + 29 + 4))
+
+        // ------------------------------------------------------------ hotbar
+        Hotbar {
+            id: hotbar
+            x: hud.centerX - Theme.px(91 + 29)
+            anchors.bottom: parent.bottom
+            onSwitched: id => itemName.reveal(id)
+        }
+
+        // ------------------------------------------------------------ item name above the hotbar
+        McText {
+            id: itemName
+            property string label: ""
+            property real alphaShown: 0
+            anchors.horizontalCenter: hotbar.horizontalCenter
+            y: hud.height - Theme.px(59) - Theme.gui
+            text: label
+            color: Theme.hudText
+            opacity: alphaShown
+            function reveal(id) {
+                label = WorkspaceNotes.displayTitle(id);
+                fade.stop();
+                alphaShown = 1;
+                fade.start();
+            }
+            SequentialAnimation {
+                id: fade
+                PauseAnimation { duration: (Theme.ticks.item_name_hold || 40) * 50 }
+                NumberAnimation { target: itemName; property: "alphaShown"; to: 0; duration: Theme.ticksMs(Theme.ticks.item_name_fade || 10) }
             }
         }
 
-        // ---------------------------------------------------------------- left
-        Row {
-            id: leftRow
-            anchors.left: parent.left
-            anchors.leftMargin: Theme.space.sm
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.space.sm
-
-            Item {   // 猫 seal button → launcher
-                id: catBtn
-                width: 28; height: 28
-                anchors.verticalCenter: parent.verticalCenter
-                readonly property bool hovered: catMouse.containsMouse
-                Accessible.role: Accessible.Button
-                Accessible.name: "Open the medicine cabinet (launcher)"
-                Rectangle {
-                    anchors.fill: parent; radius: Theme.radius.sm
-                    color: Theme.inkWash; opacity: catBtn.hovered ? 0.7 : 0
-                    Behavior on opacity { NumberAnimation { duration: Theme.durFast } }
-                }
-                Seal {
-                    anchors.centerIn: parent
-                    size: 22; glyph: "猫"; label: "Launcher"; outline: false
-                    scale: catMouse.pressed ? 0.92 : (ShellState.launcherOpen ? 1.08 : 1)
-                    Behavior on scale { NumberAnimation { duration: Theme.durFast; easing.type: Theme.easeDrift } }
-                }
-                MouseArea {
-                    id: catMouse
-                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                    onClicked: ShellState.toggle("launcher")
-                }
-                BarTooltip { target: catBtn; shown: catBtn.hovered; text: "薬櫃 · Medicine cabinet (Super+Space)" }
-            }
-            Workspaces { anchors.verticalCenter: parent.verticalCenter }
-            Rectangle { width: 1; height: 16; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter }
-            InkText {
-                role: "ui"
-                text: HyprlandState.title.length ? HyprlandState.title : "— 後宮 · Rear Palace —"
-                muted: HyprlandState.title.length === 0
-                width: Math.min(implicitWidth, 420)
-                anchors.verticalCenter: parent.verticalCenter
-                font.family: Theme.fontBody
-            }
-        }
-
-        // ---------------------------------------------------------------- centre: clock
+        // ------------------------------------------------------------ hearts, hunger, air, XP
         Item {
-            id: clockChip
-            anchors.centerIn: parent
-            width: clockRow.implicitWidth + Theme.space.md * 2
-            height: 28
-            readonly property bool hovered: clockMouse.containsMouse
-            readonly property var sc: TimeService.current
-            Accessible.role: Accessible.StaticText
-            Accessible.name: TimeService.hhmm + " " + sc.name + " " + TimeService.dateLong
-            Rectangle {
-                anchors.fill: parent; radius: Theme.radius.sm
-                color: Theme.inkWash; opacity: clockChip.hovered ? 0.7 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.durFast } }
+            id: stats
+            x: hud.hotbarLeft
+            y: hud.height - Theme.px(49)
+            width: Theme.px(182)
+            height: Theme.px(25)
+
+            McProgressBar {
+                id: xpBar
+                x: 0; y: Theme.px(20)
+                width: parent.width
+                value: SystemStats.levelProgress
             }
-            Row {
-                id: clockRow
-                anchors.centerIn: parent
-                spacing: Theme.space.sm
-                InkText { role: "clock_bar"; text: TimeService.hhmm; anchors.verticalCenter: parent.verticalCenter }
-                InkText { role: "clock_bar"; text: "·"; muted: true; anchors.verticalCenter: parent.verticalCenter }
-                Text {
-                    text: clockChip.sc.glyph
-                    color: Theme.seal
-                    font.family: Theme.fontDisplay
-                    font.pixelSize: 17
-                    renderType: Text.NativeRendering
-                    anchors.verticalCenter: parent.verticalCenter
-                    Behavior on color { ColorAnimation { duration: Theme.durTheme } }
-                }
-                Rectangle { width: 1; height: 12; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter }
-                InkText { role: "small"; text: TimeService.dateLabel; muted: true; anchors.verticalCenter: parent.verticalCenter }
+            McOutlineText {
+                id: levelText
+                visible: SystemStats.level > 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Theme.px(13)
+                text: String(SystemStats.level)
             }
-            MouseArea { id: clockMouse; anchors.fill: parent; hoverEnabled: true }
-            BarTooltip {
-                target: clockChip; shown: clockChip.hovered
-                text: clockChip.sc.glyph + " · " + clockChip.sc.name + " · " + clockChip.sc.range + " · " + TimeService.dateLong
+            LevelSparkle { id: sparkle; anchors.centerIn: levelText }
+            Connections {
+                target: SystemStats
+                function onLevelUp(level) { sparkle.play(); }
+            }
+
+            HeartsRow {
+                id: hearts
+                visible: SystemStats.batteryPresent
+                x: 0; y: Theme.px(10)
+                value: Math.round(SystemStats.batteryPct * 20) / 2
+                regen: SystemStats.charging && !SystemStats.fullyCharged
+                hardcore: hud.warnings && SystemStats.batteryPct <= 0.05
+                jiggle: hud.warnings && !SystemStats.charging && SystemStats.batteryPct < 0.2
+                blinking: SystemStats.batteryFlash
+            }
+            HungerRow {
+                id: hunger
+                x: parent.width - width; y: Theme.px(10)
+                value: Math.round(SystemStats.memFree * 20) / 2
+                shake: hud.warnings && SystemStats.swapHeavy
+                hunger: hud.warnings && SystemStats.swapHeavy
+            }
+            AirRow {
+                id: air
+                x: parent.width - width; y: 0
+                value: Math.round((1 - SystemStats.cpuLoad) * 20) / 2
+            }
+
+            StatHover {
+                x: 0; y: Theme.px(10); width: hearts.width; height: Theme.px(9)
+                enabled: SystemStats.batteryPresent
+                title: "Health: " + SystemStats.percent + "%"
+                description: (SystemStats.charging ? "Charging" : "On battery")
+                    + (SystemStats.timeToEmpty > 0 && !SystemStats.charging ? "\n" + Math.round(SystemStats.timeToEmpty / 60) + " min left" : "")
+                    + (SystemStats.timeToFull > 0 && SystemStats.charging ? "\n" + Math.round(SystemStats.timeToFull / 60) + " min to full" : "")
+                category: "Battery"
+            }
+            StatHover {
+                x: hunger.x; y: Theme.px(10); width: hunger.width; height: Theme.px(9)
+                title: "Hunger: " + Math.round(SystemStats.memFree * 100) + "% free"
+                description: Math.round(SystemStats.memAvailableMb / 102.4) / 10 + " of " + Math.round(SystemStats.memTotalMb / 102.4) / 10 + " GB available"
+                    + (SystemStats.swapUsed > 0 ? "\nSwap " + Math.round(SystemStats.swapUsed * 100) + "% used" : "")
+                category: "Memory"
+            }
+            StatHover {
+                x: air.x; y: 0; width: air.width; height: Theme.px(9)
+                title: "Air: " + Math.round((1 - SystemStats.cpuLoad) * 100) + "%"
+                description: "CPU load " + Math.round(SystemStats.cpuLoad * 100) + "%"
+                category: "Processor"
+            }
+            StatHover {
+                x: 0; y: Theme.px(19); width: parent.width; height: Theme.px(6)
+                title: "Level " + SystemStats.level
+                description: "Uptime " + SystemStats.level + " h " + Math.floor(SystemStats.levelProgress * 60) + " min"
+                category: "Experience"
             }
         }
 
-        // ---------------------------------------------------------------- right
+        // ------------------------------------------------------------ left flank
         Row {
-            id: rightRow
+            id: leftFlank
+            x: Theme.px(2)
+            y: hud.height - Theme.px(20)
+            spacing: 0
+
+            HudSlot {
+                item: "crafting_table"
+                tooltip: "Crafting Table"
+                tooltipDescription: "Open the creative inventory\nSuper+Space"
+                tooltipCategory: "Launcher"
+                highlighted: ShellState.launcherOpen
+                onClicked: ShellState.toggle("launcher")
+            }
+            WidgetsChip { id: widgetsChip }
+
+            Item { width: Theme.px(4); height: 1 }
+            HudText {
+                readonly property string title: HyprlandState.title
+                readonly property int room: hud.hotbarLeft - Theme.px(29 + 10) - leftFlank.x - Theme.px(36 + 4)
+                anchors.verticalCenter: parent.verticalCenter
+                maxWidth: room
+                icon: title.length && HyprlandState.appClass.length ? Theme.itemFor(HyprlandState.appClass, title) : ""
+                text: title.length ? title : "Nothing in hand"
+                dim: title.length === 0
+            }
+        }
+
+        // ------------------------------------------------------------ right flank
+        Row {
+            id: rightFlank
             anchors.right: parent.right
-            anchors.rightMargin: Theme.space.sm
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
+            anchors.rightMargin: hud.clockStacked ? Theme.px(2) : Theme.px(6) + clockText.width
+            y: hud.height - Theme.px(20)
+            spacing: 0
 
-            Row {   // system tray
-                spacing: 2
-                anchors.verticalCenter: parent.verticalCenter
-                Repeater { model: SystemTray.items; TrayItem {} }
+            Repeater {
+                model: SystemTrayModel.items
+                TrayItem {}
             }
-            Rectangle {
-                visible: SystemTray.items.values.length > 0
-                width: 1; height: 16; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter
-            }
+            Item { width: SystemTrayModel.count > 0 ? Theme.px(4) : 0; height: 1 }
 
-            BarChip {   // Wi-Fi
-                glyph: NetworkService.glyph
-                text: NetworkService.connected ? NetworkService.activeSsid : (NetworkService.wiredConnected ? "wired" : "")
-                glyphColor: NetworkService.connected || NetworkService.wiredConnected ? Theme.text : Theme.textMuted
-                active: ShellState.networkOpen
-                tooltip: !NetworkService.wifiEnabled ? "Wi-Fi off · open network panel (Super+N)"
-                       : NetworkService.connected ? NetworkService.activeSsid + " · " + NetworkService.activeSignal + "% · Super+N"
-                       : "Not connected · open network panel (Super+N)"
-                onClicked: ShellState.toggle("network")
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            BarChip {   // Bluetooth
-                id: btChip
-                readonly property var adapter: Bluetooth.defaultAdapter
-                readonly property bool btOn: adapter ? adapter.enabled : false
-                readonly property int btConnected: Bluetooth.devices.values.filter(d => d.connected).length
-                glyph: !adapter ? "󰂲" : (btConnected > 0 ? "󰂱" : (btOn ? "󰂯" : "󰂲"))
-                glyphColor: btConnected > 0 ? Theme.accent : (btOn ? Theme.text : Theme.textMuted)
-                text: btConnected > 0 ? String(btConnected) : ""
-                tooltip: !adapter ? "No Bluetooth adapter" : (btOn ? ("Bluetooth on · " + btConnected + " connected · click: blueman") : "Bluetooth off · click: blueman")
-                onClicked: Quickshell.execDetached(["sh", "-c", "command -v blueman-manager >/dev/null 2>&1 && exec blueman-manager"])
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            BarChip {   // Battery
-                id: batChip
-                readonly property var dev: UPower.displayDevice
-                readonly property bool present: dev && dev.ready && dev.isLaptopBattery
-                readonly property real pct: present ? dev.percentage : 1
-                readonly property bool charging: present && (dev.state === UPowerDeviceState.Charging || dev.state === UPowerDeviceState.FullyCharged || dev.state === UPowerDeviceState.PendingCharge)
-                readonly property bool low: present && !charging && pct < 0.15
-                visible: present
-                glyph: charging ? "󰂄" : ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"][Math.max(0, Math.min(9, Math.round(pct * 10) - 1))]
-                text: Math.round(pct * 100) + "%"
-                glyphColor: low ? Theme.warning : Theme.text
-                textColor: low ? Theme.warning : Theme.textMuted
-                tooltip: !present ? "No battery" : (Math.round(pct * 100) + "% · " + (charging ? "charging" : "on battery")
-                         + (dev.timeToEmpty > 0 && !charging ? " · " + Math.round(dev.timeToEmpty / 60) + " min left" : "")
-                         + (dev.timeToFull > 0 && charging ? " · " + Math.round(dev.timeToFull / 60) + " min to full" : ""))
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            BarChip {   // Volume
-                glyph: AudioService.volumeGlyph()
-                text: AudioService.ready ? AudioService.percent + "%" : ""
-                glyphColor: AudioService.muted ? Theme.textMuted : Theme.text
-                tooltip: AudioService.muted ? "Muted · click to unmute · scroll to change" : ("Volume " + AudioService.percent + "% · click: mute · scroll: change")
-                onClicked: AudioService.toggleMute()
-                onWheel: d => AudioService.change(d * 0.05)
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Rectangle { width: 1; height: 16; color: Theme.hairline; anchors.verticalCenter: parent.verticalCenter }
-            BarChip {   // Desktop widgets: click = menu (all + per card), middle-click = all on/off
-                id: widgetsChip
-                glyph: "󰕮"
-                glyphColor: WidgetsState.visible ? Theme.text : Theme.textMuted
-                active: widgetsMenu.open
-                tooltip: widgetsMenu.open ? "" : ("Desk widgets · " + (WidgetsState.visible ? "shown" : "hidden") + " · click: choose cards · middle-click / Super+G: all")
-                onClicked: ev => { if (ev.button === Qt.MiddleButton) WidgetsState.toggle(); else WidgetsState.menuOpen = !WidgetsState.menuOpen }
-                anchors.verticalCenter: parent.verticalCenter
-                WidgetsMenu { id: widgetsMenu; target: widgetsChip }
-            }
-            BarChip {   // Mode toggle
-                glyph: Theme.isDark ? "󰖔" : "󰖙"
-                glyphColor: Theme.isDark ? Theme.gold : Theme.accent2
-                tooltip: Theme.isDark ? "后宫 · Inner Palace (dark) · click for 药屋 Overworld (light)" : "药屋 · Overworld (light) · click for 后宫 Inner Palace (dark)"
-                onClicked: Theme.toggleMode()
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            BarChip {   // Bell
-                id: bellChip
-                glyph: NotificationService.dnd ? "󰂛" : "󰂚"
-                glyphColor: NotificationService.dnd ? Theme.textMuted : Theme.text
-                active: ShellState.notifCenterOpen
-                tooltip: (NotificationService.dnd ? "Do not disturb · " : "") + NotificationService.unread + " unread · " + NotificationService.count + " notes (Super+I)"
-                onClicked: ShellState.toggle("notifCenter")
-                anchors.verticalCenter: parent.verticalCenter
-                Rectangle {   // unread badge
-                    visible: NotificationService.unread > 0
-                    anchors.right: parent.right; anchors.top: parent.top
-                    anchors.rightMargin: 2; anchors.topMargin: 2
-                    width: Math.max(12, badge.implicitWidth + 5); height: 12; radius: 2
-                    color: Theme.seal
-                    Text {
-                        id: badge
-                        anchors.centerIn: parent
-                        text: NotificationService.unread > 99 ? "99" : String(NotificationService.unread)
-                        color: Theme.textOnSeal
-                        font.family: Theme.fontUi; font.pixelSize: 9; font.weight: 600
-                        renderType: Text.NativeRendering
-                    }
+            WifiChip {}
+            BluetoothChip {}
+            HudSlot {
+                item: AudioService.muted ? "barrier" : "note_block"
+                count: AudioService.ready && !AudioService.muted ? AudioService.percent : 1
+                tooltip: AudioService.muted ? "Master Volume: OFF" : "Master Volume: " + AudioService.percent + "%"
+                tooltipDescription: "Click: mute\nScroll: change"
+                tooltipCategory: "Sound"
+                onClicked: {
+                    if (ShellState.preview) { console.warn("DRYRUN toggleMute"); return; }
+                    AudioService.toggleMute();
+                }
+                onWheelMoved: d => {
+                    if (ShellState.preview) { console.warn("DRYRUN volume", d); return; }
+                    AudioService.change(d * 0.05);
                 }
             }
-            BarChip {   // Power
-                glyph: "󰐥"
-                glyphColor: Theme.seal
-                active: ShellState.powerOpen
-                tooltip: "Power menu (Super+Escape)"
-                onClicked: ShellState.toggle("power")
-                anchors.verticalCenter: parent.verticalCenter
+            HudSlot {   // sun or moon: the mode toggle
+                tooltip: Theme.isDark ? "Night" : "Day"
+                tooltipDescription: Theme.isDark ? "Click for Day" : "Click for Night"
+                tooltipCategory: "Time"
+                onClicked: Theme.toggleMode()
+                SunMoonIcon { x: Theme.gui; y: Theme.gui }
             }
+            HudSlot {   // bell
+                item: "bell"
+                opacity: NotificationService.dnd ? 0.55 : 1
+                count: NotificationService.unread
+                highlighted: ShellState.notifCenterOpen
+                tooltip: NotificationService.dnd ? "Difficulty: Peaceful" : "Notifications"
+                tooltipDescription: NotificationService.unread + " unread, " + NotificationService.count + " in history\nSuper+I"
+                tooltipCategory: "Chat"
+                onClicked: ShellState.toggle("notifCenter")
+                onMiddleClicked: NotificationService.toggleDnd()
+            }
+            HudSlot {   // game menu
+                item: "oak_door"
+                highlighted: ShellState.powerOpen
+                tooltip: "Game Menu"
+                tooltipDescription: "Lock, sleep, quit\nSuper+Escape"
+                tooltipCategory: "Power"
+                onClicked: ShellState.toggle("power")
+            }
+
+        }
+        HudText {
+            id: clockText
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.px(2)
+            y: hud.height - Theme.px(hud.clockStacked ? 33 : 16)
+            text: TimeService.mcClock
+            hoverEnabled: true
+            tooltip: TimeService.dateLong
+            tooltipDescription: TimeService.phase + "\nDay " + TimeService.dayOfYear + " of the year"
+            tooltipCategory: "Clock"
         }
     }
 }

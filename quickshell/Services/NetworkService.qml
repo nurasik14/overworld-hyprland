@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.Services
 
 /*  NetworkService — NetworkManager via nmcli (argument arrays only; user input is never shell-interpolated).
  *
@@ -11,7 +12,9 @@ import Quickshell.Io
  *           saved     [connection names]   known(ssid)
  *           busy · lastMessage · lastError · scanning
  *  Actions: refresh() · rescan() · setWifi(bool) · setAirplane(bool)
- *           connect(ssid, password) · disconnect() · forget(ssid) · vpnUp(name) · vpnDown(name)
+ *           connect(ssid, password, cb, hidden) · disconnect() · forget(ssid) · vpnUp(name) · vpnDown(name)
+ *  Helpers: pingLevel(signal) → 1..5 (server_list/ping_<n>) · band(freq) · motd(net) (the grey line of a server row)
+ *  Emits `net.connect {ssid}` after a successful connect.  In previews (OW_PREVIEW=1) only reads and rescans really run.
  *  Polling: `polling` true (panel open) → every 20 s; otherwise a light refresh every 45 s for the bar chip.
  */
 Singleton {
@@ -43,6 +46,24 @@ Singleton {
         if (sig >= 38) return "󰤢";
         if (sig >= 13) return "󰤟";
         return "󰤯";
+    }
+    function pingLevel(sig) {
+        if (sig >= 80) return 5;
+        if (sig >= 60) return 4;
+        if (sig >= 40) return 3;
+        if (sig >= 20) return 2;
+        return 1;
+    }
+    function band(freq) {
+        if (freq >= 5925) return "6 GHz";
+        if (freq >= 4900) return "5 GHz";
+        if (freq >= 2400) return "2.4 GHz";
+        return "";
+    }
+    function motd(net) {
+        const sec = !net.secured ? "Open" : net.security.replace(/\s+/g, "/");
+        const b = band(net.freq);
+        return sec + (b.length ? " · " + b : "");
     }
     readonly property string glyph: !wifiEnabled ? "󰤮" : (connected ? signalGlyph(activeSignal) : "󰤯")
 
@@ -180,14 +201,21 @@ Singleton {
             root.runNext();
         }
     }
-    function run(cmd, cb) {
-        root.queue = root.queue.concat([{ cmd: cmd, cb: cb || null }]);
+    function run(cmd, cb, secret) {
+        root.queue = root.queue.concat([{ cmd: cmd, cb: cb || null, secret: secret || "" }]);
         runNext();
     }
     function runNext() {
         if (root.busy || root.queue.length === 0) return;
         const job = root.queue[0];
         root.queue = root.queue.slice(1);
+        if (ShellState.preview && job.cmd.join(" ") !== "nmcli dev wifi rescan") {   // never touches the real adapter
+            console.warn("DRYRUN", JSON.stringify(job.cmd.map(a => a === job.secret ? "***" : a)));
+            root.lastMessage = "Dry run: nothing was changed";
+            root.lastError = false;
+            if (job.cb) job.cb(true, root.lastMessage);
+            return;
+        }
         root.busy = true;
         root.lastError = false;
         root.lastMessage = "";
@@ -212,18 +240,23 @@ Singleton {
     function vpnDown(name) { run(["nmcli", "con", "down", "id", name]); }
 
     // Saved profile first (`con up id`), then a fresh `dev wifi connect [password …]`.
-    function connect(ssid, password, cb) {
-        const direct = function(cb2) {
+    function connect(ssid, password, cb, hidden) {
+        const done = function(ok, msg) {
+            if (ok) GameEvents.emit("net.connect", { ssid: ssid });
+            if (cb) cb(ok, msg);
+        };
+        const direct = function() {
             let cmd = ["nmcli", "dev", "wifi", "connect", ssid];
             if (password && password.length) cmd = cmd.concat(["password", password]);
-            run(cmd, cb2);
+            if (hidden) cmd = cmd.concat(["hidden", "yes"]);
+            run(cmd, done, password);
         };
         if (known(ssid) && !(password && password.length)) {
             run(["nmcli", "con", "up", "id", ssid], function(ok, msg) {
-                if (ok) { if (cb) cb(true, msg); } else direct(cb);
+                if (ok) done(true, msg); else direct();
             });
         } else {
-            direct(cb);
+            direct();
         }
     }
 }

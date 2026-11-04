@@ -3,9 +3,13 @@ import Quickshell
 import qs.Common
 import qs.Services
 
-/*  PowerMenu — five hanging scrolls (DESIGN §7.4).  SUPER+Escape · `ipc call power toggle`, namespace overworld-power.
- *  锁 Lock → hyprlock · 出 Logout → hyprctl dispatch exit · 眠 Suspend → systemctl suspend · 启 Reboot · 关 Shutdown
- *  Keys: ←/→ move · Enter activates (destructive ones need a second Enter on the 印 Confirm seal) · Esc closes.
+/*  PowerMenu — the Game Menu, the Esc screen (SUPER+Escape · `ipc call power toggle`), namespace overworld-power.
+ *    Back to Game · Advancements | Statistics · Options... | Lock · Sleep in Bed (suspend) | Respawn (reboot) ·
+ *    Save and Quit to Title (logout) · Quit Game (shutdown)
+ *  Logout, reboot and shutdown go through the confirm screen; there Enter on the default "No" goes back, Y or Yes confirms.
+ *  Keys: arrows move · Enter activates · Esc back · letters L O S R P jump to Lock, lOgout, Suspend, Reboot, shutdown (Power).
+ *  Advancements, Statistics and Options are qs-features' screens, opened through their IPC.
+ *  With OW_PREVIEW=1 no command really runs (they are logged instead).
  */
 Variants {
     model: Quickshell.screens
@@ -15,178 +19,167 @@ Variants {
         required property var modelData
         screen: modelData
         namespace: "overworld-power"
+        title: confirmAction ? "" : "Game Menu"
+        titleY: 40
         open: ShellState.powerOpen
-        onCloseRequested: ShellState.close("power")
+        onCloseRequested: {
+            if (confirmAction) { confirmAction = null; contentItem.forceActiveFocus(); }
+            else ShellState.close("power");
+        }
+        closeOnClickOutside: false
 
-        readonly property var actions: [
-            { glyph: "锁", name: "Lock",     key: "L", cmd: ["hyprlock"],                        confirm: false },
-            { glyph: "出", name: "Logout",   key: "O", cmd: ["hyprctl", "dispatch", "exit"],     confirm: true },
-            { glyph: "眠", name: "Suspend",  key: "S", cmd: ["systemctl", "suspend"],            confirm: false },
-            { glyph: "启", name: "Reboot",   key: "R", cmd: ["systemctl", "reboot"],             confirm: true },
-            { glyph: "关", name: "Shutdown", key: "P", cmd: ["systemctl", "poweroff"],           confirm: true }
+        readonly property var actions: ({
+            back: { label: "Back to Game" },
+            advancements: { label: "Advancements", ipc: "advancements" },
+            statistics: { label: "Statistics", ipc: "stats" },
+            options: { label: "Options...", ipc: "options" },
+            lock: { label: "Lock", key: "L", cmd: ["hyprlock"] },
+            sleep: { label: "Sleep in Bed", key: "S", cmd: ["systemctl", "suspend"] },
+            respawn: { label: "Respawn", key: "R", cmd: ["systemctl", "reboot"], confirm: "Respawn?", detail: "This restarts the computer." },
+            logout: { label: "Save and Quit to Title", key: "O", cmd: ["hyprctl", "dispatch", "exit"], confirm: "Save and quit to title?", detail: "This ends the Hyprland session." },
+            quit: { label: "Quit Game", key: "P", cmd: ["systemctl", "poweroff"], confirm: "Are you sure you want to quit the game?", detail: "This shuts the computer down." }
+        })
+        // The screen as rows, left to right; arrows walk this grid.
+        readonly property var grid: [
+            ["back"],
+            ["advancements", "statistics"],
+            ["options", "lock"],
+            ["sleep", "respawn"],
+            ["logout"],
+            ["quit"]
         ]
-        property int selected: 0
-        property int confirming: -1      // index awaiting its second Enter
+        property int row: 0
+        property int col: 0
+        property var confirmAction: null
+        property int confirmChoice: 1     // 0 yes, 1 no
+        readonly property string selectedKey: grid[row][Math.min(col, grid[row].length - 1)]
 
-        onShownChanged: if (shown) { win.selected = 0; win.confirming = -1; }
+        onShownChanged: if (shown) { row = 0; col = 0; confirmAction = null; contentItem.forceActiveFocus(); }
 
-        function activate(i) {
-            const a = win.actions[i];
+        function run(key) {
+            const a = win.actions[key];
             if (!a) return;
-            if (a.confirm && win.confirming !== i) { win.confirming = i; win.selected = i; return; }
-            SoundService.play("seal");
-            Quickshell.execDetached(a.cmd);
+            if (key === "back") { ShellState.close("power"); return; }
+            if (a.ipc) { ShellState.close("power"); ShellState.ipc(a.ipc, "open"); return; }
+            if (a.confirm) { win.confirmAction = a; win.confirmChoice = 1; return; }
+            win.execute(a);
+        }
+        function execute(a) {
             ShellState.close("power");
+            win.confirmAction = null;
+            ShellState.run(a.cmd);
         }
-        function move(d) {
-            win.selected = (win.selected + d + win.actions.length) % win.actions.length;
-            win.confirming = -1;
-        }
+        function moveRow(d) { win.row = (win.row + d + win.grid.length) % win.grid.length; win.col = Math.min(win.col, win.grid[win.row].length - 1); }
+        function moveCol(d) { const n = win.grid[win.row].length; win.col = (win.col + d + n) % n; }
 
         Item {
             focus: true
             Keys.onPressed: event => {
-            if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) { win.move(-1); event.accepted = true; }
-            else if (event.key === Qt.Key_Right || event.key === Qt.Key_Down || event.key === Qt.Key_Tab) { win.move(1); event.accepted = true; }
-            else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) { win.activate(win.selected); event.accepted = true; }
-            else {
-                const t = event.text.toUpperCase();
-                for (let i = 0; i < win.actions.length; i++) if (win.actions[i].key === t) { win.selected = i; win.activate(i); event.accepted = true; }
-            }
+                const k = event.key;
+                if (win.confirmAction) {
+                    if (k === Qt.Key_Left || k === Qt.Key_Right || k === Qt.Key_Tab) win.confirmChoice = 1 - win.confirmChoice;
+                    else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space) {
+                        Theme.playSound("ui.click");
+                        if (win.confirmChoice === 0) win.execute(win.confirmAction); else win.confirmAction = null;
+                    }
+                    else if (event.text.toUpperCase() === "Y") { Theme.playSound("ui.click"); win.execute(win.confirmAction); }
+                    else if (event.text.toUpperCase() === "N") { Theme.playSound("ui.click"); win.confirmAction = null; }
+                    else return;
+                    event.accepted = true;
+                    return;
+                }
+                if (k === Qt.Key_Up) win.moveRow(-1);
+                else if (k === Qt.Key_Down) win.moveRow(1);
+                else if (k === Qt.Key_Left) win.moveCol(-1);
+                else if (k === Qt.Key_Right || k === Qt.Key_Tab) win.moveCol(1);
+                else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space) { Theme.playSound("ui.click"); win.run(win.selectedKey); }
+                else {
+                    const t = event.text.toUpperCase();
+                    const hit = Object.keys(win.actions).find(a => win.actions[a].key === t);
+                    if (!hit || !t.length) return;
+                    Theme.playSound("ui.click");
+                    win.run(hit);
+                }
+                event.accepted = true;
             }
         }
 
-        Row {
-            anchors.centerIn: parent
-            spacing: Theme.space.xl
-            opacity: win.progress
-            transform: Translate { y: (1 - win.progress) * 12 }
-
-            Repeater {
-                model: win.actions
-                Item {
-                    id: scroll
-                    required property var modelData
-                    required property int index
-                    readonly property bool current: win.selected === index
-                    readonly property bool armed: win.confirming === index
-                    width: 140; height: 360 + 16
-                    Accessible.role: Accessible.Button
-                    Accessible.name: modelData.name
-
-                    Item {
-                        id: body
-                        width: parent.width; height: 360
-                        y: scroll.current ? 8 : 0
-                        Behavior on y { NumberAnimation { duration: Theme.durBase; easing.type: Theme.easeDrift } }
-
-                        Rectangle {   // shadow
-                            anchors.fill: paper; anchors.topMargin: 6
-                            radius: 3; color: Theme.shadowStrong
-                            opacity: scroll.current ? 1 : 0.5
-                        }
-                        Rectangle {   // top roller
-                            width: parent.width + 8; height: 8; x: -4; y: 0; radius: 4
-                            color: Theme.woodDark
-                        }
-                        Rectangle {   // bottom roller
-                            width: parent.width + 8; height: 8; x: -4; anchors.bottom: parent.bottom; radius: 4
-                            color: Theme.woodDark
-                        }
-                        Rectangle {
-                            id: paper
-                            anchors.fill: parent
-                            anchors.topMargin: 6; anchors.bottomMargin: 6
-                            color: Theme.surface
-                            border.width: Theme.border.frame
-                            border.color: scroll.armed ? Theme.seal : Theme.frame
-                            Behavior on color { ColorAnimation { duration: Theme.durTheme; easing.type: Easing.OutCubic } }
-                            Behavior on border.color { ColorAnimation { duration: Theme.durFast } }
-                            Item {
-                                anchors.fill: parent; anchors.margins: 2; clip: true
-                                Image { anchors.fill: parent; source: Theme.texture("ground-tile"); fillMode: Image.Tile; opacity: Theme.textureOpacity; smooth: false; asynchronous: true }
-                            }
-                            Rectangle { anchors.fill: parent; anchors.margins: 6; color: "transparent"; border.width: 1; border.color: Theme.hairline }
-                            Rectangle {   // hover / selected wash
-                                anchors.fill: parent; anchors.margins: 2
-                                color: Theme.inkWash
-                                opacity: scroll.current ? 0.8 : (mouse.containsMouse ? 0.5 : 0)
-                                Behavior on opacity { NumberAnimation { duration: Theme.durFast } }
-                            }
-                            Column {
-                                anchors.centerIn: parent
-                                anchors.verticalCenterOffset: -24
-                                spacing: Theme.space.md
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: scroll.modelData.glyph
-                                    font.family: Theme.fontDisplay
-                                    font.pixelSize: 56
-                                    color: scroll.armed ? Theme.seal : Theme.text
-                                    renderType: Text.NativeRendering
-                                    Behavior on color { ColorAnimation { duration: Theme.durFast } }
-                                }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: scroll.modelData.name
-                                    font.family: Theme.fontSerif
-                                    font.pixelSize: 14; font.weight: 600
-                                    font.capitalization: Font.AllUppercase
-                                    font.letterSpacing: 1.5
-                                    color: Theme.text
-                                    renderType: Text.NativeRendering
-                                }
-                                InkText { anchors.horizontalCenter: parent.horizontalCenter; role: "small"; muted: true; text: "key " + scroll.modelData.key }
-                            }
-                            // confirm seal / selection seal at the bottom
-                            Item {
-                                anchors.bottom: parent.bottom; anchors.bottomMargin: 22
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: 96; height: 40
-                                InkButton {
-                                    anchors.centerIn: parent
-                                    visible: scroll.armed
-                                    primary: true
-                                    text: "Confirm"
-                                    icon: "印"
-                                    tooltip: "Confirm " + scroll.modelData.name
-                                    onClicked: win.activate(scroll.index)
-                                    scale: scroll.armed ? 1 : 1.15
-                                    Behavior on scale { NumberAnimation { duration: Theme.durFast; easing.type: Theme.easeDrift } }
-                                }
-                                Seal {
-                                    anchors.centerIn: parent
-                                    visible: !scroll.armed
-                                    size: 24; glyph: "印"; label: scroll.modelData.name
-                                    opacity: scroll.current || mouse.containsMouse ? 1 : 0
-                                    Behavior on opacity { NumberAnimation { duration: Theme.durFast } }
-                                }
-                            }
-                            InkText {
-                                visible: scroll.armed
-                                anchors.bottom: parent.bottom; anchors.bottomMargin: 8
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                role: "small"; text: "press again to confirm"; color: Theme.error
-                            }
-                        }
-                        MouseArea {
-                            id: mouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: win.selected = scroll.index
-                            onClicked: win.activate(scroll.index)
-                        }
-                    }
+        component MenuButton: McButton {
+            required property string actionKey
+            text: win.actions[actionKey].label
+            highlighted: win.selectedKey === actionKey
+            activeFocusOnTab: false
+            onHoveredChanged: if (hovered) {
+                for (let r = 0; r < win.grid.length; r++) {
+                    const c = win.grid[r].indexOf(actionKey);
+                    if (c >= 0) { win.row = r; win.col = c; }
                 }
             }
+            onClicked: win.run(actionKey)
         }
-        InkText {
+
+        // ------------------------------------------------------------ the pause screen
+        Column {
+            visible: !win.confirmAction
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom; anchors.bottomMargin: 120
-            role: "small"; muted: true
-            opacity: win.progress
-            text: "←→ move · ⏎ select · esc close · L O S R P"
+            y: Theme.px(62)
+            spacing: Theme.px(4)
+            MenuButton { actionKey: "back"; width: Theme.px(204) }
+            Item { width: 1; height: Theme.px(8) }
+            Row {
+                spacing: Theme.px(8)
+                MenuButton { actionKey: "advancements"; small: true }
+                MenuButton { actionKey: "statistics"; small: true }
+            }
+            Row {
+                spacing: Theme.px(8)
+                MenuButton { actionKey: "options"; small: true }
+                MenuButton { actionKey: "lock"; small: true }
+            }
+            Row {
+                spacing: Theme.px(8)
+                MenuButton { actionKey: "sleep"; small: true }
+                MenuButton { actionKey: "respawn"; small: true }
+            }
+            Item { width: 1; height: Theme.px(8) }
+            MenuButton { actionKey: "logout"; width: Theme.px(204) }
+            MenuButton { actionKey: "quit"; width: Theme.px(204) }
+        }
+
+        // ------------------------------------------------------------ the confirm screen
+        Column {
+            visible: !!win.confirmAction
+            anchors.centerIn: parent
+            spacing: Theme.px(10)
+            McText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: Theme.hudText
+                text: win.confirmAction ? win.confirmAction.confirm : ""
+            }
+            McText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: Theme.tooltipDesc
+                text: win.confirmAction ? win.confirmAction.detail : ""
+            }
+            Item { width: 1; height: Theme.px(6) }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(8)
+                McButton {
+                    text: "Yes"
+                    highlighted: win.confirmChoice === 0
+                    activeFocusOnTab: false
+                    onHoveredChanged: if (hovered) win.confirmChoice = 0
+                    onClicked: win.execute(win.confirmAction)
+                }
+                McButton {
+                    text: "No"
+                    highlighted: win.confirmChoice === 1
+                    activeFocusOnTab: false
+                    onHoveredChanged: if (hovered) win.confirmChoice = 1
+                    onClicked: win.confirmAction = null
+                }
+            }
         }
     }
 }

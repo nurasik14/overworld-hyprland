@@ -11,6 +11,8 @@ import qs.Common
  *      "3": "Coding" }                      ← a bare string is a title with no note
  *
  *  WorkspaceNotes.title(id) / note(id) / has(id)        ("" when unset) · isAuto(id) = written by Claude
+ *  WorkspaceNotes.displayTitle(id)                      your title, else quotes/titles.json's default, else "Workspace n"
+ *  WorkspaceNotes.subtitle(id, cls, count)              your note, else a line for the dominant app's category, else the default's
  *  Also runs scripts/ws-autolabel.py (Claude auto-labelling) while config.json → workspace_auto.enabled is true
  *  (`overworld ws auto on|off`); restarted 15 s after it exits, killed with the shell.
  *  Card settings live in config.json → "workspace_card": { enabled, duration, position, show_untitled }
@@ -33,6 +35,45 @@ Singleton {
     function isAuto(id) {
         const e = root.revision >= 0 ? root.notes[String(id)] : null;
         return !!(e && typeof e === "object" && e.auto === true);
+    }
+
+    // ------------------------------------------------------------ lore defaults (quotes/titles.json)
+    property var lore: ({})
+    FileView {
+        id: loreFile
+        path: Theme.repoDir + "/quotes/titles.json"
+        blockLoading: true
+        printErrors: false
+    }
+    function loreDefault(id) {
+        const list = root.lore.defaults || [];
+        for (let i = 0; i < list.length; i++) if (list[i].ws === id) return list[i];
+        return null;
+    }
+    function displayTitle(id) {
+        const t = title(id);
+        if (t.length) return t;
+        const d = loreDefault(id);
+        return d ? d.title : "Workspace " + id;
+    }
+    function categoryOf(cls) {
+        const k = String(cls || "").toLowerCase();
+        const cats = root.lore.categories || {};
+        for (const c in cats) if (cats[c].indexOf(k) >= 0) return c;
+        return "";
+    }
+    function subtitle(id, cls, count) {
+        const n = note(id);
+        if (n.length) return n;
+        const subs = root.lore.subtitles || {};
+        const cat = count > 0 ? categoryOf(cls) : "empty";
+        const pool = subs[cat];
+        if (pool && pool.length) {
+            const line = pool[Math.floor(Math.random() * pool.length)];
+            return line.replace("{count}", String(count)).replace("{app}", String(cls || ""));
+        }
+        const d = loreDefault(id);
+        return d ? d.subtitle : "";
     }
 
     // ------------------------------------------------------------ Claude auto-labelling watcher
@@ -72,5 +113,9 @@ Singleton {
         interval: 5000; repeat: true; running: false
         onTriggered: file.reload()
     }
-    Component.onCompleted: { parse(file.text()); autoProc.running = autoWanted; }
+    Component.onCompleted: {
+        parse(file.text());
+        autoProc.running = autoWanted;
+        try { root.lore = JSON.parse(loreFile.text() || "{}") || {}; } catch (e) { root.lore = {}; }
+    }
 }

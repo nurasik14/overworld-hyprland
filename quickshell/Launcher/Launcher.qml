@@ -6,10 +6,14 @@ import qs.Services
 import "fuzzy.js" as Fuzzy
 import "calc.js" as Calc
 
-/*  Launcher — the medicine cabinet 药柜 (SUPER+Space · `ipc call launcher toggle`), namespace overworld-launcher.
- *  900×600 PaperPanel: search drawer on top · category labels (left column) · grid of wooden drawers · Maomao strip (right, if art exists)
- *  Prefixes: `=` calculator (safe parser, Enter copies the result) · `>` run a command (Quickshell.execDetached via sh)
- *  Keys: arrows move · Enter launches · Esc closes · Tab cycles categories
+/*  Launcher — the creative inventory (SUPER+Space · `ipc call launcher toggle`), namespace overworld-launcher.
+ *  The game's metrics: 195 wide, 9-column grid of 18 px slots from (9,18), creative scroller at x 175, a hotbar row 4 px under
+ *  the grid (here: your first nine favourites), tabs above and below.
+ *  Tabs: Search (every app until you type), Favourites, then the freedesktop categories.
+ *  Prefixes in the search field: `=` calculator (safe parser, Enter copies the result) · `>` run a command.
+ *  Keys: arrows move · PageUp/PageDown · Enter launches · Esc closes · Tab/Shift+Tab next tab · Ctrl+F favourite.
+ *  Mouse: click launches, right-click favourites, hover shows the tooltip. Favourites wear a star, and persist in
+ *  ~/.config/overworld/launcher.json. Plays chest.open/chest.close, emits launcher.launch {app}.
  */
 Variants {
     model: Quickshell.screens
@@ -23,348 +27,364 @@ Variants {
         onCloseRequested: ShellState.close("launcher")
 
         // ------------------------------------------------------------ data
-        readonly property var categories: [
-            { glyph: "全", name: "All",         match: [] },
-            { glyph: "网", name: "Internet",    match: ["Network", "WebBrowser", "Email", "Chat", "InstantMessaging", "P2P", "FileTransfer"] },
-            { glyph: "工", name: "Development", match: ["Development", "IDE", "Debugger", "Building"] },
-            { glyph: "画", name: "Media",       match: ["AudioVideo", "Audio", "Video", "Graphics", "Photography", "Player", "Music", "Recorder"] },
-            { glyph: "书", name: "Office",      match: ["Office", "TextEditor", "Documentation", "WordProcessor", "Spreadsheet", "Viewer", "Presentation", "Calendar"] },
-            { glyph: "器", name: "System",      match: ["System", "TerminalEmulator", "FileManager", "Monitor", "Emulator", "Utility", "Archiving"] },
-            { glyph: "设", name: "Settings",    match: ["Settings", "DesktopSettings", "HardwareSettings", "PackageManager", "Security"] }
+        readonly property var tabs: [
+            { key: "search",  item: "compass",        label: "Search Items", match: [] },
+            { key: "fav",     item: "nether_star",    label: "Favourites",   match: [] },
+            { key: "net",     item: "filled_map",     label: "Internet",     match: ["Network", "WebBrowser", "Email", "Chat", "InstantMessaging", "P2P", "FileTransfer"] },
+            { key: "dev",     item: "command_block",  label: "Development",  match: ["Development", "IDE", "Debugger", "Building"] },
+            { key: "media",   item: "jukebox",        label: "Media",        match: ["AudioVideo", "Audio", "Video", "Graphics", "Photography", "Player", "Music", "Recorder"] },
+            { key: "office",  item: "writable_book",  label: "Office",       match: ["Office", "TextEditor", "Documentation", "WordProcessor", "Spreadsheet", "Viewer", "Presentation", "Calendar"] },
+            { key: "system",  item: "redstone",       label: "System",       match: ["System", "TerminalEmulator", "FileManager", "Monitor", "Emulator", "Utility", "Archiving"] },
+            { key: "settings",item: "comparator",     label: "Settings",     match: ["Settings", "DesktopSettings", "HardwareSettings", "PackageManager", "Security"] },
+            { key: "games",   item: "diamond_sword",  label: "Games",        match: ["Game"] }
         ]
+        readonly property int topTabs: 7
         property int category: 0
         property string query: ""
         property int selected: 0
-        property int tick: 0
+        property bool keyboardNav: false
         property var apps: []
         property var results: []
+        property var favourites: []
         readonly property string mode: query.indexOf("=") === 0 ? "calc" : (query.indexOf(">") === 0 ? "run" : "apps")
         readonly property var calc: mode === "calc" ? Calc.evaluate(query.substring(1)) : ({ ok: false, error: "" })
-        readonly property string artPath: Theme.assetsDir + "/art/launcher-maomao.png"
-        property bool artExists: false
-        FileView { id: artProbe; path: win.artPath; printErrors: false; onLoaded: win.artExists = true; onLoadFailed: win.artExists = false }
+        readonly property var favApps: favourites.map(id => apps.find(a => a.id === id)).filter(a => a !== undefined)
 
+        // ------------------------------------------------------------ favourites, persisted
+        readonly property string favPath: Theme.stateDir + "/launcher.json"
+        FileView {
+            id: favFile
+            path: win.favPath
+            blockLoading: true
+            printErrors: false
+            atomicWrites: false
+        }
+        function saveFavourites() {
+            if (!ShellState.preview) favFile.setText(JSON.stringify({ favourites: win.favourites }, null, 1) + "\n");
+        }
+        function isFav(id) { return win.favourites.indexOf(id) >= 0; }
+        function toggleFav(app) {
+            if (!app) return;
+            const i = win.favourites.indexOf(app.id);
+            const copy = win.favourites.slice();
+            if (i >= 0) copy.splice(i, 1); else copy.push(app.id);
+            win.favourites = copy;
+            SoundService.play("item.pickup");
+            win.saveFavourites();
+            if (win.tabs[win.category].key === "fav") win.rebuild();
+        }
+
+        function iconFor(e) {          // items.json by desktop id, class or icon name; else the app's own icon; else the default item
+            const keys = [e.id, e.startupClass, e.icon, e.name];
+            for (let i = 0; i < keys.length; i++) {
+                const k = String(keys[i] || "").toLowerCase();
+                if (k.length && typeof Theme.items[k] === "string") return { item: Theme.items[k], url: "" };
+            }
+            const p = e.icon ? Quickshell.iconPath(e.icon, true) : "";
+            return p ? { item: "", url: p } : { item: Theme.items._default || "stone", url: "" };
+        }
+        function categoryName(a) {
+            for (let i = 2; i < win.tabs.length; i++) if (win.inTab(a, win.tabs[i])) return win.tabs[i].label;
+            return "Application";
+        }
         function buildApps() {
             const list = DesktopEntries.applications.values;
             const out = [];
             for (let i = 0; i < list.length; i++) {
                 const e = list[i];
                 if (!e || e.noDisplay) continue;
-                out.push({ entry: e, name: e.name || e.id, generic: e.genericName || "", comment: e.comment || "",
-                           keywords: (e.keywords || []).join(" "), categories: e.categories || [], icon: e.icon || "" });
+                const ic = win.iconFor(e);
+                out.push({ entry: e, id: e.id, name: e.name || e.id, generic: e.genericName || "", comment: e.comment || "",
+                           keywords: (e.keywords || []).join(" "), categories: e.categories || [], item: ic.item, url: ic.url });
             }
             out.sort((a, b) => a.name.localeCompare(b.name));
             win.apps = out;
             win.rebuild();
         }
-        function inCategory(app, cat) {
-            if (cat.match.length === 0) return true;
-            for (let i = 0; i < app.categories.length; i++) if (cat.match.indexOf(app.categories[i]) >= 0) return true;
+        function inTab(app, tab) {
+            for (let i = 0; i < app.categories.length; i++) if (tab.match.indexOf(app.categories[i]) >= 0) return true;
             return false;
         }
         function rebuild() {
             if (win.mode !== "apps") { win.results = []; win.selected = 0; return; }
-            const cat = win.categories[win.category];
+            const tab = win.tabs[win.category];
             const q = win.query.trim();
-            const scored = [];
-            for (let i = 0; i < win.apps.length; i++) {
-                const a = win.apps[i];
-                if (!q.length && !win.inCategory(a, cat)) continue;
-                const s = Fuzzy.score(q, a.name, a.generic, a.keywords, a.comment);
-                if (s > 0) scored.push({ app: a, s: s });
+            let pool = win.apps;
+            if (tab.key === "fav") pool = win.favApps;
+            else if (tab.key !== "search") pool = pool.filter(a => win.inTab(a, tab));
+            if (!q.length) {
+                win.results = pool;
+            } else {
+                const scored = [];
+                for (let i = 0; i < pool.length; i++) {
+                    const a = pool[i];
+                    const s = Fuzzy.score(q, a.name, a.generic, a.keywords, a.comment);
+                    if (s > 0) scored.push({ app: a, s: s });
+                }
+                scored.sort((x, y) => (y.s - x.s) || x.app.name.localeCompare(y.app.name));
+                win.results = scored.map(x => x.app);
             }
-            if (q.length) scored.sort((x, y) => (y.s - x.s) || x.app.name.localeCompare(y.app.name));
-            win.results = scored.map(x => x.app);
             win.selected = 0;
+            grid.contentY = 0;
         }
-        onQueryChanged: rebuild()
-        onCategoryChanged: { rebuild(); win.tick++; }
+        onQueryChanged: {
+            if (query.length && win.tabs[win.category].key !== "search") win.category = 0;   // typing jumps to Search, like the game
+            rebuild();
+        }
+        onCategoryChanged: rebuild()
         Connections { target: ShellState; function onLauncherSearch(q) { win.setQuery(q); } }
         Connections { target: DesktopEntries; function onApplicationsChanged() { win.buildApps(); } }
-        Component.onCompleted: buildApps()
+        Component.onCompleted: {
+            try { win.favourites = (JSON.parse(favFile.text() || "{}").favourites) || []; } catch (e) { win.favourites = []; }
+            buildApps();
+        }
 
+        property bool wasShown: false
         onShownChanged: {
             if (shown) {
-                search.text = ""; win.category = 0; win.selected = 0; win.tick++;
-                rebuild(); grid.contentY = 0; search.forceActiveFocus();
+                search.text = ""; win.category = 0; win.selected = 0; win.keyboardNav = false;
+                rebuild(); grid.contentY = 0; search.input.forceActiveFocus();
+                SoundService.play("chest.open");
+                wasShown = true;
+            } else if (wasShown) {
+                SoundService.play("chest.close");
+                wasShown = false;
             }
         }
 
-        function setQuery(q) { search.text = q; search.forceActiveFocus(); }
-        function launch(i) {
-            const app = win.results[i];
+        function setQuery(q) { search.text = q; search.input.forceActiveFocus(); }
+        function launchApp(app) {
             if (!app) return;
-            SoundService.play("seal");
-            app.entry.execute();
+            GameEvents.emit("launcher.launch", { app: app.id });
+            if (ShellState.preview) console.warn("DRYRUN launch", app.id);
+            else app.entry.execute();
             ShellState.close("launcher");
         }
         function accept() {
             if (win.mode === "calc") {
-                if (win.calc.ok) { Quickshell.execDetached(["wl-copy", Calc.format(win.calc.value)]); ShellState.close("launcher"); }
+                if (win.calc.ok) { ShellState.run(["wl-copy", Calc.format(win.calc.value)]); ShellState.close("launcher"); }
                 return;
             }
             if (win.mode === "run") {
                 const cmd = win.query.substring(1).trim();
-                if (cmd.length) { Quickshell.execDetached(["sh", "-c", cmd]); ShellState.close("launcher"); }
+                if (cmd.length) { ShellState.run(["sh", "-c", cmd]); ShellState.close("launcher"); }
                 return;
             }
-            launch(win.selected);
+            launchApp(win.results[win.selected]);
         }
+        function nextTab(d) { win.category = (win.category + d + win.tabs.length) % win.tabs.length; Theme.playSound("ui.click"); }
         function move(key) {
+            win.keyboardNav = true;
             const n = win.results.length;
-            if (key === Qt.Key_Tab) { win.category = (win.category + 1) % win.categories.length; return; }
             if (n === 0) return;
-            const cols = grid.columns;
+            const cols = 9;
             let s = win.selected;
             if (key === Qt.Key_Right) s = Math.min(n - 1, s + 1);
             else if (key === Qt.Key_Left) s = Math.max(0, s - 1);
             else if (key === Qt.Key_Down) s = Math.min(n - 1, s + cols);
             else if (key === Qt.Key_Up) s = Math.max(0, s - cols);
-            else if (key === Qt.Key_PageDown) s = Math.min(n - 1, s + cols * 4);
-            else if (key === Qt.Key_PageUp) s = Math.max(0, s - cols * 4);
+            else if (key === Qt.Key_PageDown) s = Math.min(n - 1, s + cols * win.rows);
+            else if (key === Qt.Key_PageUp) s = Math.max(0, s - cols * win.rows);
             win.selected = s;
-            grid.ensureVisible(s);
+            grid.positionViewAtIndex(s, GridView.Contain);
+        }
+        // The grid keeps working while the search field has the keyboard, so these run before the field sees them.
+        function handleKey(event) {
+            const k = event.key;
+            if (k === Qt.Key_Tab) { win.nextTab(1); event.accepted = true; }
+            else if (k === Qt.Key_Backtab) { win.nextTab(-1); event.accepted = true; }
+            else if (k === Qt.Key_Up || k === Qt.Key_Down || k === Qt.Key_PageUp || k === Qt.Key_PageDown) { win.move(k); event.accepted = true; }
+            else if ((k === Qt.Key_Left || k === Qt.Key_Right) && win.mode === "apps") { win.move(k); event.accepted = true; }
+            else if (k === Qt.Key_F && (event.modifiers & Qt.ControlModifier)) { win.toggleFav(win.results[win.selected]); event.accepted = true; }
         }
 
-        // ------------------------------------------------------------ panel
-        PaperPanel {
-            id: panel
-            width: 900; height: 600
-            anchors.centerIn: parent
-            title: "药柜"
-            subtitle: "Apps · Medicine cabinet"
-            sealGlyph: "药"
-            radius: Theme.radius.lg
-            padding: Theme.space.lg
-            opacity: win.progress
-            transform: Translate { y: (1 - win.progress) * 12 }
+        // ------------------------------------------------------------ geometry (GUI px)
+        readonly property int rows: 8
+        readonly property int panelW: 195
+        readonly property int panelH: 18 + rows * 18 + 4 + 18 + 6
 
-            MouseArea { anchors.fill: parent; onClicked: search.forceActiveFocus() }   // swallow scrim clicks
+        // ------------------------------------------------------------ the panel
+        Item {
+            id: stage
+            width: Theme.px(win.panelW)
+            height: Theme.px(win.panelH)
+            x: Math.round((parent.width - width) / 2 / Theme.gui) * Theme.gui
+            y: Math.round((parent.height - height) / 2 / Theme.gui) * Theme.gui
 
-            Column {
+            McPanel {
+                id: panel
                 anchors.fill: parent
-                spacing: Theme.space.md
+                title: win.tabs[win.category].key === "search" ? "" : win.tabs[win.category].label
+                padding: 0
+                MouseArea { anchors.fill: parent; onClicked: search.input.forceActiveFocus() }   // swallow clicks
+            }
 
-                // ---- search drawer: wood front, brass ring, caret
-                Item {
-                    width: parent.width; height: 48
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Theme.radius.sm
-                        color: Theme.wood
-                        border.width: 1; border.color: Theme.woodDark
-                        Behavior on color { ColorAnimation { duration: Theme.durTheme; easing.type: Easing.OutCubic } }
-                    }
-                    Rectangle {   // brass ring
-                        width: 14; height: 14; radius: 7
-                        anchors.left: parent.left; anchors.leftMargin: 14
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: "transparent"; border.width: 2; border.color: Theme.gold
-                    }
-                    InkField {
-                        id: search
-                        anchors.fill: parent
-                        anchors.leftMargin: 40; anchors.rightMargin: 12; anchors.topMargin: 8; anchors.bottomMargin: 8
-                        fill: Theme.withAlpha(Theme.surface, 0.55)
-                        icon: win.mode === "calc" ? "󰃬" : (win.mode === "run" ? "󰆍" : "󰍉")
-                        placeholder: "找 · search apps…   = calculate   > run"
-                        arrowsNavigate: true
-                        onTextChanged: win.query = text
-                        onAccepted: win.accept()
-                        onEscaped: ShellState.close("launcher")
-                        onNavigate: key => win.move(key)
-                    }
+            McTabs {
+                id: topTabs
+                z: 2
+                tabs: win.tabs.slice(0, win.topTabs)
+                currentIndex: win.category < win.topTabs ? win.category : -1
+                anchors { left: parent.left; bottom: parent.top; bottomMargin: -overlap }
+                onTabClicked: i => { search.text = ""; win.category = i; search.input.forceActiveFocus(); }
+            }
+            McTabs {
+                id: bottomTabs
+                z: 2
+                side: "bottom"
+                tabs: win.tabs.slice(win.topTabs)
+                currentIndex: win.category >= win.topTabs ? win.category - win.topTabs : -1
+                anchors { left: parent.left; top: parent.bottom; topMargin: -overlap }
+                onTabClicked: i => { search.text = ""; win.category = win.topTabs + i; search.input.forceActiveFocus(); }
+            }
+
+            // ---- search field. Stays focused on every tab (typing jumps to Search), only drawn there, like the game.
+            McTextField {
+                id: search
+                x: Theme.px(62); y: Theme.px(4)
+                width: Theme.px(127); height: Theme.px(12)
+                opacity: win.tabs[win.category].key === "search" ? 1 : 0
+                placeholderText: "Search..."
+                onTextChanged: win.query = text
+                onAccepted: win.accept()
+                Component.onCompleted: search.input.Keys.pressed.connect(win.handleKey)
+            }
+            McText {
+                visible: win.tabs[win.category].key === "search"
+                x: Theme.px(8); y: Theme.px(5)
+                text: "Search"
+                guiTitle: true
+            }
+
+            // ---- grid: the empty slots, then the apps on top of them
+            Grid {
+                x: Theme.px(9); y: Theme.px(18)
+                columns: 9
+                Repeater {
+                    model: win.rows * 9
+                    McSlot { enabled: false }
                 }
-
-                // ---- body: categories | grid | art
-                Row {
-                    width: parent.width
-                    height: parent.height - 48 - footer.height - parent.spacing * 2
-                    spacing: Theme.space.md
-
-                    Column {   // cabinet labels
-                        id: catCol
-                        width: 104
-                        height: parent.height
-                        spacing: 2
-                        Repeater {
-                            model: win.categories
-                            Item {
-                                id: catItem
-                                required property var modelData
-                                required property int index
-                                readonly property bool current: win.category === index && win.query.trim().length === 0
-                                width: catCol.width; height: 54
-                                opacity: win.query.trim().length ? 0.5 : 1
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: Theme.radius.sm
-                                    color: catItem.current ? Theme.surfaceAlt : Theme.inkWash
-                                    opacity: catItem.current ? 1 : (catMouse.containsMouse ? 0.7 : 0)
-                                    border.width: catItem.current ? 1 : 0
-                                    border.color: Theme.hairline
-                                    Behavior on opacity { NumberAnimation { duration: Theme.durFast } }
-                                }
-                                Rectangle {   // accent rule on the current label
-                                    width: 2; height: parent.height - 12
-                                    anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                                    color: Theme.accent
-                                    visible: catItem.current
-                                }
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left; anchors.leftMargin: Theme.space.md
-                                    spacing: Theme.space.sm
-                                    Text {
-                                        text: catItem.modelData.glyph
-                                        font.family: Theme.fontDisplay
-                                        font.pixelSize: 24
-                                        color: catItem.current ? Theme.seal : Theme.text
-                                        renderType: Text.NativeRendering
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        Behavior on color { ColorAnimation { duration: Theme.durFast } }
-                                    }
-                                    Text {
-                                        text: catItem.modelData.name
-                                        font.family: Theme.fontSerif
-                                        font.pixelSize: 12; font.weight: 600
-                                        font.capitalization: Font.AllUppercase
-                                        font.letterSpacing: 1
-                                        color: catItem.current ? Theme.text : Theme.textMuted
-                                        renderType: Text.NativeRendering
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                }
-                                MouseArea {
-                                    id: catMouse
-                                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                    onClicked: { search.text = ""; win.category = catItem.index; search.forceActiveFocus(); }
-                                }
-                            }
-                        }
+            }
+            GridView {
+                id: grid
+                x: Theme.px(9); y: Theme.px(18)
+                width: Theme.px(9 * 18)
+                height: Theme.px(win.rows * 18)
+                cellWidth: Theme.px(18)
+                cellHeight: Theme.px(18)
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                snapMode: GridView.SnapToRow
+                visible: win.mode === "apps"
+                interactive: false
+                model: win.results
+                delegate: McSlot {
+                    id: slot
+                    required property var modelData
+                    required property int index
+                    readonly property string desc: modelData.comment.length ? modelData.comment : modelData.generic
+                    item: modelData.item
+                    iconSource: modelData.url
+                    highlighted: win.selected === index && win.keyboardNav
+                    tooltip: modelData.name
+                    tooltipDescription: desc
+                    tooltipCategory: win.categoryName(modelData)
+                    onHoveredChanged: if (hovered) { win.keyboardNav = false; win.selected = index; }
+                    onClicked: win.launchApp(modelData)
+                    onRightClicked: win.toggleFav(modelData)
+                    McItemIcon {   // favourites wear a small star
+                        visible: win.isFav(slot.modelData.id)
+                        x: Theme.px(10); y: Theme.px(1)
+                        size: 7
+                        name: "nether_star"
                     }
-                    InkDivider { vertical: true; height: parent.height }
-
-                    // ---- drawer grid
-                    Item {
-                        id: gridArea
-                        width: parent.width - catCol.width - 1 - (art.visible ? art.width + parent.spacing : 0) - parent.spacing * 2
-                        height: parent.height
-                        clip: true
-
-                        Flickable {
-                            id: grid
-                            anchors.fill: parent
-                            contentWidth: width
-                            contentHeight: flow.implicitHeight
-                            boundsBehavior: Flickable.StopAtBounds
-                            readonly property int gap: 12
-                            readonly property int columns: Math.max(1, Math.floor((width + gap) / (112 + gap)))
-                            readonly property int cell: Math.floor((width - (columns - 1) * gap) / columns)
-                            function ensureVisible(i) {
-                                const row = Math.floor(i / columns);
-                                const y = row * (90 + gap);
-                                if (y < contentY) contentY = y;
-                                else if (y + 90 > contentY + height) contentY = y + 90 - height;
-                            }
-                            Flow {
-                                id: flow
-                                width: grid.width
-                                spacing: grid.gap
-                                Repeater {
-                                    model: win.results
-                                    Drawer {
-                                        id: drawer
-                                        required property var modelData
-                                        required property int index
-                                        width: grid.cell
-                                        label: modelData.name
-                                        icon: modelData.icon
-                                        selected: win.selected === index
-                                        staggerIndex: index
-                                        tick: win.tick
-                                        onActivated: win.launch(index)
-                                        onHoveredChangedTo: h => { if (h) win.selected = index; }
-                                    }
-                                }
-                            }
-                        }
-
-                        // ---- empty / calc / run states
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: Theme.space.sm
-                            visible: win.mode !== "apps" || win.results.length === 0
-                            width: parent.width - 48
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: win.mode === "calc" ? "算" : (win.mode === "run" ? "令" : "空")
-                                font.family: Theme.fontDisplay
-                                font.pixelSize: 48
-                                color: win.mode === "apps" ? Theme.textMuted : Theme.seal
-                                renderType: Text.NativeRendering
-                            }
-                            InkText {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                role: win.mode === "calc" ? "display_sm" : "body"
-                                width: parent.width
-                                horizontalAlignment: Text.AlignHCenter
-                                font.family: win.mode === "calc" ? Theme.fontSerif : Theme.fontBody
-                                text: win.mode === "calc" ? (win.calc.ok ? "= " + Calc.format(win.calc.value) : (win.calc.error.length ? win.calc.error : "…"))
-                                    : win.mode === "run" ? (win.query.substring(1).trim().length ? "$ " + win.query.substring(1).trim() : "type a command")
-                                    : "nothing found"
-                                color: win.mode === "calc" && !win.calc.ok && win.calc.error.length ? Theme.error : Theme.text
-                            }
-                            InkText {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                role: "small"; muted: true
-                                text: win.mode === "calc" ? "Calculator · Enter copies the result" : (win.mode === "run" ? "Run command · Enter executes" : (win.query.trim().length ? "no drawer matches “" + win.query.trim() + "”" : "no apps in this column"))
-                            }
-                        }
-                    }
-
-                    // ---- Maomao strip (only if the art exists)
-                    Item {
-                        id: art
-                        visible: win.artExists
-                        width: 100
-                        height: parent.height
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: Theme.radius.sm
-                            color: Theme.surfaceAlt
-                            border.width: 1; border.color: Theme.hairline
-                            clip: true
-                            Image {
-                                anchors.fill: parent
-                                anchors.margins: 1
-                                source: win.artExists ? "file://" + win.artPath : ""
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                sourceSize.width: 220
-                                smooth: true
-                                mipmap: true
-                            }
+                    Loader {   // the keyboard cursor has a tooltip too
+                        active: win.keyboardNav && win.selected === slot.index
+                        sourceComponent: McTooltip {
+                            title: slot.modelData.name
+                            description: slot.desc
+                            category: win.categoryName(slot.modelData)
+                            target: slot
+                            targetX: slot.width
+                            targetY: 0
                         }
                     }
                 }
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onWheel: event => grid.contentY = Math.max(0, Math.min(Math.max(0, grid.contentHeight - grid.height),
+                        grid.contentY - Math.sign(event.angleDelta.y) * Theme.px(18)))
+                }
+            }
+            McScrollbar {
+                x: Theme.px(174); y: Theme.px(17)
+                height: Theme.px(win.rows * 18 + 2)
+                variant: "creative"
+                flickable: grid
+                visible: win.mode === "apps"
+            }
 
-                // ---- footer
-                Item {
-                    id: footer
-                    width: parent.width; height: 20
-                    InkText {
-                        role: "small"; muted: true
-                        anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                        text: "⏎ open · esc close · ↑↓←→ move · tab column · = calculator · > run"
+            // ---- nothing found / calculator / command
+            Item {
+                id: resultBox
+                x: Theme.px(9); y: Theme.px(18)
+                width: Theme.px(9 * 18); height: Theme.px(win.rows * 18)
+                visible: win.mode !== "apps" || win.results.length === 0
+                Rectangle { anchors.fill: parent; visible: win.mode !== "apps"; color: Theme.slot }
+                Column {
+                    anchors.centerIn: parent
+                    width: parent.width - Theme.px(12)
+                    spacing: Theme.px(4)
+                    McItemIcon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        name: win.mode === "calc" ? "comparator" : win.mode === "run" ? "command_block" : "barrier"
                     }
-                    InkText {
-                        role: "small"; muted: true
-                        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                        text: win.mode === "apps" ? (win.results.length + " drawer" + (win.results.length === 1 ? "" : "s")) : ""
+                    McText {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WrapAnywhere
+                        text: win.mode === "calc" ? (win.calc.ok ? "= " + Calc.format(win.calc.value) : (win.calc.error.length ? win.calc.error : "..."))
+                            : win.mode === "run" ? (win.query.substring(1).trim().length ? "/" + win.query.substring(1).trim() : "Type a command")
+                            : (win.tabs[win.category].key === "fav" && !win.query.trim().length ? "Nothing here yet" : "Nothing found")
+                        color: win.mode === "calc" && !win.calc.ok && win.calc.error.length ? Theme.chatReadable("c") : Theme.guiText
+                        font.pixelSize: win.mode === "calc" && win.calc.ok ? Theme.fontPx(2) : Theme.fontPx(1)
+                    }
+                    McText {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                        color: Theme.textMuted
+                        text: win.mode === "calc" ? "Calculator. Enter copies the result."
+                            : win.mode === "run" ? "Command block. Enter runs it."
+                            : (win.tabs[win.category].key === "fav" && !win.query.trim().length ? "Right-click an app to add it." : "")
                     }
                 }
             }
+
+            // ---- hotbar row: the first nine favourites
+            Row {
+                x: Theme.px(9); y: Theme.px(18 + win.rows * 18 + 4)
+                Repeater {
+                    model: 9
+                    McSlot {
+                        required property int index
+                        readonly property var app: win.favApps[index] || null
+                        item: app ? app.item : ""
+                        iconSource: app ? app.url : ""
+                        tooltip: app ? app.name : ""
+                        tooltipDescription: app ? (app.comment.length ? app.comment : app.generic) : ""
+                        tooltipCategory: app ? win.categoryName(app) : ""
+                        onClicked: if (app) win.launchApp(app)
+                        onRightClicked: if (app) win.toggleFav(app)
+                    }
+                }
+            }
+        }
+        McText {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: stage.y + stage.height + Theme.px(32)
+            color: Theme.tooltipDesc
+            text: win.mode !== "apps" ? "Enter: accept   Esc: close"
+                : win.results.length + (win.results.length === 1 ? " app" : " apps") + "   Enter: open   Tab: next tab   Right-click, Ctrl+F: favourite   = sum   > run"
         }
     }
 }

@@ -2,13 +2,16 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
+import qs.Common
 
-/*  NotificationService — the org.freedesktop.Notifications daemon + the desk of notes.
+/*  NotificationService — the org.freedesktop.Notifications daemon + the chat history behind the toasts.
  *
  *  NotificationService.all      every tracked note (newest first)        → notification centre
- *  NotificationService.popups   notes currently shown as paper-note popups (newest first)
+ *  NotificationService.popups   notes currently shown as toasts (newest first)
  *  NotificationService.groups   [{ app, icon, notes: [...] }] newest app first
- *  NotificationService.dnd / unread · toggleDnd() · dismiss(note) · dismissAll() · expirePopup(note)
+ *  NotificationService.dnd (the Peaceful difficulty, config.json difficulty) · unread · toggleDnd() · setDnd(bool)
+ *  dismiss(note) · dismissAll() · expirePopup(note) · test(summary, body, urgency, app)  a fake note for previews and QA
+ *  Emits `notify {app, urgency}` ("low"|"normal"|"critical") for every note, Peaceful or not.
  *
  *  Each note is a NoteWrapper { n (Notification), id, time, popup, hovered, urgency, timeout }.
  *  Timeouts: low 4 s · normal 7 s · critical sticky (0). Hover pauses the popup timer.
@@ -16,7 +19,8 @@ import Quickshell.Services.Notifications
 Singleton {
     id: root
 
-    property bool dnd: false
+    readonly property bool dnd: _dndOverride !== 0 ? _dndOverride > 0 : ConfigService.difficulty === "peaceful"
+    property int _dndOverride: 0      // follows config once the write lands; 1 / -1 until then
     property int unread: 0
     property var all: []        // NoteWrapper[], newest first
     readonly property var popups: all.filter(w => w.popup)
@@ -60,16 +64,16 @@ Singleton {
             repeat: false
             onTriggered: root.expirePopup(wrap)
         }
-        property Timer closeTimer: Timer {      // lets the card slide out (durFast) before it leaves the model
-            interval: 200
+        property Timer closeTimer: Timer {      // lets the toast slide out before it leaves the model
+            interval: Theme.toastSlide + 20
             onTriggered: {
                 wrap.popup = false; wrap.closing = false;
                 if (wrap.pendingDismiss) { wrap.pendingDismiss = false; root.dismiss(wrap); }
-                else if (wrap.n && wrap.n.transient) wrap.n.expire();
+                else if (wrap.n && wrap.n.transient && wrap.n.expire) wrap.n.expire();
             }
         }
         property Connections conn: Connections {
-            target: wrap.n
+            target: wrap.n && wrap.n.closed ? wrap.n : null
             function onClosed(reason) { root.remove(wrap); }
         }
     }
@@ -92,17 +96,27 @@ Singleton {
             const sync = notification.hints ? notification.hints["x-canonical-private-synchronous"] : undefined;
             if (sync === "volume_notif" || sync === "brightness_notif") { notification.expire(); return; }
             notification.tracked = true;
-            const w = wrapperComponent.createObject(root, { n: notification, nid: notification.id, time: Date.now() });
-            w.popup = !root.dnd;
-            root.all = [w].concat(root.all);
-            root.unread++;
-            if (!root.dnd) SoundService.play(w.critical ? "notify-urgent" : "notify");
+            root._add(notification, notification.id);
         }
+    }
+    function _add(n, id) {
+        const w = wrapperComponent.createObject(root, { n: n, nid: id, time: Date.now() });
+        w.popup = !root.dnd;
+        root.all = [w].concat(root.all);
+        root.unread++;
+        GameEvents.emit("notify", { app: w.appName, urgency: w.critical ? "critical" : w.low ? "low" : "normal" });
+        return w;
+    }
+    // A note with no D-Bus behind it (`ipc call notifications test`): previews and QA, whoever owns the bus.
+    function test(summary, body, urgency, app) {
+        const u = urgency === "critical" ? NotificationUrgency.Critical : urgency === "low" ? NotificationUrgency.Low : NotificationUrgency.Normal;
+        const fake = { appName: app || "Overworld", appIcon: "", summary: summary, body: body || "", image: "", urgency: u, expireTimeout: -1, transient: false, actions: [] };
+        return _add(fake, -1);
     }
 
     function expirePopup(w) {           // popup slides away, note stays on the desk (unless transient)
         if (!w || w.closing) return;
-        if (!w.popup) { if (w.n && w.n.transient) w.n.expire(); return; }
+        if (!w.popup) { if (w.n && w.n.transient && w.n.expire) w.n.expire(); return; }
         w.closing = true;
         w.closeTimer.start();
     }
@@ -115,7 +129,7 @@ Singleton {
     }
     function dismiss(w) {               // user closed it: tell the app and drop it
         if (!w) return;
-        if (w.n) w.n.dismiss(); else remove(w);
+        if (w.n && w.n.dismiss) w.n.dismiss(); else remove(w);
     }
     function remove(w) {
         const i = root.all.indexOf(w);
@@ -127,13 +141,20 @@ Singleton {
     }
     function dismissAll() {
         const copy = root.all.slice();
-        for (let i = 0; i < copy.length; i++) if (copy[i].n) copy[i].n.dismiss(); else remove(copy[i]);
+        for (let i = 0; i < copy.length; i++) dismiss(copy[i]);
         root.unread = 0;
     }
     function hidePopups() { for (let i = 0; i < root.all.length; i++) root.all[i].popup = false; }
-    function toggleDnd() {
-        root.dnd = !root.dnd;
-        if (root.dnd) hidePopups();
+    function setDnd(on) {
+        if (on === root.dnd) return;
+        root._dndOverride = on ? 1 : -1;
+        if (on) hidePopups();
+        ConfigService.set("difficulty", on ? "peaceful" : "normal");
+    }
+    function toggleDnd() { setDnd(!root.dnd); }
+    Connections {   // the write landed (or someone else changed the difficulty): config is the truth again
+        target: ConfigService
+        function onDifficultyChanged() { root._dndOverride = 0; if (root.dnd) root.hidePopups(); }
     }
     function markRead() { root.unread = 0; }
     function invokeDefault(w) {         // click on the body: default action if present, else dismiss

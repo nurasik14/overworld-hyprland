@@ -4,8 +4,9 @@ import Quickshell.Wayland
 import qs.Common
 import qs.Services
 
-/*  Osd — a small paper slip at the bottom centre with an ink bar (volume / brightness).  namespace overworld-osd.
- *  show("volume" | "brightness") from IPC; appears automatically on Pipewire sink volume changes.  Auto-hide 1.2 s.
+/*  Osd — the Options slider above the hotbar (volume / brightness), namespace overworld-osd, click-through.
+ *  "Master Volume: 75%" (OFF when muted), "Brightness: Moody (4%)" … "Brightness: 54%" … "Bright (100%)", like the Options screen.
+ *  show("volume" | "brightness") from IPC; appears on its own when the Pipewire sink volume changes. Auto-hide 1.2 s.
  */
 Scope {
     id: root
@@ -33,71 +34,37 @@ Scope {
             screen: modelData
             WlrLayershell.namespace: "overworld-osd"
             WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore
             anchors.bottom: true
-            margins.bottom: 72
-            implicitWidth: 280
-            implicitHeight: 56
+            margins.bottom: Theme.px(64)
+            implicitWidth: Theme.px(150)
+            implicitHeight: Theme.px(20)
             color: "transparent"
             mask: Region {}          // click-through
-            visible: root.shown || slip.opacity > 0.01
+            visible: root.shown || slider.opacity > 0.01
 
-            readonly property real value: root.kind === "brightness" ? AudioService.brightness : Math.min(1, AudioService.volume)
-            readonly property string glyph: root.kind === "brightness" ? (AudioService.brightness < 0.34 ? "󰃞" : (AudioService.brightness < 0.67 ? "󰃟" : "󰃠")) : AudioService.volumeGlyph()
-            readonly property string label: root.kind === "brightness" ? (AudioService.brightnessAvailable ? "亮 · Brightness" : "亮 · Brightness · no backlight device") : (AudioService.muted ? "音 · Muted" : "音 · Volume")
+            readonly property bool isBrightness: root.kind === "brightness"
+            readonly property real value: isBrightness ? AudioService.brightness : Math.min(1, AudioService.volume)
+            readonly property int percent: Math.round(value * 100)
+            readonly property string label: {
+                if (!isBrightness) return AudioService.muted ? "Master Volume: OFF" : "Master Volume: " + percent + "%";
+                if (!AudioService.brightnessAvailable) return "Brightness: no device";
+                if (percent >= 100) return "Brightness: Bright (100%)";
+                if (percent <= 25) return "Brightness: Moody (" + percent + "%)";
+                return "Brightness: " + percent + "%";
+            }
 
-            Rectangle {
-                id: slip
+            McSlider {
+                id: slider
                 anchors.fill: parent
-                radius: Theme.radius.md
-                color: Theme.surface
-                border.width: Theme.border.frame
-                border.color: Theme.frame
+                from: 0; to: 1
+                value: AudioService.muted && !win.isBrightness ? 0 : win.value
+                text: win.label
+                highlighted: true
+                soundId: ""
                 opacity: root.shown ? 1 : 0
-                transform: Translate { y: root.shown ? 0 : 8 }
-                Behavior on opacity { NumberAnimation { duration: root.shown ? Theme.durFast : Theme.durBase; easing.type: Theme.easeDrift } }
-                Rectangle {   // inner hairline
-                    anchors.fill: parent; anchors.margins: 4
-                    radius: Math.max(2, parent.radius - 3)
-                    color: "transparent"; border.width: 1; border.color: Theme.hairline
-                }
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: Theme.space.md
-                    anchors.leftMargin: Theme.space.lg
-                    anchors.rightMargin: Theme.space.lg
-                    spacing: Theme.space.md
-                    Text {
-                        text: win.glyph
-                        color: Theme.text
-                        font.family: Theme.fontMono
-                        font.pixelSize: 20
-                        renderType: Text.NativeRendering
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Column {
-                        width: parent.width - 20 - 44 - parent.spacing * 2
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
-                        InkText { role: "small"; muted: true; text: win.label }
-                        Item {   // ink bar
-                            width: parent.width; height: 6
-                            Rectangle { anchors.fill: parent; radius: 3; color: Theme.surfaceAlt; border.width: 1; border.color: Theme.hairline }
-                            Rectangle {
-                                width: Math.max(6, parent.width * win.value); height: parent.height; radius: 3
-                                color: AudioService.muted && root.kind === "volume" ? Theme.textMuted : Theme.accent
-                                Behavior on width { NumberAnimation { duration: Theme.durFast; easing.type: Theme.easeDrift } }
-                            }
-                        }
-                    }
-                    InkText {
-                        role: "clock_bar"
-                        width: 44
-                        horizontalAlignment: Text.AlignRight
-                        text: root.kind === "brightness" && !AudioService.brightnessAvailable ? "—" : Math.round(win.value * 100) + "%"
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
+                Behavior on opacity { NumberAnimation { duration: Theme.guiFade; easing.type: Theme.easeGui } }
             }
         }
     }

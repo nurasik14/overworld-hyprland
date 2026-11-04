@@ -4,9 +4,9 @@ import Quickshell.Wayland
 import qs.Common
 import qs.Services
 
-/*  Notifications — paper-note popups, top-right under the bar (DESIGN §6.4), namespace overworld-notif.
- *  The daemon itself lives in Services/NotificationService (NotificationServer).  Notes enter from the right (16 px + fade,
- *  ink 350 ms), leave in 160 ms; the stack re-flows with drift.  Hidden entirely while the notification centre is open.
+/*  Notifications — toasts stacking down from the top-right corner, namespace overworld-notif. The daemon itself lives in
+ *  Services/NotificationService. Like the game, at most what fits is drawn (5 here); the rest wait in the service, and
+ *  every note stays in the notification centre. Hidden while the centre is open.
  */
 Variants {
     model: Quickshell.screens
@@ -17,53 +17,28 @@ Variants {
         screen: modelData
         WlrLayershell.namespace: "overworld-notif"
         WlrLayershell.layer: WlrLayer.Overlay
-        exclusionMode: ExclusionMode.Normal
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        exclusionMode: ExclusionMode.Ignore
         anchors { top: true; right: true }
-        margins.top: Theme.space.lg
-        margins.right: Theme.space.margin
-        implicitWidth: 340 + 4
-        implicitHeight: Math.max(1, stack.implicitHeight + 8)
+        implicitWidth: Theme.px(240)
+        implicitHeight: Math.max(1, stack.implicitHeight)
         color: "transparent"
-        readonly property var popups: NotificationService.popups
+        readonly property var popups: NotificationService.popups.slice(0, 5)
         visible: popups.length > 0 && !ShellState.notifCenterOpen
 
         Column {
             id: stack
-            anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-            anchors.rightMargin: 4
-            spacing: Theme.space.md
-            move: Transition { NumberAnimation { properties: "y"; duration: Theme.durBase; easing.type: Theme.easeDrift } }
+            width: parent.width
+            spacing: 0
+            move: Transition { NumberAnimation { properties: "y"; duration: Theme.ms(150); easing.type: Easing.OutQuad } }
 
             Repeater {
                 model: win.popups
-                Item {
-                    id: slot
+                NoteToast {
                     required property var modelData
+                    note: modelData
                     width: stack.width
-                    height: card.implicitHeight
-                    NoteCard {
-                        id: card
-                        note: slot.modelData
-                        width: parent.width
-                        opacity: 0
-                        transform: Translate { id: slide; x: 16 }
-                        onCloseClicked: NotificationService.dismissPopup(slot.modelData)
-                        Component.onCompleted: enter.start()
-                        ParallelAnimation {
-                            id: enter
-                            NumberAnimation { target: card; property: "opacity"; to: 1; duration: Theme.durBase; easing.type: Theme.easeInk }
-                            NumberAnimation { target: slide; property: "x"; to: 0; duration: Theme.durBase; easing.type: Theme.easeInk }
-                        }
-                        ParallelAnimation {
-                            id: leave
-                            NumberAnimation { target: card; property: "opacity"; to: 0; duration: Theme.durFast; easing.type: Theme.easeBrush }
-                            NumberAnimation { target: slide; property: "x"; to: 16; duration: Theme.durFast; easing.type: Theme.easeBrush }
-                        }
-                        Connections {
-                            target: slot.modelData
-                            function onClosingChanged() { if (slot.modelData.closing) { enter.stop(); leave.start(); } }
-                        }
-                    }
+                    onCloseClicked: NotificationService.dismissPopup(modelData)
                 }
             }
         }

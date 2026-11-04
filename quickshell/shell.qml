@@ -17,14 +17,16 @@ import qs.World
 import qs.Interact
 
 /*  Overworld Hyprland — Quickshell entry.  `qs -c overworld`
- *  Surfaces (layer namespaces): overworld-bar · overworld-launcher · overworld-notif · overworld-notifcenter ·
- *  overworld-network · overworld-power · overworld-wallpapers · overworld-osd · overworld-wscard · overworld-brew · overworld-widgets (qs-widgets)
+ *  Surfaces (layer namespaces): overworld-bar (the HUD) · overworld-bossbar · overworld-widgetsmenu · overworld-launcher · overworld-notif ·
+ *  overworld-notifcenter · overworld-network · overworld-power · overworld-wallpapers · overworld-osd · overworld-wscard · overworld-brew ·
+ *  overworld-widgets (qs-widgets) and the Game, World and Interact modules' own
  *  IPC: qs -c overworld ipc call <target> <fn>   — see docs/QUICKSHELL.md
  */
 ShellRoot {
     id: shell
 
     Bar {}
+    BossBar {}
     Launcher {}
     Notifications {}
     NotificationCenter {}
@@ -80,6 +82,8 @@ ShellRoot {
         function open(): void { ShellState.open("notifCenter"); }
         function close(): void { ShellState.close("notifCenter"); }
         function dnd(): void { NotificationService.toggleDnd(); }
+        function setDnd(on: bool): void { NotificationService.setDnd(on); }
+        function test(summary: string, body: string, urgency: string): void { NotificationService.test(summary, body, urgency, "Overworld"); }
         function clear(): void { NotificationService.dismissAll(); }
         function status(): string {
             return (NotificationService.dnd ? "dnd " : "") + NotificationService.count + " notes, " + NotificationService.unread + " unread";
@@ -103,6 +107,13 @@ ShellRoot {
         function current(): void { wsCard.reveal(HyprlandState.focusedId); }
         function hide(): void { wsCard.hide(); }
         function title(id: int): string { return WorkspaceNotes.title(id); }
+    }
+    IpcHandler {
+        target: "hud"
+        function reveal(): void { ShellState.hudHidden = false; }
+        function hide(): void { ShellState.hudHidden = true; }
+        function toggle(): void { ShellState.hudHidden = !ShellState.hudHidden; }
+        function status(): string { return ShellState.hudHidden || ConfigService.isSpectator ? "hidden" : "shown"; }
     }
     IpcHandler {
         target: "shell"
