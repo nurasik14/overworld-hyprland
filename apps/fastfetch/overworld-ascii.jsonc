@@ -1,0 +1,33 @@
+// Overworld Hyprland — fastfetch (ascii fallback — light colours). Linked as ~/.config/fastfetch/config.jsonc via ~/.config/overworld/fastfetch/current.jsonc.
+// Colours are the token values from tokens/out/ascii fallback — light colours/fastfetch-colors.jsonc (display.color). Logo: Maomao, flipped per mode by apply-mode.sh.
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": { "type": "file", "source": "~/.config/overworld/repo/apps/fastfetch/maomao.txt", "color": { "1": "red", "2": "green" }, "padding": { "top": 1, "left": 1, "right": 2 } },
+  "display": {
+    "color": { "keys": "38;2;55;106;78", "title": "38;2;176;47;42", "output": "38;2;42;38;34", "separator": "38;2;92;85;75" },
+    "separator": " · ",
+    "key": { "width": 14, "type": "string" },
+    "bar": { "border": { "left": "[", "right": "]" }, "char": { "elapsed": "■", "total": "·" }, "width": 14 },
+    "percent": { "type": 3 }
+  },
+  "modules": [
+    { "type": "title", "format": "{user-name-colored}{at-symbol-colored}{host-name-colored}  薬屋のひとりごと" },
+    { "type": "custom", "format": "{#38;2;92;85;75}──────────────────────────────────────────" },
+    { "type": "os",       "key": "薬 OS       " },
+    { "type": "kernel",   "key": "核 Kernel   " },
+    { "type": "uptime",   "key": "刻 Uptime   " },
+    { "type": "packages", "key": "包 Packages " },
+    { "type": "shell",    "key": "殻 Shell    " },
+    { "type": "wm",       "key": "窓 WM       " },
+    { "type": "terminal", "key": "端 Terminal " },
+    { "type": "custom", "format": "{#38;2;92;85;75}──────────────────────────────────────────" },
+    { "type": "cpu",      "key": "脳 CPU      ", "format": "{name} ({cores-physical}c) @ {freq-max}" },
+    { "type": "gpu",      "key": "絵 GPU      ", "format": "{name}", "hideType": "integrated" },
+    { "type": "memory",   "key": "記 Memory   ", "format": "{used} / {total} {percentage-bar}" },
+    { "type": "disk",     "key": "庫 Disk     ", "folders": "/", "format": "{size-used} / {size-total} {size-percentage-bar}" },
+    { "type": "custom", "format": "{#38;2;92;85;75}──────────────────────────────────────────" },
+    { "type": "colors",   "key": "色 Colours  ", "symbol": "circle", "paddingLeft": 0 },
+    "break",
+    { "type": "command", "key": "言 Quote    ", "keyColor": "38;2;176;47;42", "text": "jq -r '.[].text | select(length < 96)' ~/.config/overworld/repo/quotes/quotes.json 2>/dev/null | shuf -n1 || echo 'Do things out of love, not for love.'" }
+  ]
+}

@@ -1,0 +1,19 @@
+# copyrighted art is never committed; assets/fetch-art.sh downloads it
+assets/art/
+assets/wallpapers/
+assets/fonts/
+.refs/
+qa/screenshots/
+*.zip
+__pycache__/
+.orchestrator/
+qa/orchestrator-logs/
+# third-party reference screenshot (qxb3 "ink" rice) — local only
+docs/reference-ink.png
+qa/current-desktop.png
+
+# personal VibeWise learning notes (local only)
+.vibe-wise/
+
+# Minecraft brewing sounds (© Mojang) — scripts/fetch-minecraft-sounds.sh downloads them
+assets/sounds/minecraft/

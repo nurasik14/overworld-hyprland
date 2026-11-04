@@ -1,0 +1,146 @@
+/* ---- apps/zen/userChrome-rules.css — paper toolbar / tabs / sidebar for Zen (uses --ow-* from zen-vars.css) ---- */
+/* Only colours, radii and type; Zen's own layout (compact mode, sidebar tabs, split view) is left alone. */
+
+:root {
+  --zen-main-browser-background: var(--ow-bg0) !important;
+  --zen-main-browser-background-toolbar: var(--ow-bg0) !important;
+  --zen-colors-primary: var(--ow-surface) !important;
+  --zen-colors-secondary: var(--ow-bg1) !important;
+  --zen-colors-tertiary: var(--ow-bg0) !important;
+  --zen-colors-border: var(--ow-hairline) !important;
+  --zen-primary-color: var(--ow-accent) !important;
+  --zen-toolbar-element-bg: var(--ow-inkWash) !important;
+  --zen-urlbar-background: var(--ow-surface) !important;
+  --zen-border-radius: var(--ow-radius-md) !important;
+  --toolbar-bgcolor: var(--ow-bg0) !important;
+  --toolbar-color: var(--ow-text) !important;
+  --toolbar-field-background-color: var(--ow-surface) !important;
+  --toolbar-field-color: var(--ow-text) !important;
+  --toolbar-field-focus-background-color: var(--ow-surface) !important;
+  --toolbar-field-focus-color: var(--ow-text) !important;
+  --toolbar-field-focus-border-color: var(--ow-accent) !important;
+  --toolbarbutton-icon-fill: var(--ow-text) !important;
+  --toolbarbutton-hover-background: var(--ow-inkWash) !important;
+  --toolbarbutton-active-background: var(--ow-inkWashStrong) !important;
+  --urlbar-box-bgcolor: var(--ow-surface) !important;
+  --urlbar-box-hover-bgcolor: var(--ow-surfaceAlt) !important;
+  --urlbar-box-text-color: var(--ow-text) !important;
+  --urlbarView-highlight-background: var(--ow-surfaceAlt) !important;
+  --urlbarView-highlight-color: var(--ow-text) !important;
+  --urlbarView-hover-background: var(--ow-inkWash) !important;
+  --urlbarView-separator-color: var(--ow-hairline) !important;
+  --tab-selected-bgcolor: var(--ow-surface) !important;
+  --tab-selected-textcolor: var(--ow-text) !important;
+  --tab-hover-background-color: var(--ow-inkWash) !important;
+  --tab-min-height: 34px !important;
+  --tab-border-radius: var(--ow-radius-sm) !important;
+  --lwt-accent-color: var(--ow-bg0) !important;
+  --lwt-text-color: var(--ow-text) !important;
+  --lwt-sidebar-background-color: var(--ow-bg1) !important;
+  --lwt-sidebar-text-color: var(--ow-text) !important;
+  --sidebar-background-color: var(--ow-bg1) !important;
+  --sidebar-text-color: var(--ow-text) !important;
+  --arrowpanel-background: var(--ow-bg2) !important;
+  --arrowpanel-color: var(--ow-text) !important;
+  --arrowpanel-border-color: var(--ow-hairline) !important;
+  --arrowpanel-border-radius: var(--ow-radius-md) !important;
+  --panel-separator-color: var(--ow-hairline) !important;
+  --button-bgcolor: var(--ow-surfaceAlt) !important;
+  --button-hover-bgcolor: var(--ow-inkWashStrong) !important;
+  --button-primary-bgcolor: var(--ow-accent) !important;
+  --button-primary-hover-bgcolor: var(--ow-accent) !important;
+  --button-primary-color: var(--ow-textOnAccent) !important;
+  --focus-outline-color: var(--ow-seal) !important;
+  --in-content-page-background: var(--ow-bg1) !important;
+  --in-content-page-color: var(--ow-text) !important;
+  --in-content-box-background: var(--ow-surface) !important;
+  --in-content-primary-button-background: var(--ow-accent) !important;
+  --in-content-link-color: var(--ow-link) !important;
+  --link-color: var(--ow-link) !important;
+  --attention-dot-color: var(--ow-seal) !important;
+  --tab-attention-icon-color: var(--ow-seal) !important;
+}
+
+/* window and toolbars: paper ground, ink hairline */
+#main-window, #navigator-toolbox, #nav-bar, #TabsToolbar, #PersonalToolbar, #titlebar {
+  background-color: var(--ow-bg0) !important;
+  color: var(--ow-text) !important;
+}
+#navigator-toolbox { border-bottom: 1px solid var(--ow-hairline) !important; }
+#nav-bar { box-shadow: none !important; }
+
+/* url bar: a paper field with an accent focus ring */
+#urlbar-background, #searchbar {
+  background-color: var(--ow-surface) !important;
+  border: 1px solid var(--ow-hairline) !important;
+  border-radius: var(--ow-radius-sm) !important;
+  box-shadow: none !important;
+}
+#urlbar[focused="true"] > #urlbar-background { border-color: var(--ow-accent) !important; box-shadow: 0 0 0 1px var(--ow-accent) !important; }
+#urlbar-input, #urlbar-input::placeholder { color: var(--ow-text) !important; }
+#urlbar-input::placeholder { color: var(--ow-textMuted) !important; }
+.urlbarView-row[selected] > .urlbarView-row-inner, .urlbarView-row:hover > .urlbarView-row-inner {
+  background-color: var(--ow-surfaceAlt) !important; color: var(--ow-text) !important; border-radius: var(--ow-radius-sm) !important;
+}
+.urlbarView-url { color: var(--ow-link) !important; }
+
+/* tabs: folded paper labels, selected tab carries a seal-coloured rule */
+.tabbrowser-tab .tab-background {
+  border-radius: var(--ow-radius-sm) !important;
+  box-shadow: none !important;
+}
+.tabbrowser-tab[selected] .tab-background, .tabbrowser-tab[visuallyselected] .tab-background {
+  background-color: var(--ow-surface) !important;
+  outline: 1px solid var(--ow-hairline) !important;
+}
+.tabbrowser-tab:not([selected]):hover .tab-background { background-color: var(--ow-inkWash) !important; }
+.tab-label, .tab-text { color: var(--ow-text) !important; font-family: var(--ow-font-ui), sans-serif !important; }
+.tabbrowser-tab[selected] .tab-label { font-weight: 600 !important; }
+.tabbrowser-tab[selected] .tab-icon-stack::after { background: var(--ow-seal); }
+.tab-close-button:hover { background-color: var(--ow-sealWash) !important; fill: var(--ow-seal) !important; }
+
+/* Zen sidebar / workspaces */
+#zen-sidebar-splitter, #sidebar-splitter { background-color: var(--ow-hairline) !important; }
+#sidebar-box, #zen-sidebar-web-panel, #sidebar, .zen-workspaces-button, #zen-workspaces-button {
+  background-color: var(--ow-bg1) !important; color: var(--ow-text) !important;
+}
+#sidebar-header { background-color: var(--ow-bg0) !important; border-bottom: 1px solid var(--ow-hairline) !important; color: var(--ow-text) !important; }
+#tabbrowser-tabbox, #tabbrowser-tabpanels, .browserSidebarContainer, #zen-appcontent-wrapper {
+  background-color: var(--ow-bg0) !important;
+}
+#tabbrowser-tabpanels .browserContainer, .browserStack browser {
+  border-radius: var(--ow-radius-md) !important;
+  outline: 1px solid var(--ow-hairline) !important;
+}
+
+/* menus and panels: raised paper, soft shadow */
+panel, menupopup, .panel-arrowcontent, #appMenu-popup, #identity-popup, #permission-popup, #downloadsPanel, #BMB_bookmarksPopup {
+  --panel-background: var(--ow-bg2) !important;
+  --panel-color: var(--ow-text) !important;
+  --panel-border-color: var(--ow-hairline) !important;
+  --panel-shadow: var(--ow-shadow-panel) !important;
+  --menu-background-color: var(--ow-bg2) !important;
+  --menu-color: var(--ow-text) !important;
+  --menu-border-color: var(--ow-hairline) !important;
+  --menuitem-hover-background-color: var(--ow-surfaceAlt) !important;
+  --menuitem-hover-color: var(--ow-text) !important;
+}
+menuitem:hover, menu:hover, .subviewbutton:hover, toolbarbutton.subviewbutton:not([disabled]):hover {
+  background-color: var(--ow-surfaceAlt) !important; color: var(--ow-text) !important; border-radius: var(--ow-radius-sm) !important;
+}
+menuseparator, toolbarseparator { border-color: var(--ow-hairline) !important; }
+
+/* findbar, notifications, status */
+findbar { background-color: var(--ow-bg1) !important; color: var(--ow-text) !important; border-top: 1px solid var(--ow-hairline) !important; }
+.findbar-textbox { background-color: var(--ow-surface) !important; color: var(--ow-text) !important; border: 1px solid var(--ow-hairline) !important; border-radius: var(--ow-radius-sm) !important; }
+.findbar-textbox[status="notfound"] { border-color: var(--ow-seal) !important; }
+#statuspanel-label { background-color: var(--ow-titlebar) !important; color: var(--ow-titlebarText) !important; border: none !important; border-radius: 0 var(--ow-radius-sm) 0 0 !important; }
+notification-message, .notificationbox-stack { --info-bar-background-color: var(--ow-surfaceAlt) !important; --info-bar-text-color: var(--ow-text) !important; }
+
+/* scrollbars: thin ink */
+:root { scrollbar-color: var(--ow-ink4) transparent !important; scrollbar-width: thin !important; }
+
+/* the seal: attention / recording / blocked */
+.tab-icon-overlay[soundplaying], .tab-icon-overlay[muted] { fill: var(--ow-accent) !important; }
+#tracking-protection-icon-container[active] { color: var(--ow-accent) !important; }
+#identity-icon-box[pageproxystate="valid"].notSecure { color: var(--ow-seal) !important; }

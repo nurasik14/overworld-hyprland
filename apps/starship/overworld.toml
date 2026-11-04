@@ -1,0 +1,108 @@
+# Overworld Hyprland — starship preset (apps/starship/overworld.toml)
+# apps/install.sh appends both token palettes (tokens/out/<mode>/starship-palette.toml) to this file into
+# ~/.config/overworld/starship/overworld.toml and apps/apply-mode.sh flips the `palette =` line below.
+# Two lines: [薬] seal · directory · git 枝 · duration 刻  /  ❯
+"$schema" = 'https://starship.rs/config-schema.json'
+palette = "overworld_light"
+add_newline = true
+command_timeout = 800
+
+format = """
+[ 薬 ](bold textOnSeal bg:seal)$username$hostname[](fg:seal bg:surfaceAlt)$directory[](fg:surfaceAlt)\
+$git_branch$git_status$git_state\
+$python$nodejs$rust$golang$lua\
+$cmd_duration$jobs
+$character"""
+
+right_format = "$time"
+
+[username]
+show_always = false
+style_user = "bold textOnSeal bg:seal"
+style_root = "bold textOnSeal bg:error"
+format = "[$user ]($style)"
+
+[hostname]
+ssh_only = true
+style = "textOnSeal bg:seal"
+format = "[@$hostname ]($style)"
+
+[directory]
+style = "bold accent bg:surfaceAlt"
+read_only_style = "seal bg:surfaceAlt"
+read_only = " 鎖"
+truncation_length = 4
+truncation_symbol = "…/"
+truncate_to_repo = true
+format = "[ $path ]($style)[$read_only]($read_only_style)"
+[directory.substitutions]
+"~" = "家"
+"Projects" = "工"
+"Documents" = "書"
+"Downloads" = "収"
+"Media" = "画"
+
+[git_branch]
+symbol = "枝 "
+style = "accent2"
+format = " [$symbol$branch(:$remote_branch)]($style)"
+
+[git_status]
+style = "plum"
+format = "[ $all_status$ahead_behind]($style)"
+conflicted = "乱"
+ahead = "↑${count}"
+behind = "↓${count}"
+diverged = "↕${ahead_count}${behind_count}"
+untracked = "?${count}"
+stashed = "蔵"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
+
+[git_state]
+style = "warning"
+format = " [$state( $progress_current/$progress_total)]($style)"
+
+[cmd_duration]
+min_time = 2000
+style = "textMuted"
+format = " [刻 $duration]($style)"
+
+[jobs]
+symbol = "煎"
+style = "accent2"
+format = " [$symbol$number]($style)"
+
+[character]
+success_symbol = "[❯](bold accent)"
+error_symbol = "[❯](bold seal)"
+vimcmd_symbol = "[❮](bold accent2)"
+
+[time]
+disabled = false
+style = "textMuted"
+format = "[$time]($style)"
+time_format = "%H:%M"
+
+[python]
+symbol = "蛇 "
+style = "jade"
+format = " [${symbol}${pyenv_prefix}(${version} )(\\($virtualenv\\))]($style)"
+[nodejs]
+symbol = "節 "
+style = "success"
+format = " [$symbol($version)]($style)"
+[rust]
+symbol = "錆 "
+style = "accent2"
+format = " [$symbol($version)]($style)"
+[golang]
+symbol = "鼠 "
+style = "indigo"
+format = " [$symbol($version)]($style)"
+[lua]
+symbol = "月 "
+style = "indigo"
+format = " [$symbol($version)]($style)"

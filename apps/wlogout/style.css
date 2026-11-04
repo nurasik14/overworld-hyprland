@@ -1,0 +1,39 @@
+/* ---- apps/wlogout/style.css — paper tiles: CJK glyph icon (icons/<label>-<mode>.svg) + Latin label ----
+ * install.sh prepends tokens wlogout-vars.css and replaces @ICONS@/@MODE@ with the absolute icon dir and mode. */
+* { font-family: "Cormorant Garamond", "EB Garamond", "Noto Sans"; }
+window {
+  background-color: alpha(@ow_bg0, 0.88);
+  color: @ow_text;
+}
+button {
+  font-size: 18pt;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: @ow_textMuted;
+  background-color: @ow_surface;
+  background-repeat: no-repeat;
+  background-position: center 38%;
+  background-size: 46%;
+  border: 2px solid @ow_frame;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px @ow_shadow, inset 0 0 0 4px @ow_surface, inset 0 0 0 5px @ow_hairline;
+  margin: 12px;
+  padding: 0 8px 36px 8px;
+  outline-style: none;
+  transition: all 350ms cubic-bezier(.22,1,.36,1);
+}
+button:focus, button:hover {
+  background-color: @ow_surfaceAlt;
+  background-size: 52%;
+  border-color: @ow_seal;
+  box-shadow: 0 8px 24px @ow_shadowStrong, inset 0 0 0 4px @ow_surfaceAlt, inset 0 0 0 5px @ow_seal;
+  color: @ow_text;
+  margin: 6px;
+}
+button:active { background-color: @ow_sealWash; }
+#lock      { background-image: image(url("@ICONS@/lock-@MODE@.svg")); }
+#logout    { background-image: image(url("@ICONS@/logout-@MODE@.svg")); }
+#suspend   { background-image: image(url("@ICONS@/suspend-@MODE@.svg")); }
+#hibernate { background-image: image(url("@ICONS@/hibernate-@MODE@.svg")); }
+#reboot    { background-image: image(url("@ICONS@/reboot-@MODE@.svg")); }
+#shutdown  { background-image: image(url("@ICONS@/shutdown-@MODE@.svg")); }
