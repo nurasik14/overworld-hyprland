@@ -4,54 +4,54 @@
 code_syntax_highlight = "catppuccin-mocha"
 
 #-- Full Screen
-full_screen_fg = "#eadfc7"
-full_screen_bg = "#15110e"
+full_screen_fg = "#ffffff"
+full_screen_bg = "#141418"
 
 #-- Gradient
-gradient_color = ["#7fc19a", "#c9a35e"]
+gradient_color = ["#55ff55", "#ffaa00"]
 
 #-- File Panel
-file_panel_fg = "#eadfc7"
-file_panel_bg = "#1e1915"
-file_panel_border = "#4a3f33"
-file_panel_border_active = "#c8402f"
-file_panel_top_directory_icon = "#c9a35e"
-file_panel_top_path = "#7fc19a"
-file_panel_item_selected_fg = "#c8402f"
-file_panel_item_selected_bg = "#2a231c"
+file_panel_fg = "#ffffff"
+file_panel_bg = "#25252c"
+file_panel_border = "#4c4c58"
+file_panel_border_active = "#ff7070"
+file_panel_top_directory_icon = "#ffaa00"
+file_panel_top_path = "#55ff55"
+file_panel_item_selected_fg = "#ff7070"
+file_panel_item_selected_bg = "#31313a"
 
 #-- Footer
-footer_fg = "#a89c86"
-footer_bg = "#1e1915"
-footer_border = "#4a3f33"
-footer_border_active = "#7fc19a"
+footer_fg = "#b4b4b4"
+footer_bg = "#25252c"
+footer_border = "#4c4c58"
+footer_border_active = "#55ff55"
 
 #-- Sidebar
-sidebar_fg = "#eadfc7"
-sidebar_bg = "#1e1915"
-sidebar_title = "#c9a35e"
-sidebar_border = "#4a3f33"
-sidebar_border_active = "#7fc19a"
-sidebar_item_selected_fg = "#c8402f"
-sidebar_item_selected_bg = "#2a231c"
-sidebar_divider = "#4a3f33"
+sidebar_fg = "#ffffff"
+sidebar_bg = "#25252c"
+sidebar_title = "#ffaa00"
+sidebar_border = "#4c4c58"
+sidebar_border_active = "#55ff55"
+sidebar_item_selected_fg = "#ff7070"
+sidebar_item_selected_bg = "#31313a"
+sidebar_divider = "#4c4c58"
 
 #-- Modals
-modal_fg = "#eadfc7"
-modal_bg = "#262019"
-modal_border_active = "#c8402f"
-modal_cancel_fg = "#fbf7ee"
-modal_cancel_bg = "#33291f"
-modal_confirm_fg = "#fbf7ee"
-modal_confirm_bg = "#c8402f"
+modal_fg = "#ffffff"
+modal_bg = "#25252c"
+modal_border_active = "#ff7070"
+modal_cancel_fg = "#000000"
+modal_cancel_bg = "#31313a"
+modal_confirm_fg = "#000000"
+modal_confirm_bg = "#ff7070"
 
 #-- Help Menu
-help_menu_hotkey = "#c8402f"
-help_menu_title = "#c9a35e"
+help_menu_hotkey = "#ff7070"
+help_menu_title = "#ffaa00"
 
 #-- Special
-cursor = "#c8402f"
-correct = "#9fb378"
-error = "#e4674f"
-hint = "#7fb3a1"
-cancel = "#d9a441"
+cursor = "#ff7070"
+correct = "#55ff55"
+error = "#ff7070"
+hint = "#55ffff"
+cancel = "#ffff55"

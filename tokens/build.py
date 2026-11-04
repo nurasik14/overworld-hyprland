@@ -67,9 +67,9 @@ def hyprland_colors(m, name):
     sh = S["shadow"]["hyprland"]
     L += ["", "# concrete settings (sourced by hypr/on.conf via ~/.config/overworld/colors.conf)",
           "general {",
-          f"    col.active_border = {hypr(m['seal'])} {hypr(m['accent'])} 45deg",
-          f"    col.inactive_border = {hypr(m['hairline'])}",
-          f"    col.nogroup_border = {hypr(m['hairline'])}",
+          f"    col.active_border = {hypr(m['borderActive'])}",
+          f"    col.inactive_border = {hypr(m['borderInactive'])}",
+          f"    col.nogroup_border = {hypr(m['borderInactive'])}",
           f"    col.nogroup_border_active = {hypr(m['accent2'])}",
           "}",
           "decoration {",
@@ -79,10 +79,10 @@ def hyprland_colors(m, name):
           "    }",
           "}",
           "group {",
-          f"    col.border_active = {hypr(m['accent2'])} {hypr(m['seal'])} 45deg",
-          f"    col.border_inactive = {hypr(m['hairline'])}",
+          f"    col.border_active = {hypr(m['borderActive'])}",
+          f"    col.border_inactive = {hypr(m['borderInactive'])}",
           f"    col.border_locked_active = {hypr(m['seal'])}",
-          f"    col.border_locked_inactive = {hypr(m['hairline'])}",
+          f"    col.border_locked_inactive = {hypr(m['borderInactive'])}",
           "    groupbar {",
           f"        col.active = {hypr(m['titlebar'])}",
           f"        col.inactive = {hypr(m['surfaceAlt'])}",
@@ -175,7 +175,7 @@ def gtk_css(m, name):
     for i, c in enumerate(m["paper"]): L.append(f"@define-color ow_paper{i} {c};")
     return "\n".join(L)
 
-def css_vars(m, name, prefix="apo", selector=":root"):
+def css_vars(m, name, prefix="ow", selector=":root"):
     L = ["/* " + HEADER + " */", f"/* CSS custom properties — Overworld {name} */", selector + " {"]
     for k, v in m.items():
         if isinstance(v, str) and v.startswith("#"):
@@ -327,7 +327,7 @@ def palette_json(m, name):
     return json.dumps(flat, indent=2, ensure_ascii=False)
 
 def zen(m, name):
-    return css_vars(m, name, prefix="apo", selector=":root") + "\n\n/* Zen/Firefox userChrome hooks */\n:root {\n" + \
+    return css_vars(m, name, prefix="ow", selector=":root") + "\n\n/* Zen/Firefox userChrome hooks */\n:root {\n" + \
         f"  --zen-colors-primary: {m['surface']} !important;\n  --zen-colors-secondary: {m['bg1']} !important;\n  --zen-colors-tertiary: {m['bg0']} !important;\n" + \
         f"  --zen-colors-border: {m['hairline']} !important;\n  --zen-primary-color: {m['accent']} !important;\n  --toolbar-bgcolor: {m['bg0']} !important;\n  --toolbar-color: {m['text']} !important;\n" + \
         f"  --urlbar-box-bgcolor: {m['surface']} !important;\n  --urlbar-box-text-color: {m['text']} !important;\n  --tab-selected-bgcolor: {m['surface']} !important;\n  --lwt-accent-color: {m['bg0']} !important;\n  --lwt-text-color: {m['text']} !important;\n}}"
@@ -370,7 +370,7 @@ def validate(outdir):
 
 # ---------------------------------------------------------------- contrast audit
 def audit(m, name):
-    grounds = ["bg0", "bg1", "bg2", "surface", "surfaceAlt"]
+    grounds = ["bg0", "bg1", "bg2", "surface", "surfaceAlt", "panel"]
     rows, worst = [], (99, "", "")
     for role in m["text_safe"]:
         for g in grounds:
@@ -379,12 +379,19 @@ def audit(m, name):
     for role in m["ui_safe"]:
         for g in grounds:
             v = contrast(m[role], m[g]); rows.append((role + " (ui)", g, v, v >= 3.0))
-    extra = [("titlebarText", "titlebar"), ("textOnAccent", "accent"), ("textOnSeal", "seal"), ("textOnAccent", "success"), ("selectionText", blend(m["accent"], m["surface"], alpha_of(m["selection"])))]
+    extra = [("titlebarText", "titlebar"), ("textOnAccent", "accent"), ("textOnSeal", "seal"), ("textOnAccent", "success"),
+             ("selectionText", blend(m["accent"], m["surface"], alpha_of(m["selection"]))),
+             # fixed-colour GUI pairs: same in both modes, drawn on their own dark sprites
+             ("buttonText", "#6f6f6f"), ("buttonTextDisabled", "#2c2c2c"), ("fieldText", "fieldFill"), ("tooltipTitle", "tooltipFill"), ("tooltipDesc", "tooltipFill"),
+             ("toastTitle", "#212121"), ("toastChallenge", "#212121"), ("toastText", "#212121"), ("toastLightTitle", "#e0e0e0"), ("toastLightText", "#e0e0e0")]
     for a, b in extra:
-        v = contrast(m[a], m[b] if b in m else b); rows.append((a, b if b in m else "selection∘surface", v, v >= 4.5))
+        label = b if b in m else ("selection∘surface" if a == "selectionText" else b)
+        v = contrast(m[a], m[b] if b in m else b); rows.append((a, label, v, v >= 4.5))
+    # ANSI: every colour on every ground. The only exemption is the Night terminal black (ansi0 is the background there).
     for i, c in enumerate(m["ansi"]):
-        if i in (0, 7, 15): continue
-        v = contrast(c, m["surface"]); rows.append((f"ansi{i}", "surface", v, v >= (3.0 if i == 8 else 4.5)))
+        if m["is_dark"] and i == 0: continue
+        for g in grounds:
+            v = contrast(c, m[g]); rows.append((f"ansi{i}", g, v, v >= 4.5))
     return rows, worst
 
 def contrast_markdown():
@@ -425,6 +432,7 @@ def build():
             fails = [r for r in rows if not r[3]]
             print(f"[{name}] {len(rows)} pairs, {len(fails)} failing")
             for r in fails: print(f"   FAIL {r[0]} on {r[1]} = {r[2]:.2f}")
+            all_errs += [f"[{name}] contrast: {r[0]} on {r[1]} = {r[2]:.2f}" for r in fails]
     if all_errs:
         print("\n".join(all_errs)); sys.exit(1)
 

@@ -1,34 +1,14 @@
 import QtQuick
 import qs.Common as Common
 
-/*  InkDivider — a separator.  brush: false → 1 px hairline; brush: true → the generated ink brush stroke
- *  (black on paper, cream on lacquer).  Horizontal by default; vertical: true for a column rule.
+/*  DEPRECATED: use McDivider.  brush: true used the header separator tile; horizontal by default, vertical: true for a column rule.
+ *  brushOpacity is kept for callers and applies to the whole divider.
  */
-Item {
-    id: root
+Common.McDivider {
     property bool brush: false
-    property bool vertical: false
-    property real brushOpacity: 0.85
-    implicitWidth: vertical ? 1 : 200
-    implicitHeight: vertical ? 200 : (brush ? 14 : 1)
-
-    Rectangle {
-        visible: !root.brush
-        anchors.centerIn: parent
-        width: root.vertical ? Common.Theme.border.hairline : parent.width
-        height: root.vertical ? parent.height : Common.Theme.border.hairline
-        color: Common.Theme.hairline
-        Behavior on color { ColorAnimation { duration: Common.Theme.durTheme; easing.type: Easing.OutCubic } }
-    }
-    Image {
-        visible: root.brush
-        anchors.fill: parent
-        source: root.brush ? Common.Theme.texture("divider") : ""
-        fillMode: Image.PreserveAspectFit
-        rotation: root.vertical ? 90 : 0
-        opacity: root.brushOpacity
-        smooth: true
-        mipmap: true
-        asynchronous: true
-    }
+    property real brushOpacity: 1
+    variant: brush && !vertical ? "header" : "bevel"
+    opacity: brush ? brushOpacity : 1
+    implicitWidth: vertical ? Common.Theme.px(2) : 200
+    implicitHeight: vertical ? 200 : Common.Theme.px(2)
 }

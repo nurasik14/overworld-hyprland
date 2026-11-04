@@ -1,15 +1,15 @@
 {
   "radius": {
-    "xs": 3,
-    "sm": 6,
-    "md": 8,
-    "lg": 12,
-    "pill": 999
+    "xs": 0,
+    "sm": 0,
+    "md": 0,
+    "lg": 0,
+    "pill": 0
   },
   "border": {
-    "hairline": 1,
+    "hairline": 2,
     "frame": 2,
-    "focus": 1
+    "focus": 2
   },
   "space": {
     "xs": 4,
@@ -22,142 +22,179 @@
     "margin": 24
   },
   "sizes": {
-    "bar_height": 36,
+    "bar_height": 44,
     "titlebar_height": 28,
     "seal_small": 14,
     "seal_medium": 24,
     "seal_large": 48,
-    "control_height": 32,
+    "control_height": 40,
     "control_height_large": 48,
     "hairline_inset": 4,
-    "card_padding": 16,
+    "card_padding": 14,
     "icon": 16,
-    "icon_large": 24
+    "icon_large": 32,
+    "gui_slot": 18,
+    "gui_item": 16,
+    "gui_button_h": 20,
+    "gui_button_w": 150,
+    "gui_button_wide": 200,
+    "gui_button_small": 98
   },
   "type": {
     "families": {
-      "display_cjk": "Ma Shan Zheng",
-      "title": "ZCOOL XiaoWei",
-      "body_cjk": "LXGW WenKai",
-      "jp_flavour": "Shippori Mincho B1",
-      "jp_brush": "Yuji Syuku",
-      "serif_latin_display": "Cormorant Garamond",
-      "serif_latin_body": "EB Garamond",
-      "ui": "Noto Sans",
-      "mono": "JetBrainsMono Nerd Font",
-      "mono_propo": "JetBrainsMono Nerd Font Propo"
+      "display_cjk": "Overworld Mojangles",
+      "title": "Overworld Mojangles",
+      "body_cjk": "Overworld Mojangles",
+      "jp_flavour": "Overworld Mojangles",
+      "jp_brush": "Overworld Mojangles",
+      "serif_latin_display": "Overworld Mojangles",
+      "serif_latin_body": "Overworld Mojangles",
+      "ui": "Overworld Mojangles",
+      "ui_fallback": "Monocraft",
+      "mono": "Monocraft",
+      "mono_propo": "Monocraft"
     },
+    "note": "size = px at the default GUI scale 2; QML uses units x 8 x Theme.gui. Bitmap fonts are only crisp at multiples of 8 px.",
     "roles": {
       "display": {
-        "family": "Ma Shan Zheng",
-        "size": 32,
+        "family": "Overworld Mojangles",
+        "units": 3,
+        "size": 48,
         "weight": 400,
-        "line_height": 1.15,
-        "use": "card titles in CJK, hyprlock 時辰, seals at 48+"
+        "line_height": 1.25,
+        "use": "/title big text, world-card headers"
       },
       "display_sm": {
-        "family": "Ma Shan Zheng",
-        "size": 28,
+        "family": "Overworld Mojangles",
+        "units": 2,
+        "size": 32,
         "weight": 400,
-        "line_height": 1.15,
-        "use": "section heads, cabinet column labels"
+        "line_height": 1.25,
+        "use": "section heads, /title subtitle"
       },
       "title": {
-        "family": "ZCOOL XiaoWei",
-        "size": 18,
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 16,
         "weight": 400,
-        "line_height": 1.2,
-        "use": "title bars (CJK + Latin), panel headers"
+        "line_height": 1.25,
+        "use": "panel titles (GUI title style), widget headers"
       },
       "subtitle": {
-        "family": "Cormorant Garamond",
-        "size": 13,
-        "weight": 500,
-        "line_height": 1.2,
-        "letter_spacing": 0.08,
-        "use": "Latin subtitle under / beside a CJK title, small caps"
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 16,
+        "weight": 400,
+        "line_height": 1.25,
+        "use": "secondary line beside a title"
       },
       "body": {
-        "family": "LXGW WenKai",
-        "size": 14,
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 16,
         "weight": 400,
-        "line_height": 1.45,
-        "use": "widget body text, drawer labels, notification body"
+        "line_height": 1.25,
+        "use": "body text, notification body"
       },
       "body_latin": {
-        "family": "EB Garamond",
-        "size": 15,
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 16,
         "weight": 400,
-        "line_height": 1.45,
-        "use": "quotes, long Latin prose"
+        "line_height": 1.35,
+        "use": "quotes, long prose"
       },
       "ui": {
-        "family": "Noto Sans",
-        "size": 13,
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 16,
         "weight": 400,
-        "line_height": 1.4,
-        "use": "buttons, form fields, lists, status"
+        "line_height": 1.25,
+        "use": "buttons, fields, lists, status"
       },
       "small": {
-        "family": "Noto Sans",
-        "size": 12,
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 16,
         "weight": 400,
-        "line_height": 1.3,
-        "use": "captions, timestamps, bar chips"
+        "line_height": 1.25,
+        "use": "captions, timestamps, bar chips (a bitmap font has no smaller crisp size)"
       },
       "mono": {
-        "family": "JetBrainsMono Nerd Font",
-        "size": 13,
+        "family": "Monocraft",
+        "units": 1,
+        "size": 16,
         "weight": 400,
-        "line_height": 1.4,
-        "use": "sysinfo, cava labels, icon glyphs"
+        "line_height": 1.25,
+        "use": "F3 text, sysinfo, terminals, Nerd glyphs"
       },
       "clock_bar": {
-        "family": "Cormorant Garamond",
+        "family": "Overworld Mojangles",
+        "units": 1,
         "size": 16,
-        "weight": 600,
+        "weight": 400,
         "line_height": 1.0,
         "use": "bar clock HH:MM"
       },
       "clock_lock": {
-        "family": "Cormorant Garamond",
+        "family": "Overworld Mojangles",
+        "units": 8,
         "size": 128,
-        "weight": 300,
+        "weight": 400,
         "line_height": 1.0,
         "use": "hyprlock clock"
       },
       "shichen_lock": {
-        "family": "Ma Shan Zheng",
+        "family": "Overworld Mojangles",
+        "units": 6,
         "size": 96,
         "weight": 400,
         "line_height": 1.0,
-        "use": "hyprlock 時辰 glyph, vermilion"
+        "use": "hyprlock secondary big text (legacy key)"
       },
       "quote_lock": {
-        "family": "EB Garamond",
-        "size": 20,
+        "family": "Overworld Mojangles",
+        "units": 1,
+        "size": 24,
         "weight": 400,
-        "line_height": 1.4,
-        "italic": true,
-        "use": "hyprlock quote"
+        "line_height": 1.3,
+        "use": "hyprlock splash / quote"
       },
       "weather_temp": {
-        "family": "Cormorant Garamond",
-        "size": 56,
-        "weight": 500,
+        "family": "Overworld Mojangles",
+        "units": 3,
+        "size": 48,
+        "weight": 400,
         "line_height": 1.0,
         "use": "big temperature"
       }
     }
   },
   "motion": {
+    "tick_ms": 50,
     "duration": {
-      "fast": 160,
-      "base": 350,
-      "slow": 600,
+      "fast": 150,
+      "base": 250,
+      "slow": 500,
       "theme_fade": 500,
       "wallpaper": 1200,
-      "stagger": 40
+      "stagger": 40,
+      "gui_fade": 150,
+      "toast_slide": 500,
+      "toast_hold": 5000,
+      "tooltip_delay": 0
+    },
+    "ticks": {
+      "title_in": 10,
+      "title_stay": 70,
+      "title_out": 20,
+      "item_name_hold": 40,
+      "item_name_fade": 10,
+      "chat_hold": 200,
+      "chat_fade": 20,
+      "cursor_blink": 6,
+      "toast_slide": 10,
+      "button_highlight": 0
     },
     "easing": {
       "ink": {
@@ -170,7 +207,7 @@
         "hyprland": "ink, 0.22, 1, 0.36, 1",
         "qml": "Easing.OutQuint",
         "css": "cubic-bezier(.22,1,.36,1)",
-        "use": "panels, windows, notifications entering"
+        "use": "legacy name: panels entering"
       },
       "brush": {
         "bezier": [
@@ -182,7 +219,7 @@
         "hyprland": "brush, 0.65, 0, 0.35, 1",
         "qml": "Easing.InOutCubic",
         "css": "cubic-bezier(.65,0,.35,1)",
-        "use": "symmetric moves, toggles, cross-fades"
+        "use": "legacy name: symmetric moves, cross-fades"
       },
       "drift": {
         "bezier": [
@@ -194,61 +231,86 @@
         "hyprland": "drift, 0.33, 1, 0.68, 1",
         "qml": "Easing.OutCubic",
         "css": "cubic-bezier(.33,1,.68,1)",
-        "use": "workspaces, hover washes, progress"
+        "use": "legacy name: workspaces, progress"
+      },
+      "block": {
+        "bezier": [
+          0.2,
+          1.25,
+          0.4,
+          1.0
+        ],
+        "hyprland": "block, 0.2, 1.25, 0.4, 1",
+        "qml": "Easing.OutBack",
+        "css": "cubic-bezier(.2,1.25,.4,1)",
+        "use": "window placed: pop-in with slight overshoot"
+      },
+      "toast": {
+        "bezier": [
+          0.55,
+          0.085,
+          0.68,
+          0.53
+        ],
+        "hyprland": "toast, 0.55, 0.085, 0.68, 0.53",
+        "qml": "Easing.InQuad",
+        "css": "cubic-bezier(.55,.085,.68,.53)",
+        "use": "toast slide (the game squares its progress)"
       }
     },
     "translate": {
-      "panel": 12,
-      "notification": 16,
-      "osd": 8,
+      "panel": 0,
+      "notification": 0,
+      "osd": 0,
       "hover": 0
     },
     "hyprland": {
-      "windowsIn": "7, ink, popin 85%",
-      "windowsOut": "6, brush, popin 85%",
-      "windowsMove": "6, drift",
-      "fade": "5, brush",
-      "fadeDim": "5, brush",
-      "workspaces": "8, drift, slide",
-      "layers": "5, ink, slide",
-      "layersIn": "6, ink, slide",
-      "layersOut": "5, brush, fade",
+      "windowsIn": "2.5, block, popin 85%",
+      "windowsOut": "2, brush, popin 85%",
+      "windowsMove": "2.5, drift",
+      "fade": "1.5, brush",
+      "fadeDim": "1.5, brush",
+      "workspaces": "3.5, drift, slide",
+      "layers": "1.5, drift, fade",
+      "layersIn": "1.5, drift, fade",
+      "layersOut": "1.5, brush, fade",
       "border_angle": "off"
     },
-    "reduced_motion": "when ~/.config/overworld/config.json has {\"reduced_motion\":true}: durations 0 except theme_fade 150; translate 0; wallpaper transition 'fade' 0.3"
+    "reduced_motion": "config.json {\"reduced_motion\":true} or {\"animations\":false}: Theme.reducedMotion is true: durations 0 except theme_fade 150, no jiggle / pulse / sprite stepping; the tick clock keeps running for logic."
   },
   "shadow": {
     "card": {
       "x": 0,
-      "y": 4,
-      "blur": 12,
+      "y": 0,
+      "blur": 0,
       "spread": 0,
-      "opacity": 0.22
+      "opacity": 0.0
     },
     "panel": {
       "x": 0,
-      "y": 8,
-      "blur": 24,
+      "y": 0,
+      "blur": 0,
       "spread": 0,
-      "opacity": 0.3
+      "opacity": 0.0
     },
     "note": {
       "x": 2,
-      "y": 3,
-      "blur": 6,
+      "y": 2,
+      "blur": 0,
       "spread": 0,
       "opacity": 0.25
     },
     "hyprland": {
-      "range": 18,
-      "render_power": 3,
-      "offset": "0 3",
-      "scale": 0.97
+      "range": 0,
+      "render_power": 1,
+      "offset": "0 0",
+      "scale": 1.0,
+      "enabled": false
     }
   },
   "blur": {
     "hyprland": {
-      "enabled": true,
+      "enabled": false,
       "size": 6,
       "passes": 3,
       "vibrancy": 0.17,
@@ -267,30 +329,36 @@
     }
   },
   "opacity": {
-    "card_transparent": 0.82,
+    "card_transparent": 0.72,
+    "surface": 1.0,
     "texture_overlay": {
-      "light": 0.5,
-      "dark": 0.45
+      "light": 0.0,
+      "dark": 0.0
     },
-    "ink_wash_hover": 0.08,
-    "ink_wash_pressed": 0.16,
-    "disabled": 0.45,
+    "ink_wash_hover": 0.5,
+    "ink_wash_pressed": 0.5,
+    "disabled": 0.55,
     "dim_inactive": 0.05,
-    "scrim": 0.35,
-    "bar": 0.92,
+    "scrim": 0.75,
+    "bar": 1.0,
     "drawer_hover_lift": 1.0,
-    "texture_overlay_note": "applies to the tinted tiles (mean = surface tone), so it only scales grain strength; for the neutral *-grain.png tiles use 0.15–0.30 with Multiply/Overlay"
+    "widget_default": 0.72,
+    "slot_hover": 0.5,
+    "texture_overlay_note": "legacy paper/lacquer grain overlays are off (0). disabled is for unported modules; Mc* widgets use their own disabled sprites."
   },
   "textures": {
-    "paper": "assets/pd/textures/paper.png",
-    "paper_tile": "assets/pd/textures/paper-tile.png",
-    "lacquer": "assets/pd/textures/lacquer.png",
-    "lacquer_tile": "assets/pd/textures/lacquer-tile.png",
-    "ink_edge_mask": "assets/pd/textures/ink-edge-mask.png",
-    "ink_divider": "assets/pd/textures/ink-divider.png",
-    "enso": "assets/pd/textures/enso.png",
-    "seal_yaku": "assets/pd/seals/seal-薬.png",
-    "seal_neko": "assets/pd/seals/seal-猫.png",
-    "seal_in": "assets/pd/seals/seal-印.png"
+    "panel_reference": "gui/demo_background",
+    "menu_background": "gui/menu_background",
+    "inworld_menu_background": "gui/inworld_menu_background",
+    "header_separator": "gui/header_separator",
+    "footer_separator": "gui/footer_separator",
+    "note": "paths are relative to the texture root; resolve with Theme.tex()"
+  },
+  "gui": {
+    "default_scale": 2,
+    "min": 1,
+    "max": 4,
+    "font_unit": 8,
+    "auto_rule": "floor(min(screenW/960, screenH/540)) clamped to 1..4 (1920x1080 -> 2). The game's own Auto would give 4 at 1080p, too large for a desktop shell."
   }
 }

@@ -2,204 +2,429 @@
 
 | mode | foreground | ground | ratio | ok |
 |---|---|---|---|---|
-| light | text | bg0 | 11.02 | ✓ |
-| light | text | bg1 | 12.10 | ✓ |
-| light | text | bg2 | 12.76 | ✓ |
-| light | text | surface | 12.76 | ✓ |
-| light | text | surfaceAlt | 11.34 | ✓ |
-| light | textMuted | bg0 | 5.40 | ✓ |
-| light | textMuted | bg1 | 5.92 | ✓ |
-| light | textMuted | bg2 | 6.25 | ✓ |
-| light | textMuted | surface | 6.25 | ✓ |
-| light | textMuted | surfaceAlt | 5.55 | ✓ |
-| light | accent | bg0 | 4.62 | ✓ |
-| light | accent | bg1 | 5.07 | ✓ |
-| light | accent | bg2 | 5.35 | ✓ |
-| light | accent | surface | 5.35 | ✓ |
-| light | accent | surfaceAlt | 4.76 | ✓ |
-| light | accent2 | bg0 | 4.54 | ✓ |
-| light | accent2 | bg1 | 4.99 | ✓ |
-| light | accent2 | bg2 | 5.26 | ✓ |
-| light | accent2 | surface | 5.26 | ✓ |
-| light | accent2 | surfaceAlt | 4.67 | ✓ |
-| light | seal | bg0 | 4.69 | ✓ |
-| light | seal | bg1 | 5.15 | ✓ |
-| light | seal | bg2 | 5.43 | ✓ |
-| light | seal | surface | 5.43 | ✓ |
-| light | seal | surfaceAlt | 4.83 | ✓ |
-| light | success | bg0 | 4.74 | ✓ |
-| light | success | bg1 | 5.20 | ✓ |
-| light | success | bg2 | 5.49 | ✓ |
-| light | success | surface | 5.49 | ✓ |
-| light | success | surfaceAlt | 4.88 | ✓ |
-| light | warning | bg0 | 4.83 | ✓ |
-| light | warning | bg1 | 5.30 | ✓ |
-| light | warning | bg2 | 5.59 | ✓ |
-| light | warning | surface | 5.59 | ✓ |
-| light | warning | surfaceAlt | 4.97 | ✓ |
-| light | error | bg0 | 4.69 | ✓ |
-| light | error | bg1 | 5.15 | ✓ |
-| light | error | bg2 | 5.43 | ✓ |
-| light | error | surface | 5.43 | ✓ |
-| light | error | surfaceAlt | 4.83 | ✓ |
-| light | info | bg0 | 4.69 | ✓ |
-| light | info | bg1 | 5.15 | ✓ |
-| light | info | bg2 | 5.43 | ✓ |
-| light | info | surface | 5.43 | ✓ |
-| light | info | surfaceAlt | 4.83 | ✓ |
-| light | plum | bg0 | 4.69 | ✓ |
-| light | plum | bg1 | 5.15 | ✓ |
-| light | plum | bg2 | 5.43 | ✓ |
+| light | text | bg0 | 6.97 | ✓ |
+| light | text | bg1 | 7.56 | ✓ |
+| light | text | bg2 | 8.19 | ✓ |
+| light | text | surface | 6.97 | ✓ |
+| light | text | surfaceAlt | 6.34 | ✓ |
+| light | text | panel | 6.97 | ✓ |
+| light | textMuted | bg0 | 5.19 | ✓ |
+| light | textMuted | bg1 | 5.63 | ✓ |
+| light | textMuted | bg2 | 6.10 | ✓ |
+| light | textMuted | surface | 5.19 | ✓ |
+| light | textMuted | surfaceAlt | 4.72 | ✓ |
+| light | textMuted | panel | 5.19 | ✓ |
+| light | guiTitle | bg0 | 6.07 | ✓ |
+| light | guiTitle | bg1 | 6.59 | ✓ |
+| light | guiTitle | bg2 | 7.13 | ✓ |
+| light | guiTitle | surface | 6.07 | ✓ |
+| light | guiTitle | surfaceAlt | 5.52 | ✓ |
+| light | guiTitle | panel | 6.07 | ✓ |
+| light | guiText | bg0 | 6.07 | ✓ |
+| light | guiText | bg1 | 6.59 | ✓ |
+| light | guiText | bg2 | 7.13 | ✓ |
+| light | guiText | surface | 6.07 | ✓ |
+| light | guiText | surfaceAlt | 5.52 | ✓ |
+| light | guiText | panel | 6.07 | ✓ |
+| light | accent | bg0 | 5.50 | ✓ |
+| light | accent | bg1 | 5.97 | ✓ |
+| light | accent | bg2 | 6.46 | ✓ |
+| light | accent | surface | 5.50 | ✓ |
+| light | accent | surfaceAlt | 5.00 | ✓ |
+| light | accent | panel | 5.50 | ✓ |
+| light | accent2 | bg0 | 5.58 | ✓ |
+| light | accent2 | bg1 | 6.06 | ✓ |
+| light | accent2 | bg2 | 6.56 | ✓ |
+| light | accent2 | surface | 5.58 | ✓ |
+| light | accent2 | surfaceAlt | 5.07 | ✓ |
+| light | accent2 | panel | 5.58 | ✓ |
+| light | seal | bg0 | 5.41 | ✓ |
+| light | seal | bg1 | 5.88 | ✓ |
+| light | seal | bg2 | 6.36 | ✓ |
+| light | seal | surface | 5.41 | ✓ |
+| light | seal | surfaceAlt | 4.92 | ✓ |
+| light | seal | panel | 5.41 | ✓ |
+| light | success | bg0 | 5.53 | ✓ |
+| light | success | bg1 | 6.01 | ✓ |
+| light | success | bg2 | 6.50 | ✓ |
+| light | success | surface | 5.53 | ✓ |
+| light | success | surfaceAlt | 5.03 | ✓ |
+| light | success | panel | 5.53 | ✓ |
+| light | warning | bg0 | 5.17 | ✓ |
+| light | warning | bg1 | 5.61 | ✓ |
+| light | warning | bg2 | 6.07 | ✓ |
+| light | warning | surface | 5.17 | ✓ |
+| light | warning | surfaceAlt | 4.70 | ✓ |
+| light | warning | panel | 5.17 | ✓ |
+| light | error | bg0 | 5.41 | ✓ |
+| light | error | bg1 | 5.88 | ✓ |
+| light | error | bg2 | 6.36 | ✓ |
+| light | error | surface | 5.41 | ✓ |
+| light | error | surfaceAlt | 4.92 | ✓ |
+| light | error | panel | 5.41 | ✓ |
+| light | info | bg0 | 6.39 | ✓ |
+| light | info | bg1 | 6.93 | ✓ |
+| light | info | bg2 | 7.51 | ✓ |
+| light | info | surface | 6.39 | ✓ |
+| light | info | surfaceAlt | 5.81 | ✓ |
+| light | info | panel | 6.39 | ✓ |
+| light | plum | bg0 | 5.43 | ✓ |
+| light | plum | bg1 | 5.89 | ✓ |
+| light | plum | bg2 | 6.38 | ✓ |
 | light | plum | surface | 5.43 | ✓ |
-| light | plum | surfaceAlt | 4.83 | ✓ |
-| light | jade | bg0 | 4.61 | ✓ |
-| light | jade | bg1 | 5.06 | ✓ |
-| light | jade | bg2 | 5.34 | ✓ |
-| light | jade | surface | 5.34 | ✓ |
-| light | jade | surfaceAlt | 4.74 | ✓ |
-| light | indigo | bg0 | 4.65 | ✓ |
-| light | indigo | bg1 | 5.10 | ✓ |
-| light | indigo | bg2 | 5.38 | ✓ |
-| light | indigo | surface | 5.38 | ✓ |
-| light | indigo | surfaceAlt | 4.79 | ✓ |
-| light | link | bg0 | 4.65 | ✓ |
-| light | link | bg1 | 5.10 | ✓ |
-| light | link | bg2 | 5.38 | ✓ |
-| light | link | surface | 5.38 | ✓ |
-| light | link | surfaceAlt | 4.79 | ✓ |
-| light | frame (ui) | bg0 | 11.02 | ✓ |
-| light | frame (ui) | bg1 | 12.10 | ✓ |
-| light | frame (ui) | bg2 | 12.76 | ✓ |
-| light | frame (ui) | surface | 12.76 | ✓ |
-| light | frame (ui) | surfaceAlt | 11.34 | ✓ |
-| light | focusRing (ui) | bg0 | 4.69 | ✓ |
-| light | focusRing (ui) | bg1 | 5.15 | ✓ |
-| light | focusRing (ui) | bg2 | 5.43 | ✓ |
-| light | focusRing (ui) | surface | 5.43 | ✓ |
-| light | focusRing (ui) | surfaceAlt | 4.83 | ✓ |
-| light | cursor (ui) | bg0 | 4.69 | ✓ |
-| light | cursor (ui) | bg1 | 5.15 | ✓ |
-| light | cursor (ui) | bg2 | 5.43 | ✓ |
-| light | cursor (ui) | surface | 5.43 | ✓ |
-| light | cursor (ui) | surfaceAlt | 4.83 | ✓ |
-| light | titlebarText | titlebar | 12.76 | ✓ |
-| light | textOnAccent | accent | 5.54 | ✓ |
-| light | textOnSeal | seal | 5.98 | ✓ |
-| light | textOnAccent | success | 5.68 | ✓ |
-| light | selectionText | selection∘surface | 9.71 | ✓ |
-| light | ansi1 | surface | 5.43 | ✓ |
-| light | ansi2 | surface | 5.49 | ✓ |
-| light | ansi3 | surface | 5.59 | ✓ |
-| light | ansi4 | surface | 5.38 | ✓ |
-| light | ansi5 | surface | 5.43 | ✓ |
-| light | ansi6 | surface | 5.34 | ✓ |
-| light | ansi8 | surface | 5.02 | ✓ |
-| light | ansi9 | surface | 4.62 | ✓ |
-| light | ansi10 | surface | 4.61 | ✓ |
-| light | ansi11 | surface | 4.59 | ✓ |
-| light | ansi12 | surface | 4.51 | ✓ |
-| light | ansi13 | surface | 4.56 | ✓ |
-| light | ansi14 | surface | 4.64 | ✓ |
-| dark | text | bg0 | 14.20 | ✓ |
-| dark | text | bg1 | 13.43 | ✓ |
-| dark | text | bg2 | 12.19 | ✓ |
-| dark | text | surface | 13.18 | ✓ |
-| dark | text | surfaceAlt | 11.71 | ✓ |
-| dark | textMuted | bg0 | 6.94 | ✓ |
-| dark | textMuted | bg1 | 6.57 | ✓ |
-| dark | textMuted | bg2 | 5.96 | ✓ |
-| dark | textMuted | surface | 6.44 | ✓ |
-| dark | textMuted | surfaceAlt | 5.73 | ✓ |
-| dark | accent | bg0 | 8.94 | ✓ |
-| dark | accent | bg1 | 8.46 | ✓ |
-| dark | accent | bg2 | 7.67 | ✓ |
-| dark | accent | surface | 8.30 | ✓ |
-| dark | accent | surfaceAlt | 7.37 | ✓ |
-| dark | accent2 | bg0 | 7.94 | ✓ |
-| dark | accent2 | bg1 | 7.52 | ✓ |
-| dark | accent2 | bg2 | 6.82 | ✓ |
-| dark | accent2 | surface | 7.37 | ✓ |
-| dark | accent2 | surfaceAlt | 6.55 | ✓ |
-| dark | success | bg0 | 8.22 | ✓ |
-| dark | success | bg1 | 7.78 | ✓ |
-| dark | success | bg2 | 7.06 | ✓ |
-| dark | success | surface | 7.63 | ✓ |
-| dark | success | surfaceAlt | 6.78 | ✓ |
-| dark | warning | bg0 | 8.35 | ✓ |
-| dark | warning | bg1 | 7.90 | ✓ |
-| dark | warning | bg2 | 7.17 | ✓ |
-| dark | warning | surface | 7.75 | ✓ |
-| dark | warning | surfaceAlt | 6.89 | ✓ |
-| dark | error | bg0 | 5.68 | ✓ |
-| dark | error | bg1 | 5.37 | ✓ |
-| dark | error | bg2 | 4.87 | ✓ |
-| dark | error | surface | 5.27 | ✓ |
-| dark | error | surfaceAlt | 4.69 | ✓ |
-| dark | info | bg0 | 7.93 | ✓ |
-| dark | info | bg1 | 7.50 | ✓ |
-| dark | info | bg2 | 6.80 | ✓ |
-| dark | info | surface | 7.36 | ✓ |
-| dark | info | surfaceAlt | 6.54 | ✓ |
-| dark | plum | bg0 | 5.48 | ✓ |
-| dark | plum | bg1 | 5.18 | ✓ |
-| dark | plum | bg2 | 4.70 | ✓ |
-| dark | plum | surface | 5.08 | ✓ |
-| dark | plum | surfaceAlt | 4.52 | ✓ |
-| dark | jade | bg0 | 7.93 | ✓ |
-| dark | jade | bg1 | 7.50 | ✓ |
-| dark | jade | bg2 | 6.80 | ✓ |
-| dark | jade | surface | 7.36 | ✓ |
-| dark | jade | surfaceAlt | 6.54 | ✓ |
-| dark | indigo | bg0 | 7.01 | ✓ |
-| dark | indigo | bg1 | 6.64 | ✓ |
-| dark | indigo | bg2 | 6.02 | ✓ |
-| dark | indigo | surface | 6.51 | ✓ |
-| dark | indigo | surfaceAlt | 5.79 | ✓ |
-| dark | link | bg0 | 7.01 | ✓ |
-| dark | link | bg1 | 6.64 | ✓ |
-| dark | link | bg2 | 6.02 | ✓ |
-| dark | link | surface | 6.51 | ✓ |
-| dark | link | surfaceAlt | 5.79 | ✓ |
-| dark | frame (ui) | bg0 | 14.20 | ✓ |
-| dark | frame (ui) | bg1 | 13.43 | ✓ |
-| dark | frame (ui) | bg2 | 12.19 | ✓ |
-| dark | frame (ui) | surface | 13.18 | ✓ |
-| dark | frame (ui) | surfaceAlt | 11.71 | ✓ |
-| dark | seal (ui) | bg0 | 3.78 | ✓ |
-| dark | seal (ui) | bg1 | 3.58 | ✓ |
-| dark | seal (ui) | bg2 | 3.25 | ✓ |
-| dark | seal (ui) | surface | 3.51 | ✓ |
-| dark | seal (ui) | surfaceAlt | 3.12 | ✓ |
-| dark | focusRing (ui) | bg0 | 3.78 | ✓ |
-| dark | focusRing (ui) | bg1 | 3.58 | ✓ |
-| dark | focusRing (ui) | bg2 | 3.25 | ✓ |
-| dark | focusRing (ui) | surface | 3.51 | ✓ |
-| dark | focusRing (ui) | surfaceAlt | 3.12 | ✓ |
-| dark | cursor (ui) | bg0 | 7.94 | ✓ |
-| dark | cursor (ui) | bg1 | 7.52 | ✓ |
-| dark | cursor (ui) | bg2 | 6.82 | ✓ |
-| dark | cursor (ui) | surface | 7.37 | ✓ |
-| dark | cursor (ui) | surfaceAlt | 6.55 | ✓ |
-| dark | gold (ui) | bg0 | 7.94 | ✓ |
-| dark | gold (ui) | bg1 | 7.52 | ✓ |
-| dark | gold (ui) | bg2 | 6.82 | ✓ |
-| dark | gold (ui) | surface | 7.37 | ✓ |
-| dark | gold (ui) | surfaceAlt | 6.55 | ✓ |
-| dark | titlebarText | titlebar | 14.74 | ✓ |
-| dark | textOnAccent | accent | 8.94 | ✓ |
-| dark | textOnSeal | seal | 4.64 | ✓ |
-| dark | textOnAccent | success | 8.22 | ✓ |
-| dark | selectionText | selection∘surface | 7.89 | ✓ |
-| dark | ansi1 | surface | 5.27 | ✓ |
-| dark | ansi2 | surface | 7.63 | ✓ |
-| dark | ansi3 | surface | 7.75 | ✓ |
-| dark | ansi4 | surface | 6.51 | ✓ |
-| dark | ansi5 | surface | 5.08 | ✓ |
-| dark | ansi6 | surface | 7.36 | ✓ |
-| dark | ansi8 | surface | 4.50 | ✓ |
-| dark | ansi9 | surface | 6.33 | ✓ |
-| dark | ansi10 | surface | 9.92 | ✓ |
-| dark | ansi11 | surface | 9.58 | ✓ |
-| dark | ansi12 | surface | 8.34 | ✓ |
-| dark | ansi13 | surface | 6.91 | ✓ |
-| dark | ansi14 | surface | 9.22 | ✓ |
+| light | plum | surfaceAlt | 4.93 | ✓ |
+| light | plum | panel | 5.43 | ✓ |
+| light | jade | bg0 | 5.71 | ✓ |
+| light | jade | bg1 | 6.20 | ✓ |
+| light | jade | bg2 | 6.71 | ✓ |
+| light | jade | surface | 5.71 | ✓ |
+| light | jade | surfaceAlt | 5.19 | ✓ |
+| light | jade | panel | 5.71 | ✓ |
+| light | indigo | bg0 | 6.46 | ✓ |
+| light | indigo | bg1 | 7.02 | ✓ |
+| light | indigo | bg2 | 7.60 | ✓ |
+| light | indigo | surface | 6.46 | ✓ |
+| light | indigo | surfaceAlt | 5.88 | ✓ |
+| light | indigo | panel | 6.46 | ✓ |
+| light | link | bg0 | 6.39 | ✓ |
+| light | link | bg1 | 6.93 | ✓ |
+| light | link | bg2 | 7.51 | ✓ |
+| light | link | surface | 6.39 | ✓ |
+| light | link | surfaceAlt | 5.81 | ✓ |
+| light | link | panel | 6.39 | ✓ |
+| light | frame (ui) | bg0 | 6.97 | ✓ |
+| light | frame (ui) | bg1 | 7.56 | ✓ |
+| light | frame (ui) | bg2 | 8.19 | ✓ |
+| light | frame (ui) | surface | 6.97 | ✓ |
+| light | frame (ui) | surfaceAlt | 6.34 | ✓ |
+| light | frame (ui) | panel | 6.97 | ✓ |
+| light | cursor (ui) | bg0 | 6.97 | ✓ |
+| light | cursor (ui) | bg1 | 7.56 | ✓ |
+| light | cursor (ui) | bg2 | 8.19 | ✓ |
+| light | cursor (ui) | surface | 6.97 | ✓ |
+| light | cursor (ui) | surfaceAlt | 6.34 | ✓ |
+| light | cursor (ui) | panel | 6.97 | ✓ |
+| light | titlebarText | titlebar | 11.90 | ✓ |
+| light | textOnAccent | accent | 9.39 | ✓ |
+| light | textOnSeal | seal | 9.25 | ✓ |
+| light | textOnAccent | success | 9.45 | ✓ |
+| light | selectionText | selection∘surface | 8.50 | ✓ |
+| light | buttonText | #6f6f6f | 5.02 | ✓ |
+| light | buttonTextDisabled | #2c2c2c | 5.34 | ✓ |
+| light | fieldText | fieldFill | 15.91 | ✓ |
+| light | tooltipTitle | tooltipFill | 20.40 | ✓ |
+| light | tooltipDesc | tooltipFill | 8.78 | ✓ |
+| light | toastTitle | #212121 | 14.99 | ✓ |
+| light | toastChallenge | #212121 | 7.83 | ✓ |
+| light | toastText | #212121 | 16.10 | ✓ |
+| light | toastLightTitle | #e0e0e0 | 10.92 | ✓ |
+| light | toastLightText | #e0e0e0 | 15.91 | ✓ |
+| light | ansi0 | bg0 | 10.19 | ✓ |
+| light | ansi0 | bg1 | 11.06 | ✓ |
+| light | ansi0 | bg2 | 11.97 | ✓ |
+| light | ansi0 | surface | 10.19 | ✓ |
+| light | ansi0 | surfaceAlt | 9.26 | ✓ |
+| light | ansi0 | panel | 10.19 | ✓ |
+| light | ansi1 | bg0 | 5.91 | ✓ |
+| light | ansi1 | bg1 | 6.41 | ✓ |
+| light | ansi1 | bg2 | 6.94 | ✓ |
+| light | ansi1 | surface | 5.91 | ✓ |
+| light | ansi1 | surfaceAlt | 5.37 | ✓ |
+| light | ansi1 | panel | 5.91 | ✓ |
+| light | ansi2 | bg0 | 5.80 | ✓ |
+| light | ansi2 | bg1 | 6.30 | ✓ |
+| light | ansi2 | bg2 | 6.82 | ✓ |
+| light | ansi2 | surface | 5.80 | ✓ |
+| light | ansi2 | surfaceAlt | 5.28 | ✓ |
+| light | ansi2 | panel | 5.80 | ✓ |
+| light | ansi3 | bg0 | 5.32 | ✓ |
+| light | ansi3 | bg1 | 5.77 | ✓ |
+| light | ansi3 | bg2 | 6.25 | ✓ |
+| light | ansi3 | surface | 5.32 | ✓ |
+| light | ansi3 | surfaceAlt | 4.84 | ✓ |
+| light | ansi3 | panel | 5.32 | ✓ |
+| light | ansi4 | bg0 | 7.78 | ✓ |
+| light | ansi4 | bg1 | 8.44 | ✓ |
+| light | ansi4 | bg2 | 9.14 | ✓ |
+| light | ansi4 | surface | 7.78 | ✓ |
+| light | ansi4 | surfaceAlt | 7.07 | ✓ |
+| light | ansi4 | panel | 7.78 | ✓ |
+| light | ansi5 | bg0 | 5.83 | ✓ |
+| light | ansi5 | bg1 | 6.33 | ✓ |
+| light | ansi5 | bg2 | 6.85 | ✓ |
+| light | ansi5 | surface | 5.83 | ✓ |
+| light | ansi5 | surfaceAlt | 5.30 | ✓ |
+| light | ansi5 | panel | 5.83 | ✓ |
+| light | ansi6 | bg0 | 5.51 | ✓ |
+| light | ansi6 | bg1 | 5.98 | ✓ |
+| light | ansi6 | bg2 | 6.48 | ✓ |
+| light | ansi6 | surface | 5.51 | ✓ |
+| light | ansi6 | surfaceAlt | 5.01 | ✓ |
+| light | ansi6 | panel | 5.51 | ✓ |
+| light | ansi7 | bg0 | 6.17 | ✓ |
+| light | ansi7 | bg1 | 6.69 | ✓ |
+| light | ansi7 | bg2 | 7.25 | ✓ |
+| light | ansi7 | surface | 6.17 | ✓ |
+| light | ansi7 | surfaceAlt | 5.61 | ✓ |
+| light | ansi7 | panel | 6.17 | ✓ |
+| light | ansi8 | bg0 | 5.19 | ✓ |
+| light | ansi8 | bg1 | 5.63 | ✓ |
+| light | ansi8 | bg2 | 6.10 | ✓ |
+| light | ansi8 | surface | 5.19 | ✓ |
+| light | ansi8 | surfaceAlt | 4.72 | ✓ |
+| light | ansi8 | panel | 5.19 | ✓ |
+| light | ansi9 | bg0 | 5.18 | ✓ |
+| light | ansi9 | bg1 | 5.62 | ✓ |
+| light | ansi9 | bg2 | 6.09 | ✓ |
+| light | ansi9 | surface | 5.18 | ✓ |
+| light | ansi9 | surfaceAlt | 4.71 | ✓ |
+| light | ansi9 | panel | 5.18 | ✓ |
+| light | ansi10 | bg0 | 5.27 | ✓ |
+| light | ansi10 | bg1 | 5.72 | ✓ |
+| light | ansi10 | bg2 | 6.20 | ✓ |
+| light | ansi10 | surface | 5.27 | ✓ |
+| light | ansi10 | surfaceAlt | 4.79 | ✓ |
+| light | ansi10 | panel | 5.27 | ✓ |
+| light | ansi11 | bg0 | 5.40 | ✓ |
+| light | ansi11 | bg1 | 5.86 | ✓ |
+| light | ansi11 | bg2 | 6.35 | ✓ |
+| light | ansi11 | surface | 5.40 | ✓ |
+| light | ansi11 | surfaceAlt | 4.91 | ✓ |
+| light | ansi11 | panel | 5.40 | ✓ |
+| light | ansi12 | bg0 | 6.13 | ✓ |
+| light | ansi12 | bg1 | 6.65 | ✓ |
+| light | ansi12 | bg2 | 7.20 | ✓ |
+| light | ansi12 | surface | 6.13 | ✓ |
+| light | ansi12 | surfaceAlt | 5.57 | ✓ |
+| light | ansi12 | panel | 6.13 | ✓ |
+| light | ansi13 | bg0 | 5.02 | ✓ |
+| light | ansi13 | bg1 | 5.45 | ✓ |
+| light | ansi13 | bg2 | 5.90 | ✓ |
+| light | ansi13 | surface | 5.02 | ✓ |
+| light | ansi13 | surfaceAlt | 4.57 | ✓ |
+| light | ansi13 | panel | 5.02 | ✓ |
+| light | ansi14 | bg0 | 5.28 | ✓ |
+| light | ansi14 | bg1 | 5.73 | ✓ |
+| light | ansi14 | bg2 | 6.20 | ✓ |
+| light | ansi14 | surface | 5.28 | ✓ |
+| light | ansi14 | surfaceAlt | 4.80 | ✓ |
+| light | ansi14 | panel | 5.28 | ✓ |
+| light | ansi15 | bg0 | 8.40 | ✓ |
+| light | ansi15 | bg1 | 9.12 | ✓ |
+| light | ansi15 | bg2 | 9.88 | ✓ |
+| light | ansi15 | surface | 8.40 | ✓ |
+| light | ansi15 | surfaceAlt | 7.64 | ✓ |
+| light | ansi15 | panel | 8.40 | ✓ |
+| dark | text | bg0 | 18.37 | ✓ |
+| dark | text | bg1 | 17.14 | ✓ |
+| dark | text | bg2 | 15.22 | ✓ |
+| dark | text | surface | 15.22 | ✓ |
+| dark | text | surfaceAlt | 12.88 | ✓ |
+| dark | text | panel | 12.88 | ✓ |
+| dark | textMuted | bg0 | 8.86 | ✓ |
+| dark | textMuted | bg1 | 8.27 | ✓ |
+| dark | textMuted | bg2 | 7.34 | ✓ |
+| dark | textMuted | surface | 7.34 | ✓ |
+| dark | textMuted | surfaceAlt | 6.21 | ✓ |
+| dark | textMuted | panel | 6.21 | ✓ |
+| dark | guiTitle | bg0 | 18.37 | ✓ |
+| dark | guiTitle | bg1 | 17.14 | ✓ |
+| dark | guiTitle | bg2 | 15.22 | ✓ |
+| dark | guiTitle | surface | 15.22 | ✓ |
+| dark | guiTitle | surfaceAlt | 12.88 | ✓ |
+| dark | guiTitle | panel | 12.88 | ✓ |
+| dark | guiText | bg0 | 18.37 | ✓ |
+| dark | guiText | bg1 | 17.14 | ✓ |
+| dark | guiText | bg2 | 15.22 | ✓ |
+| dark | guiText | surface | 15.22 | ✓ |
+| dark | guiText | surfaceAlt | 12.88 | ✓ |
+| dark | guiText | panel | 12.88 | ✓ |
+| dark | accent | bg0 | 13.84 | ✓ |
+| dark | accent | bg1 | 12.91 | ✓ |
+| dark | accent | bg2 | 11.47 | ✓ |
+| dark | accent | surface | 11.47 | ✓ |
+| dark | accent | surfaceAlt | 9.70 | ✓ |
+| dark | accent | panel | 9.70 | ✓ |
+| dark | accent2 | bg0 | 9.63 | ✓ |
+| dark | accent2 | bg1 | 8.98 | ✓ |
+| dark | accent2 | bg2 | 7.97 | ✓ |
+| dark | accent2 | surface | 7.97 | ✓ |
+| dark | accent2 | surfaceAlt | 6.75 | ✓ |
+| dark | accent2 | panel | 6.75 | ✓ |
+| dark | seal | bg0 | 6.83 | ✓ |
+| dark | seal | bg1 | 6.37 | ✓ |
+| dark | seal | bg2 | 5.66 | ✓ |
+| dark | seal | surface | 5.66 | ✓ |
+| dark | seal | surfaceAlt | 4.78 | ✓ |
+| dark | seal | panel | 4.78 | ✓ |
+| dark | success | bg0 | 13.84 | ✓ |
+| dark | success | bg1 | 12.91 | ✓ |
+| dark | success | bg2 | 11.47 | ✓ |
+| dark | success | surface | 11.47 | ✓ |
+| dark | success | surfaceAlt | 9.70 | ✓ |
+| dark | success | panel | 9.70 | ✓ |
+| dark | warning | bg0 | 17.22 | ✓ |
+| dark | warning | bg1 | 16.07 | ✓ |
+| dark | warning | bg2 | 14.27 | ✓ |
+| dark | warning | surface | 14.27 | ✓ |
+| dark | warning | surfaceAlt | 12.07 | ✓ |
+| dark | warning | panel | 12.07 | ✓ |
+| dark | error | bg0 | 6.83 | ✓ |
+| dark | error | bg1 | 6.37 | ✓ |
+| dark | error | bg2 | 5.66 | ✓ |
+| dark | error | surface | 5.66 | ✓ |
+| dark | error | surfaceAlt | 4.78 | ✓ |
+| dark | error | panel | 4.78 | ✓ |
+| dark | info | bg0 | 14.99 | ✓ |
+| dark | info | bg1 | 13.98 | ✓ |
+| dark | info | bg2 | 12.42 | ✓ |
+| dark | info | surface | 12.42 | ✓ |
+| dark | info | surfaceAlt | 10.51 | ✓ |
+| dark | info | panel | 10.51 | ✓ |
+| dark | plum | bg0 | 8.17 | ✓ |
+| dark | plum | bg1 | 7.62 | ✓ |
+| dark | plum | bg2 | 6.77 | ✓ |
+| dark | plum | surface | 6.77 | ✓ |
+| dark | plum | surfaceAlt | 5.72 | ✓ |
+| dark | plum | panel | 5.72 | ✓ |
+| dark | jade | bg0 | 14.99 | ✓ |
+| dark | jade | bg1 | 13.98 | ✓ |
+| dark | jade | bg2 | 12.42 | ✓ |
+| dark | jade | surface | 12.42 | ✓ |
+| dark | jade | surfaceAlt | 10.51 | ✓ |
+| dark | jade | panel | 10.51 | ✓ |
+| dark | indigo | bg0 | 7.54 | ✓ |
+| dark | indigo | bg1 | 7.03 | ✓ |
+| dark | indigo | bg2 | 6.24 | ✓ |
+| dark | indigo | surface | 6.24 | ✓ |
+| dark | indigo | surfaceAlt | 5.28 | ✓ |
+| dark | indigo | panel | 5.28 | ✓ |
+| dark | link | bg0 | 8.50 | ✓ |
+| dark | link | bg1 | 7.93 | ✓ |
+| dark | link | bg2 | 7.04 | ✓ |
+| dark | link | surface | 7.04 | ✓ |
+| dark | link | surfaceAlt | 5.96 | ✓ |
+| dark | link | panel | 5.96 | ✓ |
+| dark | gold | bg0 | 9.63 | ✓ |
+| dark | gold | bg1 | 8.98 | ✓ |
+| dark | gold | bg2 | 7.97 | ✓ |
+| dark | gold | surface | 7.97 | ✓ |
+| dark | gold | surfaceAlt | 6.75 | ✓ |
+| dark | gold | panel | 6.75 | ✓ |
+| dark | frame (ui) | bg0 | 5.45 | ✓ |
+| dark | frame (ui) | bg1 | 5.08 | ✓ |
+| dark | frame (ui) | bg2 | 4.51 | ✓ |
+| dark | frame (ui) | surface | 4.51 | ✓ |
+| dark | frame (ui) | surfaceAlt | 3.82 | ✓ |
+| dark | frame (ui) | panel | 3.82 | ✓ |
+| dark | cursor (ui) | bg0 | 18.37 | ✓ |
+| dark | cursor (ui) | bg1 | 17.14 | ✓ |
+| dark | cursor (ui) | bg2 | 15.22 | ✓ |
+| dark | cursor (ui) | surface | 15.22 | ✓ |
+| dark | cursor (ui) | surfaceAlt | 12.88 | ✓ |
+| dark | cursor (ui) | panel | 12.88 | ✓ |
+| dark | titlebarText | titlebar | 19.40 | ✓ |
+| dark | textOnAccent | accent | 15.82 | ✓ |
+| dark | textOnSeal | seal | 7.80 | ✓ |
+| dark | textOnAccent | success | 15.82 | ✓ |
+| dark | selectionText | selection∘surface | 7.74 | ✓ |
+| dark | buttonText | #6f6f6f | 5.02 | ✓ |
+| dark | buttonTextDisabled | #2c2c2c | 5.34 | ✓ |
+| dark | fieldText | fieldFill | 15.91 | ✓ |
+| dark | tooltipTitle | tooltipFill | 20.40 | ✓ |
+| dark | tooltipDesc | tooltipFill | 8.78 | ✓ |
+| dark | toastTitle | #212121 | 14.99 | ✓ |
+| dark | toastChallenge | #212121 | 7.83 | ✓ |
+| dark | toastText | #212121 | 16.10 | ✓ |
+| dark | toastLightTitle | #e0e0e0 | 10.92 | ✓ |
+| dark | toastLightText | #e0e0e0 | 15.91 | ✓ |
+| dark | ansi1 | bg0 | 6.83 | ✓ |
+| dark | ansi1 | bg1 | 6.37 | ✓ |
+| dark | ansi1 | bg2 | 5.66 | ✓ |
+| dark | ansi1 | surface | 5.66 | ✓ |
+| dark | ansi1 | surfaceAlt | 4.78 | ✓ |
+| dark | ansi1 | panel | 4.78 | ✓ |
+| dark | ansi2 | bg0 | 13.84 | ✓ |
+| dark | ansi2 | bg1 | 12.91 | ✓ |
+| dark | ansi2 | bg2 | 11.47 | ✓ |
+| dark | ansi2 | surface | 11.47 | ✓ |
+| dark | ansi2 | surfaceAlt | 9.70 | ✓ |
+| dark | ansi2 | panel | 9.70 | ✓ |
+| dark | ansi3 | bg0 | 17.22 | ✓ |
+| dark | ansi3 | bg1 | 16.07 | ✓ |
+| dark | ansi3 | bg2 | 14.27 | ✓ |
+| dark | ansi3 | surface | 14.27 | ✓ |
+| dark | ansi3 | surfaceAlt | 12.07 | ✓ |
+| dark | ansi3 | panel | 12.07 | ✓ |
+| dark | ansi4 | bg0 | 8.06 | ✓ |
+| dark | ansi4 | bg1 | 7.52 | ✓ |
+| dark | ansi4 | bg2 | 6.68 | ✓ |
+| dark | ansi4 | surface | 6.68 | ✓ |
+| dark | ansi4 | surfaceAlt | 5.65 | ✓ |
+| dark | ansi4 | panel | 5.65 | ✓ |
+| dark | ansi5 | bg0 | 8.17 | ✓ |
+| dark | ansi5 | bg1 | 7.62 | ✓ |
+| dark | ansi5 | bg2 | 6.77 | ✓ |
+| dark | ansi5 | surface | 6.77 | ✓ |
+| dark | ansi5 | surfaceAlt | 5.72 | ✓ |
+| dark | ansi5 | panel | 5.72 | ✓ |
+| dark | ansi6 | bg0 | 14.99 | ✓ |
+| dark | ansi6 | bg1 | 13.98 | ✓ |
+| dark | ansi6 | bg2 | 12.42 | ✓ |
+| dark | ansi6 | surface | 12.42 | ✓ |
+| dark | ansi6 | surfaceAlt | 10.51 | ✓ |
+| dark | ansi6 | panel | 10.51 | ✓ |
+| dark | ansi7 | bg0 | 11.79 | ✓ |
+| dark | ansi7 | bg1 | 11.00 | ✓ |
+| dark | ansi7 | bg2 | 9.77 | ✓ |
+| dark | ansi7 | surface | 9.77 | ✓ |
+| dark | ansi7 | surfaceAlt | 8.26 | ✓ |
+| dark | ansi7 | panel | 8.26 | ✓ |
+| dark | ansi8 | bg0 | 7.08 | ✓ |
+| dark | ansi8 | bg1 | 6.60 | ✓ |
+| dark | ansi8 | bg2 | 5.86 | ✓ |
+| dark | ansi8 | surface | 5.86 | ✓ |
+| dark | ansi8 | surfaceAlt | 4.96 | ✓ |
+| dark | ansi8 | panel | 4.96 | ✓ |
+| dark | ansi9 | bg0 | 8.44 | ✓ |
+| dark | ansi9 | bg1 | 7.87 | ✓ |
+| dark | ansi9 | bg2 | 6.99 | ✓ |
+| dark | ansi9 | surface | 6.99 | ✓ |
+| dark | ansi9 | surfaceAlt | 5.91 | ✓ |
+| dark | ansi9 | panel | 5.91 | ✓ |
+| dark | ansi10 | bg0 | 14.62 | ✓ |
+| dark | ansi10 | bg1 | 13.63 | ✓ |
+| dark | ansi10 | bg2 | 12.11 | ✓ |
+| dark | ansi10 | surface | 12.11 | ✓ |
+| dark | ansi10 | surfaceAlt | 10.24 | ✓ |
+| dark | ansi10 | panel | 10.24 | ✓ |
+| dark | ansi11 | bg0 | 17.51 | ✓ |
+| dark | ansi11 | bg1 | 16.34 | ✓ |
+| dark | ansi11 | bg2 | 14.51 | ✓ |
+| dark | ansi11 | surface | 14.51 | ✓ |
+| dark | ansi11 | surfaceAlt | 12.27 | ✓ |
+| dark | ansi11 | panel | 12.27 | ✓ |
+| dark | ansi12 | bg0 | 10.35 | ✓ |
+| dark | ansi12 | bg1 | 9.65 | ✓ |
+| dark | ansi12 | bg2 | 8.57 | ✓ |
+| dark | ansi12 | surface | 8.57 | ✓ |
+| dark | ansi12 | surfaceAlt | 7.25 | ✓ |
+| dark | ansi12 | panel | 7.25 | ✓ |
+| dark | ansi13 | bg0 | 10.20 | ✓ |
+| dark | ansi13 | bg1 | 9.51 | ✓ |
+| dark | ansi13 | bg2 | 8.45 | ✓ |
+| dark | ansi13 | surface | 8.45 | ✓ |
+| dark | ansi13 | surfaceAlt | 7.15 | ✓ |
+| dark | ansi13 | panel | 7.15 | ✓ |
+| dark | ansi14 | bg0 | 15.84 | ✓ |
+| dark | ansi14 | bg1 | 14.77 | ✓ |
+| dark | ansi14 | bg2 | 13.12 | ✓ |
+| dark | ansi14 | surface | 13.12 | ✓ |
+| dark | ansi14 | surfaceAlt | 11.10 | ✓ |
+| dark | ansi14 | panel | 11.10 | ✓ |
+| dark | ansi15 | bg0 | 18.37 | ✓ |
+| dark | ansi15 | bg1 | 17.14 | ✓ |
+| dark | ansi15 | bg2 | 15.22 | ✓ |
+| dark | ansi15 | surface | 15.22 | ✓ |
+| dark | ansi15 | surfaceAlt | 12.88 | ✓ |
+| dark | ansi15 | panel | 12.88 | ✓ |
