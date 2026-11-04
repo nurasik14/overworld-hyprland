@@ -1,0 +1,12 @@
+{
+  "_comment": "Window class (and title) -> block material for the block-break close and block-place open sounds (block.hit|break|place.<material>). First matching rule wins; `class` and `title` are case-insensitive regular expressions, a rule needs every field it names. Edit freely: the shell re-reads this file on start.",
+  "default": "stone",
+  "rules": [
+    { "material": "glass", "class": "^(zen|zen-.*|app\\.zen_browser\\.zen|firefox.*|librewolf|chromium.*|google-chrome.*|brave.*|vivaldi.*|microsoft-edge.*|epiphany|org\\.gnome\\.epiphany|qutebrowser|floorp|waterfox.*|tor browser|opera)$" },
+    { "material": "metal", "class": "^(kitty|alacritty|foot|footclient|wezterm|org\\.wezfurlong\\.wezterm|ghostty|com\\.mitchellh\\.ghostty|konsole|xterm|urxvt|st|st-256color|gnome-terminal.*|org\\.gnome\\.terminal|terminator|tilix|xfce4-terminal|btop|overworld-test)$" },
+    { "material": "wool",  "class": "^(discord|vesktop|webcord|legcord|armcord|telegram.*|org\\.telegram\\.desktop|io\\.github\\.tdesktop_x64\\.tdesktop|element|element-desktop|signal|signal-desktop|slack|whatsapp.*|zapzap|teams.*|teams-for-linux|thunderbird|org\\.mozilla\\.thunderbird|evolution|geary|org\\.gnome\\.geary|fractal|nheko|cinny|caprine|ferdium|zoom|skype.*)$" },
+    { "material": "wood",  "class": "^(thunar|nautilus|org\\.gnome\\.nautilus|dolphin|org\\.kde\\.dolphin|nemo|pcmanfm.*|caja|spacefm|pcmanfm-qt|code|code-oss|code-url-handler|vscodium|codium|cursor|kate|org\\.kde\\.kate|gedit|org\\.gnome\\.gedit|org\\.gnome\\.texteditor|gnome-text-editor|mousepad|geany|sublime_text|subl|zed|dev\\.zed\\.zed|obsidian|neovide|emacs|jetbrains-.*|libreoffice.*|okular|org\\.kde\\.okular|evince|org\\.gnome\\.evince|zathura|calibre.*)$" },
+    { "material": "glass", "class": "^(spotify|com\\.spotify\\.client|youtube-music|vlc|mpv|org\\.videolan\\.vlc|celluloid|io\\.mpv\\.mpv|obs|com\\.obsproject\\.studio|steam|steam_app_.*)$" },
+    { "material": "grass", "class": "^(gimp.*|krita|org\\.kde\\.krita|inkscape|org\\.inkscape\\.inkscape|blender|godot.*|minecraft.*|net-minecraftforge.*|com-mojang.*)$" }
+  ]
+}
