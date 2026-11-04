@@ -1,0 +1,13 @@
+[project]
+name = "worldgen"
+version = "0.1.0"
+description = "Overworld Hyprland: voxel world generator and ray-marching renderer for wallpapers, panorama and wordmark"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "numpy>=2.0",
+    "numba>=0.61",
+    "pillow>=11.0",
+]
+
+[tool.uv]
+package = false
