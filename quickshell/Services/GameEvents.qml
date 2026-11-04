@@ -17,7 +17,9 @@ Singleton {
     id: root
     signal event(string name, var data)
 
-    readonly property string runtimeDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/overworld"
+    // OW_EVENTS_DIR gives a test process a private bus: previews that fake events (`overworld event …` with XDG_RUNTIME_DIR pointing
+    // there too) then cannot leak into another running shell's advancements / statistics.
+    readonly property string runtimeDir: Quickshell.env("OW_EVENTS_DIR") || ((Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/overworld")
     readonly property string logPath: runtimeDir + "/events.jsonl"
 
     function emit(name, data) {
