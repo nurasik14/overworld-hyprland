@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Overworld Hyprland — uninstall: reverses scripts/install.sh exactly (no sudo).
-# Turns the theme off first (stock desktop back), removes the hyprland.conf hook line, the symlinks and
-# (with --purge) the state dir. SDDM: see docs/SUDO-STEPS.md for the revert one-liner.
+# Turns the theme off first (the previous theme or the stock desktop comes back), removes the hyprland.conf hook line, the
+# symlinks and (with --purge) the state dir. Only Overworld's changes: Apothecary's line, links and state stay as they are.
+# SDDM: see docs/SUDO-STEPS.md for the revert one-liner.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.." && pwd -P)"
@@ -39,7 +40,7 @@ fi
 # 3. hyprland.conf hook line
 if [[ -f "$HYPR/hyprland.conf" ]] && grep -qF "$MARK" "$HYPR/hyprland.conf"; then
     tmp="$(mktemp "${TMPDIR:-/tmp}/hyprland.conf.XXXXXX")"
-    grep -vF "$MARK" "$HYPR/hyprland.conf" >"$tmp" || true
+    grep -vE "^source *= *~/\.config/hypr/overworld\.conf" "$HYPR/hyprland.conf" >"$tmp" || true
     cat "$tmp" >"$HYPR/hyprland.conf"; rm -f "$tmp"
     say "removed the '$MARK' line from $HYPR/hyprland.conf"
 fi
@@ -56,9 +57,11 @@ if (( PURGE )); then
     rm -rf "$STATE"; say "removed $STATE"
 else
     rm -f "$STATE/enabled" "$STATE/active.conf" "$STATE/colors.conf" "$STATE/hyprlock-vars.conf" \
-          "$STATE/kitty-colors.conf" "$STATE/lock.png" "$STATE/repo"
+          "$STATE/kitty-colors.conf" "$STATE/lock.png" "$STATE/repo" "$STATE/previous-theme"
     say "kept $STATE (mode, wallpaper choices, config.json) — use --purge to delete it"
 fi
+
+rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/overworld/lock"
 
 # 6. hypridle back to stock if it is running with our config
 if pgrep -f -x "hypridle -c $REPO/hypr/hypridle.conf" >/dev/null 2>&1; then
@@ -69,4 +72,4 @@ fi
 if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
     out="$(hyprctl reload 2>&1 || true)"; say "hyprctl reload: ${out:-ok}"
 fi
-echo "Uninstalled. SDDM (if installed): sudo sed -i 's/^Current=overworld/Current=silent/' /etc/sddm.conf  (see docs/SUDO-STEPS.md)"
+echo "Uninstalled. SDDM (if installed): sudo scripts/install-sddm.sh revert  (see docs/SUDO-STEPS.md)"

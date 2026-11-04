@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# overworld — Overworld Hyprland theme CLI (The Overworld Diaries / Maomao).
+# overworld — Overworld Hyprland theme CLI (the desktop is a Minecraft world, the shell its HUD).
 #
-#   overworld on | off | status | toggle | light | dark | reload | session-start
-#   overworld wallpaper next | prev | current | pick | <path>
-#   overworld ws … | brew …   (workspace titles, brew timer; `overworld brew help`)
-#   overworld help
+#   overworld on | off | status | toggle | light | dark | reload | repair | session-start
+#   overworld wallpaper … | world new … | gamemode … | weather … | daycycle … | f3 | chat … | kill …
+#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | event …
+#   overworld help [verb]
 #
 # Installed as ~/.local/bin/overworld -> <repo>/scripts/overworld by scripts/install.sh.
 # Everything it touches lives in ~/.config/overworld/ (state) and ~/.config/hypr/hyprlock.conf (only while on).
+# Coexistence: Apothecary Hyprland stays installed. `on` takes over from a running Apothecary and remembers it in
+# ~/.config/overworld/previous-theme; `off` gives the desktop back to it, or to stock JaKooLit. See "theme handover".
 # Fast path: `light|dark|toggle` do only file/symlink work before `hyprctl reload` (< 100 ms); the wallpaper
 # transition and apps/apply-mode.sh run afterwards (apps detached).
 set -euo pipefail
@@ -53,10 +55,9 @@ json_get() {                    # json_get '.sounds' default
 }
 sounds_on() { [[ "$(json_get '.sounds' true)" != "false" ]]; }
 
-play_sound() {                  # play_sound login  (never blocks)
+play_sound() {                  # play_sound <id>  (scripts/ow-sound honours config.json "sounds"; never blocks)
     sounds_on || return 0
-    local f="$REPO/assets/sounds/$1.wav"
-    [[ -r "$f" ]] && have pw-play && detach pw-play "$f"
+    [[ -x "$REPO/scripts/ow-sound" ]] && detach "$REPO/scripts/ow-sound" "$1"
     return 0
 }
 
@@ -68,20 +69,22 @@ hypr_reload() {
 }
 
 # --- per-mode symlinks: colors / hyprlock vars / kitty colours / lock art ---------------------------------
+lock_render() { [[ "$1" == dark ]] && echo "$REPO/assets/renders/lock-night.png" || echo "$REPO/assets/renders/lock-day.png"; }
 link_mode_files() {
     local m="$1" out="$REPO/tokens/out/$m"
     ln -sfn "$out/hyprland-colors.conf" "$STATE/colors.conf"
     ln -sfn "$out/hyprlock-vars.conf"   "$STATE/hyprlock-vars.conf"
     ln -sfn "$out/kitty.conf"           "$STATE/kitty-colors.conf"
     ln -sfn "$REPO"                     "$STATE/repo"
-    # lock.png -> assets/art/lock-<mode>.png; if the art is missing fall back to the mode's wallpaper.
-    local art="$REPO/assets/art/lock-$m.png"
+    # lock.png -> world-renderer's title-screen render; if it is missing, the mode's wallpaper.
+    local art; art="$(lock_render "$m")"
     if [[ -r "$art" ]]; then
         ln -sfn "$art" "$STATE/lock.png"
     else
         local wp; wp="$(wallpaper_for_mode "$m" || true)"
         [[ -n "$wp" ]] && ln -sfn "$wp" "$STATE/lock.png"
     fi
+    [[ -x "$REPO/hypr/scripts/lock-assets.sh" ]] && "$REPO/hypr/scripts/lock-assets.sh" >/dev/null 2>&1 || true
 }
 
 # --- wallpapers ---------------------------------------------------------------------------------------
@@ -130,7 +133,7 @@ wallpaper_apply() {             # wallpaper_apply <path> [transition] — set + 
     awww_set "$path" "$kind"
     printf '%s\n' "$path" >"$STATE/wallpaper-$m"
     # keep lock.png following the wallpaper when there is no dedicated lock art
-    [[ -r "$REPO/assets/art/lock-$m.png" ]] || ln -sfn "$path" "$STATE/lock.png"
+    [[ -r "$(lock_render "$m")" ]] || ln -sfn "$path" "$STATE/lock.png"
     say "wallpaper ($m): ${path#"$REPO"/}"
 }
 wallpaper_step() {              # wallpaper_step +1|-1
@@ -138,7 +141,7 @@ wallpaper_step() {              # wallpaper_step +1|-1
     local list cur idx n
     mapfile -t list < <(wallpaper_list "$m")
     n="${#list[@]}"
-    (( n > 0 )) || die "no wallpapers in assets/wallpapers/$m (run assets/fetch-art.sh + scripts/make-wallpapers.sh)"
+    (( n > 0 )) || die "no wallpapers in assets/wallpapers/$m (cd tools/worldgen && uv run python -m worldgen catalog, see docs/WORLDGEN.md)"
     cur="$(wallpaper_for_mode "$m" || true)"
     idx=-1
     for i in "${!list[@]}"; do [[ "${list[$i]}" == "$cur" ]] && { idx=$i; break; }; done
@@ -147,13 +150,15 @@ wallpaper_step() {              # wallpaper_step +1|-1
 }
 
 # --- hyprlock swap (only while on): JaKooLit's LockScreen.sh runs plain `hyprlock` ------------------------
+# The backup may itself be a symlink: while Apothecary is on, hyprlock.conf is ITS link (and the stock file sits in
+# hyprlock.conf.pre-apothecary), so `mv` keeps that link and `off` puts Apothecary's lock screen back, not the stock one.
 hyprlock_swap_on() {
     local f="$HYPR/hyprlock.conf" bak="$HYPR/hyprlock.conf.pre-overworld"
     if [[ -L "$f" && "$(readlink -f "$f")" == "$REPO/hypr/hyprlock.conf" ]]; then return 0; fi
     if [[ -e "$f" || -L "$f" ]]; then
-        if [[ ! -e "$bak" ]]; then
+        if [[ ! -e "$bak" && ! -L "$bak" ]]; then
             mv "$f" "$bak"
-        elif cmp -s "$f" "$bak"; then
+        elif [[ -L "$f" && -L "$bak" && "$(readlink "$f")" == "$(readlink "$bak")" ]] || cmp -s "$f" "$bak"; then
             rm -f "$f"                                   # identical to the backup: nothing to keep
         else
             mv "$f" "$bak.$(date +%Y%m%d-%H%M%S)"        # never overwrite an existing backup
@@ -164,18 +169,32 @@ hyprlock_swap_on() {
 hyprlock_swap_off() {
     local f="$HYPR/hyprlock.conf" bak="$HYPR/hyprlock.conf.pre-overworld"
     if [[ -L "$f" && "$(readlink -f "$f")" == "$REPO/hypr/hyprlock.conf" ]]; then rm -f "$f"; fi
-    if [[ ! -e "$f" && -e "$bak" ]]; then mv "$bak" "$f"; fi
+    if [[ ! -e "$f" && ! -L "$f" ]]; then
+        if [[ -e "$bak" || -L "$bak" ]]; then mv "$bak" "$f"; fi
+    elif [[ -e "$bak" || -L "$bak" ]]; then
+        rm -f "$bak"                                     # another theme took hyprlock.conf meanwhile: it owns it now
+    fi
 }
 
 # --- processes ------------------------------------------------------------------------------------------
 qs_running() { pgrep -f -x "$QS_CMD" >/dev/null 2>&1; }
 qs_start()   { qs_running && return 0; setsid -f bash -c "exec $QS_CMD >>'$QS_LOG' 2>&1" </dev/null || true; }
 qs_stop()    { pkill -f -x "$QS_CMD" >/dev/null 2>&1 || true; }
+qs_wait_gone() {                # qs_wait_gone <exact command line>: max 2 s, so the next shell gets the notification bus name
+    for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -f -x "$1" >/dev/null 2>&1 || return 0; sleep 0.2; done
+    return 0
+}
+qs_ipc() { timeout 2 $QS_CMD ipc call "$@"; }   # fails fast if the shell is not running
+qs_need() { qs_ipc "$@" 2>/dev/null || die "the shell is not running (overworld on)"; }
 
 hypridle_restart() {            # hypridle_restart theme|stock
     pkill -x hypridle >/dev/null 2>&1 || true
     sleep 0.2
-    if [[ "$1" == "theme" ]]; then detach hypridle -c "$REPO/hypr/hypridle.conf"; else detach hypridle; fi
+    case "$1" in
+        theme)     detach hypridle -c "$REPO/hypr/hypridle.conf" ;;
+        stock)     detach hypridle ;;
+        *)         detach hypridle -c "$1" ;;       # another theme's config (Apothecary)
+    esac
 }
 
 waybar_is_service() {
@@ -215,61 +234,186 @@ stock_bar_start() {
     # waybar-weather is a waybar custom-module child: it comes back with waybar.
 }
 
+# Mako and swaync are D-Bus activatable: anything that talks to org.freedesktop.Notifications in the moment between one shell
+# leaving and the next one starting brings the daemon up, and the new shell cannot take the name while it runs. So after starting a
+# shell, keep them down until it owns the name (max 4 s; it registers as soon as the name is free). No flag files here: this is
+# not a daemon the user was running.
+notif_claim() {
+    local owner
+    for _ in $(seq 1 40); do
+        owner="$(busctl --user --no-legend list 2>/dev/null | awk '$1 == "org.freedesktop.Notifications" { print $3 }')"
+        case "$owner" in
+            qs|.qs*|quickshell*|.quickshell*) return 0 ;;
+            mako) systemctl --user stop mako.service >/dev/null 2>&1 || true; pkill -x mako >/dev/null 2>&1 || true ;;
+            swaync) pkill -x swaync >/dev/null 2>&1 || true ;;
+        esac
+        sleep 0.1
+    done
+    warn "the shell did not get org.freedesktop.Notifications within 4 s (held by: ${owner:-nobody}); 'overworld repair' tries again"
+}
+
 apps_apply() {                  # apps/apply-mode.sh <mode|off>, detached (may take seconds: spicetify etc.)
     local s="$REPO/apps/apply-mode.sh"
     [[ -x "$s" ]] || return 0
     setsid -f bash -c "exec '$s' '$1' >>'$APPS_LOG' 2>&1" </dev/null || true
 }
 
+# ---------------------------------------------------------------------------------------------- theme handover
+# Apothecary Hyprland and Overworld are both sourced from hyprland.conf, each behind its own active.conf, and only one
+# may point at on.conf. ~/.config/overworld/previous-theme (first line `apothecary <light|dark>` or `stock`) says what
+# `off` must bring back; apps/apply-mode.sh reads it too.
+#
+# `apothecary off` followed by `apothecary on` would start waybar + mako only to stop them again, and `apothecary on` waits
+# 10 s for waybar and plays its login sound. So the handover works on Apothecary's own files instead, and does what its
+# cmd_off / cmd_on do minus the stock bar: enabled flag, active.conf, `qs -c apothecary`, hypridle, apps. Its colours,
+# wallpaper choice, prev-wallpaper and mako-was-active stay as they are, so a later `apothecary off` still restores stock.
+# If those files are not there (Apothecary moved or removed) the public CLI, or stock, is the fallback.
+APO_STATE="$CFG/apothecary"
+APO_QS='qs -c apothecary'
+apo_enabled() { [[ -e "$APO_STATE/enabled" ]]; }
+apo_repo() {
+    local r; r="$(readlink -f "$APO_STATE/repo" 2>/dev/null || true)"
+    if [[ -n "$r" && -r "$r/hypr/on.conf" && -r "$r/hypr/off.conf" ]]; then printf '%s\n' "$r"; fi
+}
+apo_mode() {
+    local m=""; [[ -r "$APO_STATE/mode" ]] && m="$(tr -d '[:space:]' <"$APO_STATE/mode")"
+    [[ "$m" == light ]] && echo light || echo dark
+}
+previous_get() { [[ -r "$STATE/previous-theme" ]] && head -n1 "$STATE/previous-theme" || true; }
+
+apothecary_down() {             # file-level `apothecary off` without restarting waybar/mako
+    local r; r="$(apo_repo)"
+    if [[ -z "$r" ]]; then
+        have apothecary && apothecary off >/dev/null 2>&1 || warn "could not stop Apothecary (is it installed?)"
+        return 0
+    fi
+    rm -f "$APO_STATE/enabled"
+    ln -sfn "$r/hypr/off.conf" "$APO_STATE/active.conf"
+    pkill -f -x "$APO_QS" >/dev/null 2>&1 || true
+    qs_wait_gone "$APO_QS"
+    # its apps go back to their pre-theme values first; apps/apply-mode.sh waits for this before it records them
+    [[ -x "$r/apps/apply-mode.sh" ]] && setsid -f bash -c "exec '$r/apps/apply-mode.sh' off >>'$APPS_LOG' 2>&1" </dev/null || true
+}
+apothecary_up() {               # file-level `apothecary on`; returns 1 if Apothecary cannot be brought back
+    local mode="$1" r; r="$(apo_repo)"
+    [[ -n "$r" ]] || return 1
+    local cache="${XDG_CACHE_HOME:-$HOME/.cache}/apothecary"
+    mkdir -p "$cache"
+    printf '%s\n' "$mode" >"$APO_STATE/mode"
+    touch "$APO_STATE/enabled"
+    ln -sfn "$r/hypr/on.conf" "$APO_STATE/active.conf"
+    pgrep -f -x "$APO_QS" >/dev/null 2>&1 || setsid -f bash -c "exec $APO_QS >>'$cache/qs.log' 2>&1" </dev/null || true
+    hypridle_restart "$r/hypr/hypridle.conf"
+}
+
 # ---------------------------------------------------------------------------------------------- commands
 cmd_on() {
     local m; m="$(mode_get)"
+    # a fresh transition only: running `on` twice must not forget what was there before
+    if ! enabled || apo_enabled; then
+        if apo_enabled; then printf 'apothecary %s\n' "$(apo_mode)" >"$STATE/previous-theme"
+        else printf 'stock\n' >"$STATE/previous-theme"; fi
+        rm -f "$STATE/prev-wallpaper"
+        save_prev_wallpaper
+    fi
+    local from; from="$(previous_get)"
     touch "$STATE/enabled"
     ln -sfn "$REPO/hypr/on.conf" "$STATE/active.conf"
     link_mode_files "$m"
+    apo_enabled && apothecary_down
     hyprlock_swap_on
-    hypr_reload
-    echo "overworld: ON ($m)"
+    hypr_reload                                        # one reload swaps both themes' layers
+    echo "overworld: ON ($m), taking over from: ${from:-stock}"
     say "active.conf -> hypr/on.conf, colors/hyprlock-vars/lock.png -> $m"
-    say "hyprlock.conf -> repo (original saved as hyprlock.conf.pre-overworld)"
-    cmd_session_start
+    say "hyprlock.conf -> repo (previous one saved as hyprlock.conf.pre-overworld)"
+    session_up now
     apps_apply "$m"
 }
 
 cmd_off() {
+    local from; from="$(previous_get)"
+    if ! enabled && [[ -z "$from" ]]; then echo "overworld: already off"; return 0; fi
+    # leave a special game mode through the shell, so DND goes back and the next `on` starts in survival
+    local gm; gm="$(gamemode_get)"
+    if [[ "$gm" != survival ]]; then
+        qs_ipc gamemode set survival >/dev/null 2>&1 && sleep 0.3
+        [[ -r "$STATE/gamemode" ]] && printf 'survival\n' >"$STATE/gamemode"
+    fi
     rm -f "$STATE/enabled"
     ln -sfn "$REPO/hypr/off.conf" "$STATE/active.conf"
     hyprlock_swap_off
     qs_stop
-    hypridle_restart stock
-    stock_bar_start
-    hypr_reload
-    if [[ -s "$STATE/prev-wallpaper" ]]; then
-        local prev; prev="$(head -n1 "$STATE/prev-wallpaper")"
-        if [[ -r "$prev" ]]; then awww_set "$prev" fade; fi
-        rm -f "$STATE/prev-wallpaper"
+    qs_wait_gone "$QS_CMD"
+    local target=stock prev_mode=""
+    if apo_enabled; then                              # someone ran `apothecary on` while we were on: it owns the desktop
+        target=apothecary-running
+    elif [[ "$from" == apothecary* ]]; then
+        prev_mode="${from#apothecary}"; prev_mode="${prev_mode// /}"
+        case "$prev_mode" in light|dark) ;; *) prev_mode="$(apo_mode)" ;; esac
+        if apothecary_up "$prev_mode"; then target=apothecary
+        else
+            warn "Apothecary is gone (no $APO_STATE/repo): falling back to the stock desktop"
+            [[ -e "$APO_STATE/mako-was-active" ]] && touch "$STATE/mako-was-active"
+        fi
     fi
-    apps_apply off
-    echo "overworld: OFF"
-    say "active.conf -> hypr/off.conf, hyprlock.conf restored, qs stopped, waybar + swaync/mako + hypridle (stock) restarted"
+    if [[ "$target" == stock ]]; then
+        hypridle_restart stock
+        stock_bar_start
+    else
+        rm -f "$STATE/mako-was-active"
+        notif_claim
+    fi
+    hypr_reload
+    if [[ "$target" != apothecary-running ]]; then
+        local prev=""
+        [[ -s "$STATE/prev-wallpaper" ]] && prev="$(head -n1 "$STATE/prev-wallpaper")"
+        if [[ -z "$prev" || ! -r "$prev" ]] && [[ "$target" == apothecary && -r "$APO_STATE/wallpaper-$prev_mode" ]]; then
+            prev="$(head -n1 "$APO_STATE/wallpaper-$prev_mode")"
+        fi
+        [[ -n "$prev" && -r "$prev" ]] && awww_set "$prev" fade
+    fi
+    rm -f "$STATE/prev-wallpaper"
+    # apply-mode.sh off hands the apps back to Apothecary's own apply-mode when it was the previous theme
+    if [[ -f "$STATE/apps-state.json" ]]; then
+        apps_apply off
+    elif [[ "$target" == apothecary ]]; then
+        local r; r="$(apo_repo)"
+        [[ -x "$r/apps/apply-mode.sh" ]] && setsid -f bash -c "exec '$r/apps/apply-mode.sh' '$prev_mode' >>'$APPS_LOG' 2>&1" </dev/null || true
+    fi
+    rm -f "$STATE/previous-theme"
+    case "$target" in
+        apothecary)         echo "overworld: OFF, Apothecary is back ($prev_mode)" ;;
+        apothecary-running) echo "overworld: OFF, Apothecary was already on" ;;
+        *)                  echo "overworld: OFF, stock desktop is back" ;;
+    esac
+    say "active.conf -> hypr/off.conf, hyprlock.conf restored, overworld shell stopped"
+}
+
+# session_up [now]: stop the stock bar, start the shell, hypridle and wallpaper. Without `now` (login, exec-once in on.conf)
+# it first waits for JaKooLit's startup to bring waybar up, so it stops the real thing and not a race.
+session_up() {
+    local m; m="$(mode_get)"
+    if [[ "${1:-}" != now ]]; then
+        for _ in $(seq 1 20); do
+            pgrep -x waybar >/dev/null 2>&1 && break
+            sleep 0.5
+        done
+        sleep 0.5
+    fi
+    stock_bar_stop
+    qs_start
+    notif_claim
+    hypridle_restart theme
+    local wp; wp="$(wallpaper_for_mode "$m" || true)"
+    if [[ -n "$wp" ]]; then save_prev_wallpaper; awww_set "$wp" fade; fi
+    gamemode_reapply_later
+    play_sound door.open
+    echo "overworld: session started ($m), qs log: $QS_LOG"
 }
 
 cmd_session_start() {
     enabled || return 0
-    local m; m="$(mode_get)"
-    # wait (max 10 s) for JaKooLit's startup to bring waybar up, so we stop the real thing and not a race.
-    for _ in $(seq 1 20); do
-        pgrep -x waybar >/dev/null 2>&1 && break
-        sleep 0.5
-    done
-    sleep 0.5
-    stock_bar_stop
-    qs_start
-    hypridle_restart theme
-    local wp; wp="$(wallpaper_for_mode "$m" || true)"
-    if [[ -n "$wp" ]]; then save_prev_wallpaper; awww_set "$wp" fade; fi
-    play_sound login
-    echo "overworld: session started ($m) — qs log: $QS_LOG"
+    session_up
 }
 
 cmd_mode() {                    # cmd_mode light|dark
@@ -277,6 +421,7 @@ cmd_mode() {                    # cmd_mode light|dark
     mode_set "$m"
     link_mode_files "$m"
     hypr_reload                                        # everything above is symlink work (< 100 ms)
+    gamemode_reapply
     echo "overworld: mode $m${prev:+ (was $prev)}"
     local wp; wp="$(wallpaper_for_mode "$m" || true)"
     if [[ -n "$wp" ]]; then save_prev_wallpaper; awww_set "$wp" grow; printf '%s\n' "$wp" >"$STATE/wallpaper-$m"; say "wallpaper: ${wp#"$REPO"/}"; fi
@@ -302,56 +447,81 @@ cmd_wallpaper() {
 cmd_status() {
     local m; m="$(mode_get)"
     printf 'enabled:   %s\n' "$(enabled && echo yes || echo no)"
-    printf 'mode:      %s\n' "$m"
+    printf 'mode:      %s (%s)\n' "$m" "$([[ "$m" == dark ]] && echo Night || echo Day)"
+    printf 'previous:  %s\n' "$(p="$(previous_get)"; echo "${p:-(none)}")"
+    printf 'gamemode:  %s\n' "$(gamemode_get)"
+    printf 'daycycle:  %s\n' "$(json_get '.daycycle' auto)"
     printf 'active:    %s\n' "$(readlink "$STATE/active.conf" 2>/dev/null || echo '(none)')"
     printf 'wallpaper: %s\n' "$(wallpaper_for_mode "$m" 2>/dev/null || echo '(none)')"
     printf 'awww:      %s\n' "$(awww_current || echo '(none)')"
     printf 'qs:        %s\n' "$(qs_running && echo running || echo stopped)"
     printf 'waybar:    %s\n' "$(pgrep -x waybar >/dev/null && echo running || echo stopped)"
     printf 'swaync:    %s\n' "$(pgrep -x swaync >/dev/null && echo running || echo stopped)"
+    printf 'mako:      %s\n' "$(pgrep -x mako >/dev/null && echo running || echo stopped)"
     printf 'hypridle:  %s\n' "$(pgrep -a -x hypridle 2>/dev/null | head -n1 | cut -d' ' -f2- || echo stopped)"
     printf 'hyprlock:  %s\n' "$(readlink "$HYPR/hyprlock.conf" 2>/dev/null || echo 'stock file')"
+    printf 'apothecary: %s\n' "$(apo_enabled && echo on || echo off)"
     printf 'repo:      %s\n' "$REPO"
+    if enabled && apo_enabled; then warn "both Overworld and Apothecary are enabled; run 'overworld on' or 'apothecary off' to settle it"; fi
 }
 
 cmd_reload() {
     hypr_reload
-    if enabled; then qs_stop; sleep 0.3; qs_start; fi
+    gamemode_reapply
+    if enabled; then qs_stop; qs_wait_gone "$QS_CMD"; qs_start; fi
     echo "overworld: reloaded"
 }
 
-# Game mode (SUPER+SHIFT+G while on). Replaces JaKooLit's GameMode.sh, whose "disable" half restores the
-# JaKooLit wallpaper + wallust colours and runs Refresh.sh (`pkill qs && qs &`, restarts waybar/swaync) —
-# i.e. it tore the theme down. Enable = the same keyword batch (no animations/blur/shadows/gaps/rounding,
-# everything opaque) + widgets hidden; disable = `hyprctl reload` (every value comes back from our config),
-# shell re-checked, widgets restored, our wallpaper re-applied.
+# ---------------------------------------------------------------------------------------------- game modes
+# ~/.config/overworld/gamemode holds one word, written by quickshell/Game/GameMode.qml (it also handles DND and the event).
+# The desktop side is scripts/game/apply-gamemode.sh: adventure = the old performance mode that replaced JaKooLit's
+# GameMode.sh (whose "disable" half restored JaKooLit's wallpaper and ran Refresh.sh, tearing the theme down);
+# spectator = focus; leaving either = `hyprctl reload`, every value comes back from our config.
+GAMEMODES='survival creative adventure spectator'
+gamemode_get() {
+    local g=""; [[ -r "$STATE/gamemode" ]] && g="$(tr -d '[:space:]' <"$STATE/gamemode")"
+    case "$g" in
+        survival|creative|adventure|spectator) echo "$g" ;;
+        visible|hidden) echo adventure ;;               # flag file left by the Apothecary-era CLI
+        *) echo survival ;;
+    esac
+}
+gamemode_set() {
+    if qs_ipc gamemode set "$1" >/dev/null 2>&1; then return 0; fi
+    # no shell to do it: same file, same script
+    local old; old="$(gamemode_get)"
+    printf '%s\n' "$1" >"$STATE/gamemode"
+    [[ "$1" == "$old" ]] || "$REPO/scripts/game/apply-gamemode.sh" "$1" "$old"
+}
+# `hyprctl reload` wipes the keyword batch of adventure/spectator: put it back after a reload made by something else.
+gamemode_reapply() {
+    case "$(gamemode_get)" in
+        adventure|spectator) "$REPO/scripts/game/apply-gamemode.sh" "$(gamemode_get)" "$(gamemode_get)" ;;
+    esac
+    return 0
+}
+gamemode_reapply_later() {      # at session start the shell needs a moment before it can hide the widgets
+    case "$(gamemode_get)" in
+        adventure|spectator) setsid -f bash -c "sleep 3; exec '$REPO/scripts/game/apply-gamemode.sh' '$(gamemode_get)' '$(gamemode_get)'" >/dev/null 2>&1 </dev/null || true ;;
+    esac
+    return 0
+}
 cmd_gamemode() {
-    local flag="$STATE/gamemode" want="${1:-toggle}"
-    if [[ "$want" == toggle ]]; then [[ -e "$flag" ]] && want=off || want=on; fi
-    if [[ "$want" == on ]]; then
-        local wv; wv="$($QS_CMD ipc call widgets status 2>/dev/null || echo visible)"
-        printf '%s\n' "$wv" >"$flag"
-        hyprctl --batch "keyword animations:enabled 0; keyword decoration:shadow:enabled 0; \
-keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; \
-keyword general:border_size 1; keyword decoration:rounding 0; keyword decoration:active_opacity 1; \
-keyword decoration:inactive_opacity 1; keyword decoration:dim_inactive 0" >/dev/null 2>&1 || true
-        $QS_CMD ipc call widgets hide >/dev/null 2>&1 || true
-        notify-send -a Overworld -u low 'Game mode · on' 'Animations, blur, gaps and widgets off. SUPER+SHIFT+G to restore.' 2>/dev/null || true
-        echo "overworld: game mode ON"
-    else
-        local wv="visible"; [[ -r "$flag" ]] && wv="$(head -n1 "$flag")"
-        rm -f "$flag"
-        hypr_reload
-        if enabled; then
-            qs_start
-            sleep 0.5
-            [[ "$wv" == hidden ]] || $QS_CMD ipc call widgets reveal >/dev/null 2>&1 || true
-            local wp; wp="$(wallpaper_for_mode "$(mode_get)" || true)"
-            [[ -n "$wp" && "$(awww_current)" != "$wp" ]] && awww_set "$wp" fade
-        fi
-        notify-send -a Overworld -u low 'Game mode · off' 'Theme restored.' 2>/dev/null || true
-        echo "overworld: game mode OFF"
-    fi
+    local want="${1:-toggle}" cur; cur="$(gamemode_get)"
+    case "$want" in
+        on)     want=adventure ;;
+        off)    want=survival ;;
+        toggle) if [[ "$cur" == adventure ]]; then want=survival; else want=adventure; fi ;;
+    esac
+    case "$want" in
+        status) echo "$cur" ;;
+        switcher) qs_need gamemode switcher >/dev/null ;;
+        survival|creative|adventure|spectator)
+            gamemode_set "$want"
+            echo "overworld: game mode $want" ;;
+        help|-h|--help) help_page gamemode ;;
+        *) warn "unknown game mode: $want (one of: $GAMEMODES, on, off, toggle, switcher, status)"; exit 2 ;;
+    esac
 }
 
 # repair: bring the theme back after something external (JaKooLit Refresh.sh, a wallpaper script, a
@@ -360,41 +530,207 @@ cmd_repair() {
     enabled || die "theme is off (overworld on)"
     stock_bar_stop
     qs_start
+    notif_claim
     pgrep -f -x 'qs -c overview' >/dev/null 2>&1 || detach qs -c overview   # JaKooLit's overview (Refresh.sh kills it)
     local wp; wp="$(wallpaper_for_mode "$(mode_get)" || true)"
     [[ -n "$wp" && "$(awww_current)" != "$wp" ]] && awww_set "$wp" fade
     hypr_reload
+    gamemode_reapply
     echo "overworld: repaired (waybar/mako stopped, shell running, wallpaper re-applied)"
 }
 
-cmd_help() {
-    cat <<EOF
-overworld — Overworld Hyprland theme (薬屋のひとりごと / Maomao)
+# ---------------------------------------------------------------------------------------------- game + world verbs
+cmd_kill() { exec "$REPO/scripts/interact/kill.sh" "$@"; }   # block-break close; falls back to killactive without a shell
 
-  on              enable the theme: Hyprland layer, hyprlock, Quickshell shell (replaces waybar + swaync)
-  off             disable it and bring the stock JaKooLit desktop back (no logout needed)
-  status          what is on, which mode, wallpaper, running processes
-  light | dark    switch mode (Overworld 薬屋 / Inner Palace 后宫) — colours, wallpaper, apps
-  toggle          flip the mode
-  wallpaper next | prev | random | current | pick | <path>
-                  cycle / re-apply / open the picker / set a file, remembered per mode
-  reload          hyprctl reload + restart the Quickshell shell (if on)
-  gamemode [on|off|toggle]
-                  no animations/blur/gaps/widgets for games; off restores the theme (SUPER+SHIFT+G)
-  ws [list]       your title + note for workspaces 1–10 (shown in a card when you switch, and on bar hover)
-  ws <n> "Title" ["note"]  |  ws <n> --note "text"  |  ws <n> --clear  |  ws edit  |  ws show [n]
-  ws auto on|off|status|now [n]|clear|log      (overworld ws help = full reference)
-                  let Claude (your plan, haiku) title untitled workspaces, rewrite a title + note that no
-                  longer match the windows, and reset workspaces that stayed empty for 10 min.
-                  ws <n> --pin protects one; ws <n> --auto hands one back to Claude
-  brew [status]   the 煎 brew timer: brew set <brew> [rest] (any length: 50, 1h30, 90s; rest 0 = none) ·
-                  brew set = dialog (SUPER+SHIFT+B) · brew start [brew] [rest] · toggle · reset · add <dur>
-                  (overworld brew help = full reference)
-  repair          re-stop waybar/mako, restart the shell, re-apply the wallpaper (after JaKooLit scripts)
+cmd_chat() {
+    if (( $# == 0 )); then qs_need chat open >/dev/null; return 0; fi
+    case "$1" in help|-h|--help) help_page chat; return 0 ;; esac
+    local text="$*"
+    if [[ "$text" == "/" ]]; then qs_need chat command "/" >/dev/null   # console open with "/" typed
+    else qs_need chat run "$text" >/dev/null; fi                        # say it or run the command, no console
+}
+cmd_f3() {
+    case "${1:-toggle}" in
+        help|-h|--help) help_page f3 ;;
+        graph) qs_need world f3graph "${2:-toggle}" ;;
+        *)     qs_need world f3 "${1:-toggle}" ;;
+    esac
+}
+cmd_weather() {
+    case "${1:-status}" in
+        status) qs_need world status ;;
+        help|-h|--help) help_page weather ;;
+        clear|rain|thunder|snow|auto) qs_need world weather "$1" ;;
+        *) warn "unknown weather: $1 (clear, rain, thunder, snow, auto)"; exit 2 ;;
+    esac
+}
+cmd_daycycle() {
+    case "${1:-status}" in
+        status) qs_need world time ;;
+        help|-h|--help) help_page daycycle ;;
+        auto|day|night|off) qs_need world daycycle "$1" ;;
+        *) warn "unknown daycycle: $1 (auto, day, night, off)"; exit 2 ;;
+    esac
+}
+cmd_sound() {
+    case "${1:-}" in ""|help|-h|--help) help_page sound; return 0 ;; esac
+    exec "$REPO/scripts/ow-sound" "$@"
+}
+cmd_world() {
+    case "${1:-}" in
+        new) shift; exec "$REPO/scripts/make-world.sh" "$@" ;;
+        weather) shift; cmd_weather "$@" ;;
+        daycycle) shift; cmd_daycycle "$@" ;;
+        f3) shift; cmd_f3 "$@" ;;
+        ""|help|-h|--help) help_page world ;;
+        *) warn "unknown: world $1"; help_page world >&2; exit 2 ;;
+    esac
+}
+cmd_screenshot() {
+    case "${1:-}" in help|-h|--help) help_page screenshot; return 0 ;; esac
+    exec "$REPO/scripts/interact/screenshot.sh" "$@"
+}
+
+# ---------------------------------------------------------------------------------------------- help
+cmd_help() {
+    if [[ -n "${1:-}" ]]; then help_page "$1"; return; fi
+    cat <<EOF
+overworld — the Overworld Hyprland theme: your desktop as a Minecraft world
+
+The theme
+  on              enable it: Hyprland layer, hyprlock, the HUD shell (takes over from Apothecary if that is on)
+  off             disable it and bring back what was there before (Apothecary in its mode, or stock JaKooLit)
+  status          what is on, previous theme, mode, game mode, day cycle, wallpaper, processes
+  light | dark    switch mode: Day / Night (colours, wallpaper, apps)     toggle  flip it
+  reload          hyprctl reload + restart the shell        repair  undo what JaKooLit scripts did to the theme
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
 
+The world
+  wallpaper next | prev | random | current | pick | <path>      per mode, remembered
+  world new [--scene S] [--time T] [--mode M] [--seed N]        render a new world wallpaper
+  gamemode survival | creative | adventure | spectator | switcher | on | off | toggle | status
+  weather clear | rain | thunder | snow | auto                  daycycle auto | day | night | off
+  f3 [on | off | toggle | graph]                                the debug screen
+
+Playing
+  kill [address]  mine a window: block-break animation, then it closes (SUPER+Q)
+  chat [text]     open the chat console, or say a line / run a /command without opening it
+  advancements | stats | options                                the game screens
+  sound <id>      play a sound id from tokens/sounds.json       screenshot [area|window|screen|swappy]
+  ws …            workspace titles + notes, Claude auto-labelling (overworld ws help)
+  brew …          the brewing stand timer (overworld brew help)
+  event <name> ['<json>']                                       post to the game event bus
+
+  help <verb>     details for one verb, e.g. overworld help gamemode
 state: $STATE   repo: $REPO
 EOF
+}
+
+help_page() {
+    case "$1" in
+        on|off) cat <<'EOF'
+overworld on
+  Turns the theme on. If Apothecary is on, it is switched off first without starting waybar or mako in between, and
+  remembered in ~/.config/overworld/previous-theme (`apothecary <mode>`, otherwise `stock`).
+overworld off
+  Stops the shell and brings back the previous state: Apothecary on in its mode (with its hyprlock, hypridle, wallpaper
+  and apps), or stock JaKooLit (waybar, mako, stock hypridle, your old wallpaper). No logout needed.
+EOF
+            ;;
+        status) echo "overworld status   prints enabled, mode, previous theme, game mode, day cycle, wallpaper and the processes involved." ;;
+        light|dark|toggle|mode) cat <<'EOF'
+overworld light | dark | toggle
+  Day = classic light-grey GUI, grass-and-sky wallpapers. Night = deepslate GUI, night wallpapers. Switches Hyprland
+  colours, the lock screen, the wallpaper (remembered per mode) and all themed apps. SUPER+T toggles.
+EOF
+            ;;
+        reload) echo "overworld reload   hyprctl reload + restart the Quickshell shell (if on). A running adventure/spectator mode is kept." ;;
+        repair) echo "overworld repair   stops waybar/mako again, restarts the shell, re-applies the wallpaper. For after JaKooLit scripts. SUPER+ALT+R." ;;
+        session-start) echo "overworld session-start   run once at login by hypr/on.conf; does nothing unless the theme is enabled." ;;
+        wallpaper) cat <<'EOF'
+overworld wallpaper                 print the wallpaper for the current mode
+overworld wallpaper next | prev     step through assets/wallpapers/<mode>/ (SUPER+SHIFT+W = next)
+overworld wallpaper random          a random one (CTRL+ALT+W)
+overworld wallpaper current         re-apply the remembered one
+overworld wallpaper pick            open the Select World screen (SUPER+W)
+overworld wallpaper <path>          use that file for the current mode
+EOF
+            ;;
+        world) cat <<'EOF'
+overworld world new [--scene S] [--time T] [--mode light|dark] [--seed N] [--out PATH]
+  Renders a new procedural world wallpaper (scripts/make-world.sh, 10-60 s) and prints its path.
+  scenes: plains birch-forest snowy-taiga desert cherry-grove ocean-beach mountains mushroom-fields nether the-end
+  times:  day dawn dusk night
+overworld world weather | daycycle | f3 …   same as overworld weather | daycycle | f3 …
+EOF
+            ;;
+        gamemode) cat <<'EOF'
+overworld gamemode survival     normal desktop
+overworld gamemode creative     everything on, hearts and hunger never warn
+overworld gamemode adventure    performance: animations, blur, shadows, gaps off; widgets hidden (SUPER+SHIFT+G toggles)
+overworld gamemode spectator    focus: gaps 0, HUD and widgets hidden, Peaceful (Do Not Disturb); chat still works
+overworld gamemode switcher     the F3+F4 style overlay with four icons (SUPER+F4)
+overworld gamemode status       print the current mode
+overworld gamemode on | off | toggle   old names: on = adventure, off = survival, toggle flips adventure/survival
+EOF
+            ;;
+        weather) cat <<'EOF'
+overworld weather clear | rain | thunder | snow    force the weather overlay
+overworld weather auto                             follow the real weather again (Open-Meteo)
+overworld weather                                  print the current state
+EOF
+            ;;
+        daycycle) cat <<'EOF'
+overworld daycycle auto         switch Day/Night at local sunrise and sunset, with time-of-day wallpapers
+overworld daycycle day | night  pin one
+overworld daycycle off          leave the mode alone
+overworld daycycle              print the current state
+EOF
+            ;;
+        f3) cat <<'EOF'
+overworld f3 [on | off | toggle]    the F3 debug screen with live system values (SUPER+F3)
+overworld f3 graph [on | off | toggle]   the frame-time graph
+EOF
+            ;;
+        kill) cat <<'EOF'
+overworld kill             mine the focused window: crack stages, particles, break sound, then it closes (SUPER+Q)
+overworld kill <address>   mine that window (0x… from hyprctl clients)
+Without a running shell the window is simply closed, so SUPER+Q always works.
+EOF
+            ;;
+        chat) cat <<'EOF'
+overworld chat             open the chat console (SUPER+SHIFT+T; SUPER+/ opens it with "/" typed)
+overworld chat <text>      post a line, or run a /command, without opening the console:
+                           overworld chat /weather rain     overworld chat /help
+EOF
+            ;;
+        advancements|stats|options) cat <<'EOF'
+overworld advancements     the advancement tree (SUPER+L)
+overworld stats            the statistics screen (SUPER+SHIFT+L)
+overworld options          the Options menu, edits ~/.config/overworld/config.json live (SUPER+O)
+EOF
+            ;;
+        sound) cat <<'EOF'
+overworld sound <id>       play one id from tokens/sounds.json through scripts/ow-sound (ui.click, xp.levelup, …).
+                           Honours config.json "sounds" and the per-category volumes. OW_SOUND_DRYRUN=1 prints instead.
+EOF
+            ;;
+        screenshot) cat <<'EOF'
+overworld screenshot [area]   select a region (Print)
+overworld screenshot screen   everything (SHIFT+Print, SUPER+F2)
+overworld screenshot window   the active window (ALT+Print)
+overworld screenshot swappy   select a region and annotate it (SUPER+SHIFT+S)
+Saved in ~/Pictures/Screenshots and copied; the chat says "Saved screenshot as …".
+EOF
+            ;;
+        ws|workspace) cmd_ws_help ;;
+        brew) cmd_brew_help ;;
+        event) cat <<'EOF'
+overworld event <name> ['<json object>']   appends to $XDG_RUNTIME_DIR/overworld/events.jsonl (the GameEvents bus).
+EOF
+            ;;
+        *) warn "no help page for '$1'"; cmd_help >&2; exit 2 ;;
+    esac
 }
 
 # ---------------------------------------------------------------------------------------------- workspace titles
@@ -560,7 +896,7 @@ cmd_ws() {
 
 # ---------------------------------------------------------------------------------------------- brew timer
 # config.json "brew": {"work": <minutes or "90s"/"1h30m">, "break": <same, 0 = no rest>} — read live by the shell
-# (Widgets/Services/ApoConfig.qml + BrewTimer.qml).  Duration grammar = quickshell/Widgets/Services/duration.js.
+# (Widgets/Services/WidgetsConfig.qml + BrewTimer.qml).  Duration grammar = quickshell/Widgets/Services/duration.js.
 BREW_MAX=86400
 
 brew_parse() {                  # brew_parse "<text>" -> whole seconds on stdout; status 1 if unreadable
@@ -618,7 +954,7 @@ brew_ipc() { $QS_CMD ipc call brew "$@" 2>/dev/null || die "the shell is not run
 
 cmd_brew_help() {
     cat <<EOF
-overworld brew — the 煎 Brew timer (focus timer on the desktop, SUPER+B start/pause)
+overworld brew — the brewing stand timer (focus timer on the desktop, SUPER+B start/pause)
 
   brew | brew status              saved brew / rest lengths and what the timer is doing
   brew set                        open the brew dialog in the shell (also SUPER+SHIFT+B or click the card's clock)
@@ -628,18 +964,14 @@ overworld brew — the 煎 Brew timer (focus timer on the desktop, SUPER+B start
   brew start [brew] [rest]        start now; given lengths are for this session only (saved ones unchanged)
   brew toggle | pause | reset     start/pause/resume · pause · stop
   brew add <dur>                  add time to the running brew or rest
-  brew sound                      which finish sound is used
-  brew sound minecraft | classic  Minecraft brewing stand (brew done) + potion drink (rest over), or the theme's
-                                  own plucks; minecraft downloads the files first if needed
-  brew sound fetch [--force]      (re)download the Minecraft sounds from Mojang's asset server (gitignored)
-  brew sound play [brew|rest]     preview a finish sound
+  brew sound [brew|rest]          preview a finish sound (brew.done / brew.drink, see overworld help sound)
   brew help                       this help
 
 Durations: 25 (minutes) · 2.5 · 50m · 90s · 1h · 1h30 · 1h30m15s · 1:30 (m:ss) · 1:05:00 (h:mm:ss); up to 24 h.
 On the card (while idle) scroll on the clock = brew ±1 min, on the "brew · rest" line = rest ±1 min (Shift ±5).
 
-Settings: $STATE/config.json → "brew": {"work": 25, "break": 5, "sound": "minecraft"}
-          (work/break in minutes, or a string like "90s" / "1h30m"; sound minecraft | classic)
+Settings: $STATE/config.json → "brew": {"work": 25, "break": 5}
+          (work/break in minutes, or a string like "90s" / "1h30m")
 
 Examples:
   overworld brew set 50 10       50-minute brews, 10-minute rests
@@ -691,16 +1023,8 @@ cmd_brew() {
         open) brew_ipc open >/dev/null ;;
         sound)
             shift
-            case "${1:-}" in
-                "")  say "sound: $(json_get '.brew.sound' minecraft)   minecraft files: $( [[ -s "$REPO/assets/sounds/minecraft/brew1.ogg" ]] && echo present || echo "missing (overworld brew sound fetch)")" ;;
-                minecraft|classic)
-                     ( flock 9; ws_cfg --arg s "$1" '.brew = ((.brew // {}) + {sound: $s})' ) 9>>"$STATE/config.json.lock"
-                     [[ "$1" == minecraft && ! -s "$REPO/assets/sounds/minecraft/brew1.ogg" ]] && "$REPO/scripts/fetch-minecraft-sounds.sh"
-                     say "brew sound: $1" ;;
-                fetch) "$REPO/scripts/fetch-minecraft-sounds.sh" "${@:2}" ;;
-                play|test) brew_ipc sound "${2:-brew}" >/dev/null ;;
-                *)   warn "unknown: brew sound $1"; cmd_brew_help >&2; exit 1 ;;
-            esac ;;
+            [[ "${1:-}" == play || "${1:-}" == test ]] && shift
+            brew_ipc sound "${1:-brew}" >/dev/null ;;
         help|-h|--help) cmd_brew_help ;;
         *) warn "unknown: brew $1"; cmd_brew_help >&2; exit 1 ;;
     esac
@@ -716,18 +1040,29 @@ cmd_event() {                   # overworld event <name> ['<json object>']  → 
 
 case "${1:-help}" in
     on)            cmd_on ;;
-    event)         shift; cmd_event "$@" ;;
-    ws|workspace)  shift; cmd_ws "$@" ;;
-    brew)          shift; cmd_brew "$@" ;;
     off)           cmd_off ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;
     toggle)        if [[ "$(mode_get)" == "light" ]]; then cmd_mode dark; else cmd_mode light; fi ;;
     wallpaper)     shift; cmd_wallpaper "${1:-}" ;;
     reload)        cmd_reload ;;
-    gamemode)      shift; cmd_gamemode "${1:-toggle}" ;;
     repair)        cmd_repair ;;
     session-start) cmd_session_start ;;
-    help|-h|--help) cmd_help ;;
-    *)             warn "unknown command: $1"; cmd_help; exit 2 ;;
+    gamemode)      shift; cmd_gamemode "${1:-toggle}" ;;
+    weather)       shift; cmd_weather "$@" ;;
+    daycycle)      shift; cmd_daycycle "$@" ;;
+    f3)            shift; cmd_f3 "$@" ;;
+    kill)          shift; cmd_kill "$@" ;;
+    chat)          shift; cmd_chat "$@" ;;
+    advancements)  qs_need advancements open >/dev/null ;;
+    stats)         qs_need stats open >/dev/null ;;
+    options)       qs_need options open >/dev/null ;;
+    sound)         shift; cmd_sound "$@" ;;
+    world)         shift; cmd_world "$@" ;;
+    screenshot)    shift; cmd_screenshot "$@" ;;
+    ws|workspace)  shift; cmd_ws "$@" ;;
+    brew)          shift; cmd_brew "$@" ;;
+    event)         shift; cmd_event "$@" ;;
+    help|-h|--help) shift || true; cmd_help "${1:-}" ;;
+    *)             warn "unknown command: $1"; cmd_help >&2; exit 2 ;;
 esac

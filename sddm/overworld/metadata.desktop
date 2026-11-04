@@ -1,12 +1,12 @@
-; Overworld Hyprland — SDDM theme (Qt 6). Install: sudo scripts/install-sddm.sh [light|dark]  (see docs/SUDO-STEPS.md)
+; Overworld Hyprland — SDDM theme (Qt 6). Install: sudo scripts/install-sddm.sh [auto|light|dark]  (see docs/SUDO-STEPS.md)
 
 [SddmGreeterTheme]
 Name=Overworld
 Type=sddm-theme
-Description=The Overworld Diaries — paper, ink, seal. Login theme for Overworld Hyprland.
+Description=The title screen of your desktop: a slowly turning panorama, the OVERWORLD wordmark and a Singleplayer button that logs you in.
 Author=overworld-hyprland (hyprland-engineer)
-License=MIT (fonts: SIL OFL; artwork not redistributed)
-Version=1.0
+License=MIT (artwork and font derived from Minecraft are not redistributed; copied from your own game at install time)
+Version=2.0
 Theme-Id=overworld
 Theme-API=2.0
 MainScript=Main.qml

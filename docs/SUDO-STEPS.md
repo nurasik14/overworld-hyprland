@@ -11,15 +11,19 @@ sudo dnf install -y kvantum papirus-icon-theme google-noto-serif-cjk-fonts
 
 ## SDDM login theme (hyprland-engineer)
 
-Preview first (no sudo):
-`scripts/install-sddm.sh prepare light && sddm-greeter-qt6 --test-mode --theme ~/Projects/overworld-hyprland/sddm/overworld`
+The login screen is the Minecraft title screen: a slowly turning panorama, the OVERWORLD wordmark, a splash, the password as a
+Minecraft text field and **Singleplayer** to log in.
+
+Preview first (no sudo; opens a window, the power buttons are greyed out in test mode because SDDM reports them as unavailable there):
+`scripts/install-sddm.sh prepare && sddm-greeter-qt6 --test-mode --theme ~/Projects/overworld-hyprland/sddm/overworld`
 
 ```
-sudo ~/Projects/overworld-hyprland/scripts/install-sddm.sh light     # or: dark
+sudo ~/Projects/overworld-hyprland/scripts/install-sddm.sh          # Day or Night panorama by the clock; or: light | dark
 ```
 
-Copies the theme (fonts + Maomao backgrounds baked in) to `/usr/share/sddm/themes/overworld`, backs up
-`/etc/sddm.conf` to `/etc/sddm.conf.pre-overworld` and sets `[Theme] Current=overworld`.
+Copies the theme to `/usr/share/sddm/themes/overworld` with everything baked in (Mojangles font, button sprites, panorama strips,
+wordmark, splashes, quotes: the `sddm` user cannot read your home), backs up `/etc/sddm.conf` to `/etc/sddm.conf.pre-overworld`
+and sets `[Theme] Current=overworld`.
 Revert: `sudo ~/Projects/overworld-hyprland/scripts/install-sddm.sh revert` (the silent theme comes back).
 
 ## Screen brightness (Acer Nitro AN515-58, hybrid Intel + NVIDIA)

@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Overworld Hyprland — SDDM login theme installer.
 #
-#   scripts/install-sddm.sh prepare [light|dark]     no sudo: fill sddm/overworld/ with fonts, backgrounds, Palette.js,
-#                                                    quotes.js and theme.conf (Mode=<mode>). Needed before test mode:
-#                                                    sddm-greeter-qt6 --test-mode --theme sddm/overworld
-#   sudo scripts/install-sddm.sh [light|dark]        the sudo steps: prepare (as the invoking user's files), copy the theme
-#                                                    to /usr/share/sddm/themes/overworld, back up /etc/sddm.conf and set
-#                                                    [Theme] Current=overworld. Prints how to revert.
-#   sudo scripts/install-sddm.sh revert              restore /etc/sddm.conf from the backup (theme dir is left in place).
+#   scripts/install-sddm.sh prepare [auto|light|dark]    no sudo: fill sddm/overworld/ with the font, button sprites, panorama
+#                                                        strips, wordmark, splashes.js, quotes.js and theme.conf. Needed before
+#                                                        test mode: sddm-greeter-qt6 --test-mode --theme sddm/overworld
+#   sudo scripts/install-sddm.sh [auto|light|dark]       the sudo steps: prepare (as the invoking user's files), copy the theme
+#                                                        to /usr/share/sddm/themes/overworld, back up /etc/sddm.conf and set
+#                                                        [Theme] Current=overworld. Prints how to revert.
+#   sudo scripts/install-sddm.sh revert                  restore /etc/sddm.conf from the backup (theme dir is left in place).
 #
+# Modes: auto = Day or Night panorama by the clock at the login screen (default); light / dark pin one.
 # SDDM runs the greeter as its own user, so it cannot read ~/… — everything the theme needs is copied INTO the theme dir.
 set -euo pipefail
 
@@ -23,78 +24,72 @@ FONT_SRC="$REAL_HOME/.local/share/fonts/overworld"
 say() { printf '  %s\n' "$*"; }
 
 prepare() {
-    local mode="${1:-light}"
-    [[ "$mode" == "light" || "$mode" == "dark" ]] || { echo "mode must be light|dark" >&2; exit 2; }
+    local mode="${1:-auto}"
+    [[ "$mode" == "auto" || "$mode" == "light" || "$mode" == "dark" ]] || { echo "mode must be auto|light|dark" >&2; exit 2; }
     echo "prepare sddm/overworld (mode=$mode)"
-    mkdir -p "$THEME_SRC/fonts" "$THEME_SRC/backgrounds"
+    mkdir -p "$THEME_SRC/fonts" "$THEME_SRC/backgrounds" "$THEME_SRC/gui"
 
-    # fonts the greeter cannot see otherwise (OFL). Noto Sans / Noto Sans CJK are system packages → visible.
+    # the font the greeter cannot see otherwise
     local f
-    for f in "MaShanZheng-Regular.ttf" "ZCOOLXiaoWei-Regular.ttf" "CormorantGaramond[wght].ttf" "EBGaramond[wght].ttf"; do
-        if [[ -r "$FONT_SRC/$f" ]]; then cp -f "$FONT_SRC/$f" "$THEME_SRC/fonts/$f"; else say "font missing: $FONT_SRC/$f (Qt will fall back)"; fi
+    for f in OverworldMojangles-Regular.ttf OverworldMojangles-Bold.ttf; do
+        if [[ -r "$REPO/assets/fonts/$f" ]]; then cp -f "$REPO/assets/fonts/$f" "$THEME_SRC/fonts/$f"
+        elif [[ -r "$FONT_SRC/$f" ]]; then cp -f "$FONT_SRC/$f" "$THEME_SRC/fonts/$f"
+        else say "font missing: $f (Qt will fall back)"; fi
     done
 
-    # backgrounds: assets/art/sddm-<mode>.png (copyrighted, gitignored); fallback = generated plain paper/lacquer sheet.
-    local m
-    for m in light dark; do
-        if [[ -r "$REPO/assets/art/sddm-$m.png" ]]; then
-            cp -f "$REPO/assets/art/sddm-$m.png" "$THEME_SRC/backgrounds/sddm-$m.png"
-        elif command -v magick >/dev/null 2>&1; then
-            local col="#e6dcc6"; [[ "$m" == "dark" ]] && col="#15110e"
-            local tex="$REPO/assets/pd/textures/paper.png"; [[ "$m" == "dark" ]] && tex="$REPO/assets/pd/textures/lacquer.png"
-            if [[ -r "$tex" ]]; then cp -f "$tex" "$THEME_SRC/backgrounds/sddm-$m.png"
-            else magick -size 1920x1080 "xc:$col" "$THEME_SRC/backgrounds/sddm-$m.png"; fi
-            say "no assets/art/sddm-$m.png — generated a plain $m sheet"
-        fi
+    # button and text-field sprites: Mojang's if the assets are there, else asset-forge's original fallback art
+    local sprite src
+    for sprite in button button_highlighted button_disabled text_field text_field_highlighted; do
+        src="$REPO/assets/mc/textures/gui/sprites/widget/$sprite.png"
+        [[ -r "$src" ]] || src="$REPO/assets/gen/textures/gui/sprites/widget/$sprite.png"
+        if [[ -r "$src" ]]; then cp -f "$src" "$THEME_SRC/gui/$sprite.png"; else say "sprite missing: $sprite"; fi
     done
 
-    # Palette.js from tokens/out/<mode>/palette.json (both modes; CSS #rrggbbaa -> Qt #aarrggbb)
-    python3 - "$REPO" "$THEME_SRC" <<'PY'
-import json, sys, re
-repo, dst = sys.argv[1], sys.argv[2]
-def qt(c):
-    if isinstance(c, str) and re.fullmatch(r'#[0-9a-fA-F]{8}', c): return '#' + c[7:9] + c[1:7]
-    return c
-out = ['// generated by scripts/install-sddm.sh from tokens/out/<mode>/palette.json — do not edit', '.pragma library']
-for mode in ('light', 'dark'):
-    with open(f'{repo}/tokens/out/{mode}/palette.json') as fh: d = json.load(fh)
-    d = {k: qt(v) for k, v in d.items()}
-    out.append(f'var {mode} = ' + json.dumps(d, ensure_ascii=False, indent=2) + ';')
-out.append('function get(mode) { return mode === "dark" ? dark : light; }')
-open(f'{dst}/Palette.js', 'w').write('\n'.join(out) + '\n')
-print('  Palette.js written')
-PY
+    # wordmark: the real-texture render, else the committed original
+    src="$REPO/assets/renders/wordmark.png"; [[ -r "$src" ]] || src="$REPO/assets/gen/wordmark/overworld.png"
+    if [[ -r "$src" ]]; then cp -f "$src" "$THEME_SRC/wordmark.png"; else say "wordmark missing"; fi
 
-    # quotes.js from quotes/quotes.json (text + attribution only)
+    # the panorama strips, seamless at their left and right edges (assets/renders is gitignored; tools/worldgen makes it)
+    local pair
+    for pair in strip.png:strip-day.png strip-night.png:strip-night.png; do
+        src="$REPO/assets/renders/panorama/${pair%%:*}"
+        if [[ -r "$src" ]]; then cp -f "$src" "$THEME_SRC/backgrounds/${pair##*:}"
+        else say "panorama missing: $src (plain sky colour instead; docs/WORLDGEN.md)"; fi
+    done
+
+    # splashes.js and quotes.js from quotes/ (text only)
     python3 - "$REPO" "$THEME_SRC" <<'PY'
 import json, sys
 repo, dst = sys.argv[1], sys.argv[2]
 try:
+    with open(f'{repo}/quotes/splashes.json') as fh: d = json.load(fh)
+    items = [{'text': x['text'], **x.get('seasonal', {})} for x in d['splashes'] if x.get('text')]
+except Exception:
+    items = [{'text': 'Press Enter!'}]
+open(f'{dst}/splashes.js', 'w').write('// generated by scripts/install-sddm.sh from quotes/splashes.json\n.pragma library\nvar splashes = '
+    + json.dumps(items, ensure_ascii=False, indent=0) + ';\n')
+print(f'  splashes.js written ({len(items)} lines)')
+try:
     with open(f'{repo}/quotes/quotes.json') as fh: q = json.load(fh)
     items = [{'text': x.get('text', ''), 'by': x.get('attribution', '') or ''} for x in q if x.get('text')]
-except Exception as e:
-    items = [{'text': 'Do things out of love, not for love.', 'by': ''}]
+except Exception:
+    items = [{'text': 'The world is still here when you get back.', 'by': ''}]
 open(f'{dst}/quotes.js', 'w').write('// generated by scripts/install-sddm.sh from quotes/quotes.json\n.pragma library\nvar quotes = '
-    + json.dumps(items, ensure_ascii=False, indent=1) + ';\n')
+    + json.dumps(items, ensure_ascii=False, indent=0) + ';\n')
 print(f'  quotes.js written ({len(items)} quotes)')
 PY
 
-    # theme.conf: mode + background for that mode
     cat >"$THEME_SRC/theme.conf" <<EOF
-# Overworld SDDM theme — generated by scripts/install-sddm.sh prepare <mode>
+# Overworld SDDM theme — rewritten by scripts/install-sddm.sh prepare <mode>
 [General]
 Mode=$mode
-Background=backgrounds/sddm-$mode.png
-BackgroundLight=backgrounds/sddm-light.png
-BackgroundDark=backgrounds/sddm-dark.png
-ShowUserAvatar=true
 EOF
     say "theme.conf: Mode=$mode"
     [[ "$REAL_USER" != "$USER" ]] && chown -R "$REAL_USER" "$THEME_SRC" 2>/dev/null || true
 }
 
 install_root() {
-    local mode="${1:-light}"
+    local mode="${1:-auto}"
     [[ $EUID -eq 0 ]] || { echo "install needs sudo: sudo $0 $mode   (or: $0 prepare $mode  for test mode only)"; exit 1; }
     prepare "$mode"
     echo "install → $THEME_DST"
@@ -135,8 +130,8 @@ revert_root() {
 }
 
 case "${1:-}" in
-    prepare)      prepare "${2:-light}" ;;
+    prepare)      prepare "${2:-auto}" ;;
     revert)       revert_root ;;
-    light|dark|"") install_root "${1:-light}" ;;
-    *) echo "usage: $0 prepare [light|dark] | sudo $0 [light|dark] | sudo $0 revert"; exit 2 ;;
+    auto|light|dark|"") install_root "${1:-auto}" ;;
+    *) echo "usage: $0 prepare [auto|light|dark] | sudo $0 [auto|light|dark] | sudo $0 revert"; exit 2 ;;
 esac
