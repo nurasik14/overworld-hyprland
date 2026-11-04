@@ -1,46 +1,72 @@
 /* Overworld Hyprland — spicetify Themes/Overworld/user.css
- * Paper cards, ink typography (LXGW WenKai → system), rounded surfaces. Colours come from color.ini (--spice-*). */
+ * Minecraft GUI: Monocraft type, square corners, 2px bevelled buttons, hotbar-slot cards, creative-scroller scrollbar.
+ * Colours come from color.ini ([day] / [night]) as --spice-*. Bevels use fixed white/black overlays so they work in both. */
 :root {
-  --ow-radius: 8px;
-  --ow-font: "LXGW WenKai", "Noto Sans CJK SC", "Noto Sans", system-ui, sans-serif;
+  --ow-font: "Monocraft", "Overworld Mojangles", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+  --ow-bevel-light: rgba(255,255,255,.55);
+  --ow-bevel-dark: rgba(0,0,0,.45);
+  --ow-outline: #000;
+  /* classic Minecraft button: 2px light top/left, 2px dark bottom/right, 1px black outline */
+  --ow-bevel: inset 2px 2px 0 var(--ow-bevel-light), inset -2px -2px 0 var(--ow-bevel-dark), 0 0 0 1px var(--ow-outline);
+  --ow-bevel-pressed: inset 2px 2px 0 var(--ow-bevel-dark), inset -2px -2px 0 var(--ow-bevel-light), 0 0 0 1px var(--ow-outline);
+  --ow-hover-outline: 0 0 0 2px #fff;
 }
-body, .Root, .Root__top-container { font-family: var(--ow-font) !important; }
+*, *::before, *::after { border-radius: 0 !important; }
+body, .Root, .Root__top-container, button, input, h1, h2, h3, .main-type-alto, .main-type-mesto, .main-type-ballad, .main-type-finale { font-family: var(--ow-font) !important; }
+body { text-rendering: optimizeSpeed; -webkit-font-smoothing: none; }
 .Root__top-container { background: var(--spice-main) !important; }
-.Root__nav-bar, .Root__right-sidebar, .Root__now-playing-bar {
-  background: var(--spice-sidebar) !important;
-  border-radius: var(--ow-radius);
-}
-.Root__nav-bar { box-shadow: inset -1px 0 0 var(--spice-button-disabled); }
-.Root__now-playing-bar { border-top: 2px solid var(--spice-text); }
+.Root__nav-bar, .Root__right-sidebar, .Root__now-playing-bar { background: var(--spice-sidebar) !important; }
+.Root__nav-bar { box-shadow: inset -2px 0 0 var(--spice-button-disabled), inset -4px 0 0 var(--ow-bevel-light); }
+.Root__now-playing-bar { border-top: 2px solid var(--ow-outline); box-shadow: inset 0 2px 0 var(--ow-bevel-light); }
 .main-view-container__scroll-node-child { background: var(--spice-main) !important; }
+
+/* hotbar-slot cards: dark slot frame, bright inner edge, white outline on hover (no lift animation) */
 .main-card-card, .main-shelf-shelf .main-card-card, .main-entityHeader-container {
   background: var(--spice-card) !important;
-  border-radius: var(--ow-radius) !important;
-  box-shadow: 0 0 0 1px var(--spice-button-disabled), 0 4px 12px rgba(0,0,0,.08);
-  transition: transform 350ms cubic-bezier(.22,1,.36,1), box-shadow 350ms cubic-bezier(.22,1,.36,1);
+  box-shadow: inset 2px 2px 0 var(--spice-button-disabled), inset -2px -2px 0 var(--ow-bevel-light), 0 0 0 1px var(--ow-outline);
+  transition: none !important;
 }
-.main-card-card:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px var(--spice-button), 0 8px 24px rgba(0,0,0,.14); }
-.main-cardImage-image, .main-cardImage-imageWrapper { border-radius: 6px !important; }
+.main-card-card:hover { transform: none !important; box-shadow: inset 2px 2px 0 var(--spice-button-disabled), inset -2px -2px 0 var(--ow-bevel-light), 0 0 0 1px var(--ow-outline), var(--ow-hover-outline); }
+.main-cardImage-image, .main-cardImage-imageWrapper { box-shadow: 0 0 0 1px var(--ow-outline); }
 .main-topBar-background, .main-topBar-overlay { background: var(--spice-sidebar) !important; }
-.main-entityHeader-title, .main-shelf-title, .main-type-alto, h1, h2 { font-family: var(--ow-font) !important; color: var(--spice-text) !important; }
-.main-trackList-selected, .main-trackList-trackListRow:hover { background: var(--spice-tab-active) !important; border-radius: 6px; }
+.main-entityHeader-title, .main-shelf-title, .main-type-alto, h1, h2 { color: var(--spice-text) !important; text-shadow: 2px 2px 0 var(--ow-bevel-dark); }
+
+/* rows / selection */
+.main-trackList-selected, .main-trackList-trackListRow:hover { background: var(--spice-tab-active) !important; box-shadow: inset 0 0 0 2px var(--ow-bevel-light); }
 .main-trackList-playingIcon, .main-trackList-rowTitle.main-trackList-active { color: var(--spice-button) !important; }
-.main-playButton-PlayButton, .main-playButton-button, .main-shuffleButton-button.main-shuffleButton-active, .main-repeatButton-button.main-repeatButton-active {
-  background: var(--spice-button) !important; color: var(--spice-main) !important; border-radius: 999px;
+
+/* bevelled buttons (green = Minecraft "primary" slot) */
+.main-playButton-PlayButton, .main-playButton-button, .main-shuffleButton-button.main-shuffleButton-active, .main-repeatButton-button.main-repeatButton-active,
+button[data-encore-id="buttonPrimary"], button[data-encore-id="buttonSecondary"] {
+  background: var(--spice-button) !important; color: var(--spice-main) !important;
+  box-shadow: var(--ow-bevel) !important; border: 0 !important; text-shadow: none;
 }
-.main-playButton-PlayButton:hover { background: var(--spice-button-active) !important; }
+.main-playButton-PlayButton:hover, .main-playButton-button:hover, button[data-encore-id="buttonPrimary"]:hover { box-shadow: var(--ow-bevel), var(--ow-hover-outline) !important; transform: none !important; }
+.main-playButton-PlayButton:active, button[data-encore-id="buttonPrimary"]:active { box-shadow: var(--ow-bevel-pressed) !important; }
 .main-navBar-navBarLink.main-navBar-navBarLinkActive, .main-yourLibraryX-navLinkActive { color: var(--spice-button) !important; }
-.progress-bar { --progress-bar-height: 4px; }
-.progress-bar__bg { background: var(--spice-button-disabled) !important; border-radius: 999px; }
+
+/* seek / volume: XP bar look (flat, black outline, green fill) */
+.progress-bar { --progress-bar-height: 8px; }
+.progress-bar__bg { background: var(--ow-outline) !important; box-shadow: inset 0 0 0 1px var(--spice-button-disabled); }
 .progress-bar__fg, .progress-bar__fg_wrapper .progress-bar__fg { background: var(--spice-button) !important; }
-.progress-bar__slider { background: var(--spice-button-active) !important; }
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-thumb { background: var(--spice-button-disabled); border-radius: 999px; }
+.progress-bar__slider { background: #fff !important; box-shadow: 0 0 0 1px var(--ow-outline); width: 8px; height: 12px; }
+
+/* creative-menu scroller */
+::-webkit-scrollbar { width: 14px; }
+::-webkit-scrollbar-track { background: var(--ow-outline); box-shadow: inset 0 0 0 1px var(--spice-button-disabled); }
+::-webkit-scrollbar-thumb { background: var(--spice-card); box-shadow: inset 2px 2px 0 var(--ow-bevel-light), inset -2px -2px 0 var(--ow-bevel-dark), 0 0 0 1px var(--ow-outline); }
 ::-webkit-scrollbar-thumb:hover { background: var(--spice-subtext); }
-.main-contextMenu-menu, .main-contextMenu-container { background: var(--spice-card) !important; border-radius: var(--ow-radius); box-shadow: 0 0 0 1px var(--spice-button-disabled), 0 8px 24px rgba(0,0,0,.2); }
-.main-contextMenu-menuItemButton:hover { background: var(--spice-tab-active) !important; }
+
+/* context menu = tooltip look */
+.main-contextMenu-menu, .main-contextMenu-container { background: var(--spice-card) !important; box-shadow: var(--ow-bevel), 4px 4px 0 rgba(0,0,0,.4) !important; }
+.main-contextMenu-menuItemButton:hover { background: var(--spice-tab-active) !important; box-shadow: inset 0 0 0 2px #fff; }
+
+/* text fields: black fill, grey border, white when focused */
+input[type="text"], input[type="search"], .x-searchInput-searchInputInput { background: #000 !important; color: #e0e0e0 !important; box-shadow: inset 0 0 0 2px #a0a0a0 !important; }
+input[type="text"]:focus, input[type="search"]:focus, .x-searchInput-searchInputInput:focus { box-shadow: inset 0 0 0 2px #fff !important; }
+
 .main-nowPlayingWidget-trackInfo .main-trackInfo-name a { color: var(--spice-text) !important; }
 .main-nowPlayingWidget-trackInfo .main-trackInfo-artists a { color: var(--spice-subtext) !important; }
-.main-coverSlotCollapsed-container, .cover-art, .main-nowPlayingWidget-coverArt img { border-radius: 6px !important; box-shadow: 0 0 0 2px var(--spice-text); }
-/* the seal: liked / active heart */
+.main-coverSlotCollapsed-container, .cover-art, .main-nowPlayingWidget-coverArt img { box-shadow: inset 2px 2px 0 var(--spice-button-disabled), 0 0 0 2px var(--ow-outline) !important; }
+/* liked / active heart = redstone */
 .main-addButton-active, .main-addButton-button[aria-checked="true"], .control-button-heart[aria-checked="true"] { color: var(--spice-button-active) !important; }

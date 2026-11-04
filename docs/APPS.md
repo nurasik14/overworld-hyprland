@@ -1,60 +1,78 @@
 # Application theming (app-theming)
 
-> **Theme system, switchable.** Overworld Hyprland is a theme system layered on top of the JaKooLit
-> Hyprland dotfiles, not a replacement for them. Turn it on with `overworld on` and off with `overworld off`
-> (the stock desktop returns in about 5 s, no logout); `overworld status` shows which state is active.
-> `overworld off` runs `apps/apply-mode.sh off`, which puts your pre-theme app settings back. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
+> **Theme system, switchable.** Overworld Hyprland is a theme system layered on top of the JaKooLit Hyprland
+> dotfiles (and coexisting with the Apothecary theme), not a replacement for them. `overworld on` / `overworld off`
+> switch it; `overworld off` runs `apps/apply-mode.sh off`, which puts every app setting back **exactly** as it was and,
+> when Apothecary was the previous theme, hands the apps back to Apothecary's own `apps/apply-mode.sh <its mode>`.
 
-Everything the user runs outside the Quickshell shell, themed for both modes and switchable live.
+Everything the user runs outside the Quickshell shell, themed as Minecraft **Day** (`light`) and **Night** (`dark`).
+The CLI/internal mode names stay `light|dark|off`; user-facing names (theme files, colourschemes, Kvantum themes) are
+`overworld-day` / `overworld-night`. Colours come from `tokens/out/<light|dark>/` (design-director), never hand-copied.
 
 ```
-apps/install.sh            install theme files, backups, marker lines, `current` symlinks (LIGHT). Changes NO gsettings.
-apps/apply-mode.sh <m>     light | dark | off — flips every ~/.config/overworld/<app>/current* symlink, gsettings,
-                           sed'd keys, kitty reload. `off` = user's pre-theme values back (apps-state.json).
-apps/uninstall.sh          apply-mode off, then moves every `.pre-overworld` backup back, strips markers, removes files.
-apps/lib.sh                shared helpers (state json, backup_file, replace_with_symlink, append_marker, set_kv/restore_kv).
+apps/install.sh            place theme files, `.pre-overworld` backups, hook lines, ~/.config/overworld/<app>/current* links.
+                           VISUALLY A NO-OP: leaves everything in the *off* state, touches no gsettings/keys. Idempotent.
+apps/apply-mode.sh <m>     light | dark | off [--link-only] [--no-handback] — the real switch (below).
+apps/uninstall.sh          apply-mode off --no-handback, then every `.pre-overworld` backup moved back, markers stripped,
+                           created files removed.
+apps/lib.sh                helpers: state json, backup_file, replace_with_symlink, append_marker, set_kv/restore_kv,
+                           detect_previous / capture_pre / apo_apps_wait (Apothecary coexistence).
+apps/test/sandbox.sh       throw-away copy of the app configs + shims for gsettings/hyprctl/pkill/kitty → the round trip
+                           can be run without touching the live desktop; apps/test/snapshot.sh fingerprints the result.
 ```
 
-State: `~/.config/overworld/apps-state.json` (pre-theme gsettings, pre-theme key values, lists of backups / markers /
-created files), `~/.config/overworld/apps-mode` (last applied: light|dark|off). The `overworld light|dark` CLI
-(hyprland-engineer) calls `apps/apply-mode.sh <mode>`.
+## How the switch works (and why it is safe next to Apothecary)
 
-Rules applied to every user file: never edited in place without a `<file>.pre-overworld` backup (never overwritten);
-marker lines carry `overworld` (`# overworld`, `/* overworld */`, `// overworld`, or the `~/.config/overworld/…`
-path itself); whole-file replacement is a symlink → `~/.config/overworld/<app>/current*`; in `off` mode those
-symlinks point at the backup, so the user's file content is exactly what it was.
+Apothecary and Overworld replace the *same* user files (`kitty.conf`, `gtk.css`, `cava/config` …). Each keeps a
+`<file>.pre-<theme>` backup and a `~/.config/<theme>/<app>/current*` symlink it flips.
+
+* **install** hooks every file but points each `current*` link at the file's own backup (the *off* state) → the user's
+  desktop does not change when Overworld is merely installed. The user file chain is
+  `gtk.css → overworld/gtk/current-gtk3.css → gtk.css.pre-overworld (→ apothecary/gtk/current-gtk3.css → …)`, so while
+  Overworld is off Apothecary's flips still reach the file.
+* **apply-mode light|dark** — on the first call after `off` (`capture_pre`): waits (≤ 25 s) for a still-running
+  `apothecary off` apps restore (its script runs detached), forgets any older recorded values and records what gsettings
+  and the sed'd keys hold *now* as the "pre-theme" values, and records the previous theme: `OW_PREVIOUS_THEME`, else
+  `~/.config/overworld/previous-theme` (`apothecary <light|dark>` | `stock`, written by hyprland-engineer's `overworld on`),
+  else "Apothecary enabled / its apps on". Then it flips every link to the mode, sets gsettings (colour-scheme, GTK theme
+  Flat-Remix-GTK-Blue-Light/Dark, Papirus-Light/Dark, cursor **Overworld**, font **Overworld Mojangles 12**), `hyprctl
+  setcursor Overworld 24`, the qt6ct / Kvantum / superfile / btop keys, the Zen `@import` lines, reloads kitty (colours via
+  `kitty @ set-colors` on any socket + SIGUSR1 config reload).
+* **apply-mode off** — links back to the backups, keys + gsettings restored from `apps-state.json`, Zen imports removed,
+  then (previous theme Apothecary) `~/Projects/apothecary-hyprland/apps/apply-mode.sh <its mode>`; for `stock` nothing else.
+* One apply at a time (`flock`), never restarts a program except the kitty config reload. Running GTK/Qt apps pick up
+  `gtk.css`/qt6ct on their next start; Zen reads userChrome at its next start.
+
+State: `~/.config/overworld/apps-state.json` (pre-theme gsettings + key values, `previous.theme`, backups/markers/created/
+files lists), `~/.config/overworld/apps-mode` (`light|dark|off`).
 
 ## Per app
 
-| app | repo files | installed / hook | mode flip | revert | verified |
-|---|---|---|---|---|---|
-| **kitty** | `apps/kitty/overworld-{light,dark}.conf`, `off.conf` | `include ~/.config/overworld/kitty/current.conf` appended to `~/.config/kitty/kitty.conf` (last include wins over JaKooLit's `kitty-themes/*.conf`; kitty forbids a trailing comment on `include`, so the path is the marker). `colors-{light,dark}.conf` → `tokens/out/<m>/kitty.conf`. | `current.conf` → mode file, then `kitty @ … set-colors --all --configured` on every socket under `/tmp/kitty*` / `$XDG_RUNTIME_DIR/kitty*` (none here: `listen_on` unset) and `pkill -USR1 -x kitty` (config reload of every running kitty). `off` → `off.conf` (empty include). | uninstall removes the include line | ✔ light+dark+off screenshots `qa/screenshots/apps-kitty-fastfetch-{light,dark,off}.png` |
-| **fastfetch** | `apps/fastfetch/overworld-{light,dark}.jsonc`, `overworld-ascii.jsonc`, `maomao.txt` | `~/.config/fastfetch/config.jsonc` → `current.jsonc` (backup). Logo `kitty-direct` ← `~/.config/overworld/fastfetch/logo.png` → `assets/art/fastfetch-maomao[-dark].png`; ascii seal fallback when art is missing. Quote line = `jq … quotes/quotes.json \| shuf`. Colours inline = `tokens/out/<m>/fastfetch-colors.jsonc` (that file still uses the pre-2.x `charElapsed` keys → REQUESTS). | symlink + logo flip; off → backup | restore backup | ✔ both modes. Note: `.zshrc` calls `fastfetch -c config-compact.jsonc` explicitly — plain `fastfetch`, the kitty test window and JaKooLit's wrapper use ours; change the `.zshrc` line to `fastfetch` to see Maomao at shell start (user file, not touched). |
-| **rofi** | `apps/rofi/overworld.rasi` | `@theme "~/.config/overworld/rofi/current.rasi" /* overworld */` appended to `config.rasi` (rofi: last `@theme` wins; JaKooLit's `config-*.rasi` menus `@import` config.rasi and override widgets after). `colors.rasi` → `tokens/out/<m>/rofi-colors.rasi`. Custom widgets must be named `textbox-*`; rofi 2.0 rejects `highlight: bold @col`. | `colors.rasi` flip; off → `current.rasi` → the theme that was active at install (`KooL_style-5.rasi`, recorded) | remove line | ✔ `apps-rofi-{light,dark}.png` |
-| **GTK 3/4** | `apps/gtk/gtk3-tweaks.css`, `gtk4-tweaks.css`, `xsettingsd-{light,dark}.conf` | install.sh **concatenates** `tokens gtk-colors.css (+ gtk4-vars.css for GTK4) + tweaks` into `~/.config/overworld/gtk/gtk{3,4}-<m>.css` (GTK `@import` through symlinks is brittle); `~/.config/gtk-3.0/gtk.css`, `gtk-4.0/gtk.css`, `~/.config/xsettingsd/xsettingsd.conf` → symlinks (backups). Two token files kept separate as the design-director asked. | `current-gtk{3,4}.css` flip + `gsettings`: color-scheme prefer-light/dark, gtk-theme Flat-Remix-GTK-Blue-Light/Dark (fallback Adwaita), icon-theme Papirus-Light/Dark, cursor Bibata-Modern-Ice / Bibata-Modern-Classic (downloaded by install.sh into `~/.icons`), font Noto Sans 10; `hyprctl setcursor`; `pkill -HUP xsettingsd` if running (it is not). | gsettings restored from state; symlinks → backups | ✔ mousepad GTK3 `apps-gtk3-mousepad-{light,dark}.png`, swappy. GTK apps read gtk.css at start: already-running Thunar keeps its look until `thunar -q` (not done — user's windows). |
-| **Qt / qt6ct** | — (tokens direct) | `~/.config/qt6ct/colors/overworld-{light,dark}.conf` → tokens; `qt6ct.conf`: `color_scheme_path=~/.config/overworld/qt6ct/current.conf`, `style=kvantum`, `icon_theme=Papirus-*`, fonts Noto Sans 10 / JetBrainsMono Nerd Font 11 (sed, originals recorded). | keys set per mode; off → originals (Catppuccin-Mocha, Flat-Remix icons, Fira Code) | restore_kv | ✔ `apps-qt6ct-light.png` |
-| **Kvantum** | `apps/kvantum/Overworld{Light,Dark}/` (built by `apps/kvantum/build.sh`) | `~/.config/Kvantum/Overworld{Light,Dark}` → repo; `kvantum.kvconfig` `theme=` sed. Light ← `KvFlatLight`, dark ← `KvFlat`; mapping (old→new): light `#2d82ad #2f8ab7 #2c80aa #2b7ea8→accent #376a4e`, `#3daee9 #39ace9 #1ea1e6 #58acff #41c3ff→accentSoft #7eba8f`, `#215f7f→jade`, `#0057ae→link`, `#452886 #b74aff→plum`, greys `#fcfcfc→surface #f3ecdc`, `#f0f0f0 #eaeaeb→bg1`, `#ececec #ebebeb→surfaceAlt`, `#e1dcd7→bg0`, `#d9d9d9 #d2d2d2→paper4`, `#bebebe→hairline`, `#b4b4b4→ink4`, `#969696→ink3`, `#6e6e6e→ink2`, `#5a5a5a #4b4b4b→ink1`, `#323232 #2b2b2b→ink0`, `black→text`; dark `#3daee9 #3f67a5→accent #7fc19a`, `#1689c6 #1376ab #147cb4 #2e4c7a→accentSoft #4a7a51`, `#5abff4→#9fd3b3`, `#395e97→jade`, `#2eb8e6→link`, `#ff6666→plum`, `#282828 #2b2b2b→surface`, `#2e2e2e #3d3d3e→bg1`, `#1e1e1e→bg0`, `#171717→lacquer0`, `#383838→bg2`, `#3c3c3c #555555→surfaceAlt`, `#464646 #4b4b4b→lacquer4`, `#5a5a5a…#646464→hairline`, `#6e6e6e…#7d7d7d→paper4`, `#828282 #a0a0a0→textMuted`, `#e6e6e6 white→text`. | `theme=` sed | restore_kv | ✔ via qt6ct |
-| **superfile** | `apps/superfile/overworld-{light,dark}.toml` (→ tokens, all 38 keys) | `~/.config/superfile/theme/overworld-*.toml`; `config.toml`: `theme`, `transparent_background=true`, `default_open_file_preview=true`, `nerdfont=true`, `editor="nvim"` (only because it was empty), `zoxide_support` only if zoxide exists (sed, originals recorded; hotkeys untouched) | `theme =` sed | restore_kv (empty values kept as `""`) | ✔ `apps-spf-{light,dark}.png` |
-| **cava** | `apps/cava/config-{light,dark}` | `~/.config/cava/config` → symlink (no include mechanism; backup) — 32 bars, 60 fps, monstercat, gradient from tokens | symlink; off → backup | restore | ✔ `apps-cava-light.png` (idle, no audio) |
-| **btop** | — (tokens direct) | `~/.config/btop/themes/overworld-*.theme` → tokens; `btop.conf` `color_theme = "overworld-<m>"` (theme **name** — btop does not expand `$HOME`, a path with it silently falls back to the default theme), `theme_background = False` | sed | restore_kv | ✔ `apps-btop-{light,dark}.png` |
-| **starship** | `apps/starship/overworld.toml` | install builds `~/.config/overworld/starship/overworld.toml` = preset + both token palettes; `~/.config/starship/overworld.toml` → it; `~/.config/starship.toml` → preset (the way `ChangeStarshipPrompt.sh` selects; there was none before) | `palette = "overworld_<m>"` sed; off → symlink removed / backup | remove | ✘ **starship is not installed** on this machine (zsh uses oh-my-zsh `blinks`); TOML validated with `tomllib` only. `dnf install starship` + `eval "$(starship init zsh)"` to use it. |
-| **spicetify** | `apps/spicetify/Overworld/{color.ini,user.css}` | `~/.config/spicetify/Themes/Overworld` → repo; `spicetify config current_theme Overworld color_scheme <m> && spicetify apply` only if the CLI exists | same | config restored from state | ✘ **spicetify CLI is not installed** (`~/.spicetify` missing; config-xpui.ini still points at `marketplace`). Theme files are in place; `curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh \| sh` then `apps/install.sh` again. Not screenshotted. |
-| **Zen** | `apps/zen/userChrome-rules.css`, `userContent-rules.css`, `build.sh` → `overworld.css`, `overworld-content.css` | real copies in `<profile>/chrome/` (flatpak sandbox sees only `~/.config/zen`, `~/.themes`, `~/.icons`); `userChrome.css` / `userContent.css` get `@import url("overworld.css"); /* overworld */` (created here — none existed; `zen-themes.css` untouched); `user.js` gets the `legacyUserProfileCustomizations.stylesheets` pref. One file, dark via `@media (prefers-color-scheme: dark)` → follows gsettings color-scheme. | nothing to flip | markers removed, files deleted | ✘ not screenshotted: userChrome is read at **startup** and Zen may not be restarted (BRIEF §1.4). CSS built and syntax-checked; takes effect at next Zen launch. |
-| **nvim** | `apps/nvim/colors/overworld-{light,dark}.lua`, `lua/overworld/{init,theme}.lua` | `~/.local/share/nvim/site/colors/overworld-*.lua`, `site/lua/overworld/{init,theme,palette_light,palette_dark}.lua` (palettes → tokens). `:colorscheme overworld-light`, or `require('overworld').auto()` to follow `~/.config/overworld/mode`. Full groups: editor, syntax, Treesitter `@…`, LSP semantic + diagnostics, diff, Telescope/NeoTree/WhichKey/cmp/GitSigns, terminal colours. ~/.config/nvim never touched. | — | files removed | ✔ `nvim --headless -c 'colorscheme overworld-{light,dark}' -c q` exit 0 (with and without the user's config). No in-kitty screenshot (budget). |
-| **wlogout** | `apps/wlogout/layout`, `style.css`, `icons/*-{light,dark}.svg` | `~/.config/wlogout/{style.css,layout}` → symlinks (backups). Glyphs 鎖出眠冬回滅 are SVG tile icons (wlogout prints `\n` literally, so the label is Latin and the glyph an image); style generated = tokens `wlogout-vars.css` + style with absolute icon paths. | `current.css`/`current-layout` flip; off → backups | restore | ✔ `apps-wlogout-{light,dark}.png` |
-| **swappy** | `apps/swappy/config-{light,dark}` | `~/.config/swappy/config` → symlink (backup); user's save dir/format kept, `custom_color` = seal, `text_font` LXGW WenKai | flip; off → backup | restore | ✔ `apps-swappy-light.png` |
-| icons / cursor / fonts | — | Papirus-Light / Papirus-Dark (system), Bibata-Modern-Ice (light) / Bibata-Modern-Classic (dark, downloaded to `~/.icons` by install.sh, removed by uninstall), `Noto Sans 10` | gsettings + `hyprctl setcursor` | restored | ✔ gsettings values checked after light/dark/off |
+| app | repo files | what it does |
+|---|---|---|
+| **kitty** | `kitty/overworld.conf` (template), `kitty/tab_bar.py`, `kitty/off.conf` | Font `Monocraft` **13.5 pt** (= 18 px em, the size where the pixel font is crisp; 12×27 px cell — design-director: crisp only at 9/18/27 px, so not 11 pt), tokens palette incl. ANSI, `background_opacity 0.88`, block cursor without trail, padding 6. **Hotbar tabs**: `tab_bar_style custom` + `tab_bar.py` (linked to `~/.config/kitty/tab_bar.py`): every tab is a slot, the active one has the white selection frame, extra windows show as a stack count (`×2`). The template is rendered per mode by install.sh to `~/.config/overworld/kitty/overworld-<mode>.conf` and included last from `kitty.conf` via `include ~/.config/overworld/kitty/current.conf` (the path is the marker). |
+| **fastfetch** | `fastfetch/overworld.jsonc`, `overworld-ascii.jsonc`, `creeper.txt` | F3 debug-screen vocabulary (`Version: … (fedora/vanilla)`, `Time Played`, `Items` = packages, `Dimension` = WM, `Chat` = terminal, `Mem: 53% …`, `World` = disk, a `Splash:` line from `quotes/splashes.json`). Logo = isometric **grass block** (`assets/icons/mc/64/grass_block.png`, fallback `assets/gen/icons/64/`) ×3 nearest-neighbour on a 216 × 216 px canvas = **18 × 8 cells of the 12 × 27 px kitty cell**, so `kitty-direct` stays square. ASCII creeper config for other terminals / missing art. Colours inlined from the palette per mode. |
+| **rofi** | `rofi/overworld.rasi` | Creative-inventory look: grey bevelled panel titled "Search Items" (rofi has no multi-colour border, so bevels are nested boxes), black text field, 2-column app rows with the icon in a slot, white-frame hovered slot, creative-inventory-style tabs for the modes, scroller. Mojangles 12 pt. `@theme` line appended to `config.rasi` (last wins; JaKooLit menus `@import` config.rasi and override after). |
+| **GTK 3/4** | `gtk/gtk3-tweaks.css`, `gtk4-tweaks.css`, `xsettingsd-{light,dark}.conf` | tokens `gtk-colors.css` (+ `gtk4-vars.css`) + Minecraft tweaks (0 radius, bevelled buttons, black text fields, purple tooltips, XP-green progress) concatenated by install.sh. `gsettings` names stay real installed themes (Flat-Remix-GTK-Blue-*, Adwaita fallback). |
+| **cursor** | `cursor/` (asset-forge) | `Overworld` Xcursor + hyprcursor theme in `~/.local/share/icons/Overworld`. apply-mode sets gsettings `cursor-theme` + `hyprctl setcursor Overworld 24`; env vars (`XCURSOR_THEME`, `HYPRCURSOR_THEME`) are hyprland-engineer's (request filed). |
+| **Qt: qt6ct + Kvantum** | `kvantum/` (generator `build.py`, themes `OverworldDay`, `OverworldNight`) | Kvantum themes drawn as bevelled Minecraft widgets (SVG generated from the palette); qt6ct colour scheme from tokens, `style=kvantum`, `icon_theme=Papirus-*`, fonts Overworld Mojangles 12 / Monocraft 13.5. |
+| **superfile** | (tokens) | `~/.config/superfile/theme/overworld-{day,night}.toml` (token theme + chroma `github`/`monokai`); `config.toml`: `theme`, `transparent_background`, `default_open_file_preview`, `nerdfont`, `editor` only if it was empty, `zoxide_support` if zoxide exists — all restored on off. |
+| **cava** | `cava/config.base`, `config.tail` | base (3-px bars) + tokens `[color]` gradient, rendered per mode; `~/.config/cava/config` is a link. |
+| **btop** | (tokens) | `themes/overworld-{day,night}.theme`; `color_theme`, `theme_background=false`, `rounded_corners=false`, `graph_symbol=block` (chunky). |
+| **starship** | `starship/overworld.toml` | ❤ badge, Nerd icons, powerline arrows, XP-coloured duration, hearts only when the battery is low, `[Day]`/`[Night]` custom segment from `~/.config/overworld/mode`. Starship is **not installed** here: validated with tomllib only. |
+| **spicetify** | `spicetify/Overworld/{color.ini,user.css}` | `[day]`/`[night]` schemes + bevelled Minecraft CSS; applied only if the CLI exists (it does not here). |
+| **Zen** | `zen/` (`build.sh` → `overworld.css`, `overworld-content.css`) | Minecraft chrome (bevelled tabs/buttons, black URL bar, tooltip-style menus, 0 radius, Monocraft UI font), `about:` pages in `userContent`. Real copies in `<profile>/chrome/`; apply-mode adds `@import url("overworld.css")` and neutralises Apothecary's import (`@import` → `@ow-off-import`, an unknown at-rule) so the themes never stack; `off` reverses both. Takes effect at Zen's next start. |
+| **nvim** | `nvim/colors/overworld-{day,night}.lua`, `nvim/lua/overworld/` | colourschemes `overworld-day` / `overworld-night` (554 groups, ≥ 4.5:1 syntax colours), `require('overworld').auto()` follows `~/.config/overworld/mode`. Installed under `~/.local/share/nvim/site`, never touches `~/.config/nvim`. Palettes come from tokens (`end` key quoted by install.sh: Lua keyword bug in `tokens/build.py`, request filed). |
+| **wlogout** | `wlogout/{layout,style.css,gen-icons.py,icons/}` | Game-Menu buttons (Lock, Save and Quit to Title, Sleep in Bed, Hibernate, Respawn, Quit Game) with pixel item icons; menu-gradient background. Assumes `wlogout -b 3`. |
+| **swappy** | `swappy/config.base` | Mojangles text, red = the `error` token. |
+| icons / fonts | — | Papirus-Light / Papirus-Dark; fonts see above. Papirus folder colour not done (`papirus-folders` absent). |
 
-## Verification log
+## Verification
 
-- `apps/install.sh` → `apply-mode.sh light` → `dark` → `light` → `off`: gsettings (`gtk-theme icon-theme cursor-theme font-name color-scheme`), Kvantum `theme=`, qt6ct keys/fonts, superfile keys, btop keys, every replaced file (cava, gtk.css ×2, xsettingsd, wlogout ×2, swappy, fastfetch) and the kitty include were checked to be back to the pre-theme values after `off` (cava `diff` identical to backup, kitty bg = AdventureTime, user's compact fastfetch).
-- Screenshots in `qa/screenshots/` (gitignored): `apps-kitty-fastfetch-{light,dark,off}`, `apps-spf-{light,dark}`, `apps-btop-{light,dark}`, `apps-cava-light`, `apps-rofi-{light,dark}`, `apps-wlogout-{light,dark}`, `apps-gtk3-mousepad-{light,dark}`, `apps-swappy-light`, `apps-qt6ct-light`, `apps-thunar-light` (shows the *pre-existing* Thunar process = unthemed; see GTK note).
-- `bash -n` on all scripts; shellcheck not installed. `rofi -dump-theme`, `tomllib` on starship/superfile, `xml.dom.minidom` on the Kvantum SVGs, fastfetch `--pipe` runs of all three configs.
-- `apps/uninstall.sh` exercised end-to-end: kitty.conf / config.rasi byte-identical to before (minus our line), all symlinked files regular again, Zen chrome back to `zen-themes.css` only, nvim site dirs empty, gsettings/Kvantum/qt6ct/superfile/btop originals. Then re-installed and left in `off` (desktop looks stock; `overworld light|dark` switches). Not exercised: Zen/Spotify/starship visuals (see table).
+See `docs/agent-reports/app-theming.md` for the exact list of what was run, screenshots and what was not verified.
 
-## Gaps / follow-ups
+## Known gaps
 
-- Running GTK apps (Thunar daemon) need a restart to pick up `gtk.css`; `apply-mode.sh` deliberately restarts nothing.
-- Qt apps re-read qt6ct/Kvantum on launch only.
-- tokens `fastfetch-colors.jsonc` uses renamed keys (`display.bar.charElapsed` → `display.bar.char.elapsed`, `borderLeft` → `border.left`) — fastfetch 2.68 refuses the file; noted in REQUESTS.md. The app configs here inline the corrected block.
-- Papirus folder colour (teal) not done (`papirus-folders` absent; would require copying Papirus to `~/.local/share/icons`).
+* Running GTK/Qt apps and Zen keep their old look until restarted (apply-mode restarts nothing).
+* Starship, spicetify are not installed on this machine → configs only validated syntactically.
+* `tokens/out/*/fastfetch-colors.jsonc` and `nvim-palette.lua` have generator bugs (see REQUESTS.md); install.sh works around them.

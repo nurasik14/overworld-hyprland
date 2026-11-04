@@ -1,27 +1,97 @@
-/* ---- apps/gtk/gtk4-tweaks.css — libadwaita / GTK 4 paper tweaks (named colours + --ow-* custom properties) ---- */
-window, .background { background-color: var(--window-bg-color, @window_bg_color); color: var(--window-fg-color, @window_fg_color); }
-headerbar, .top-bar { background-color: @headerbar_bg_color; color: @headerbar_fg_color; box-shadow: inset 0 -1px @headerbar_border_color; }
-headerbar:backdrop { background-color: @headerbar_backdrop_color; }
-button { border-radius: var(--ow-radius-sm); }
-button.suggested-action { background-color: @accent_bg_color; color: @accent_fg_color; }
-button.destructive-action { background-color: @destructive_bg_color; color: @destructive_fg_color; }
-button:not(.flat):not(.suggested-action):not(.destructive-action) { background-color: @ow_surface; box-shadow: inset 0 0 0 1px @ow_hairline; color: @ow_text; }
-button:not(.flat):hover { background-color: @ow_surfaceAlt; }
-entry, .entry, spinbutton { border-radius: var(--ow-radius-sm); background-color: @view_bg_color; color: @view_fg_color; box-shadow: inset 0 0 0 1px @ow_hairline; caret-color: @ow_cursor; }
-entry:focus-within, spinbutton:focus-within { box-shadow: inset 0 0 0 2px @accent_bg_color; outline: none; }
-row:selected, listview > row:selected, columnview > listview > row:selected, gridview > child:selected, .navigation-sidebar row:selected {
-  background-color: @theme_selected_bg_color; color: @theme_selected_fg_color;
+/* ---- apps/gtk/gtk4-tweaks.css — Minecraft GUI for GTK 4 / libadwaita (named colours from tokens gtk-colors.css) ----
+ * Appended after tokens gtk-colors.css + gtk4-vars.css by apps/install.sh. Zero radius everywhere, black 1px outlines,
+ * 2px bevels (light top/left, dark bottom/right), hard shadows, white outline on hover. Fonts are left to gsettings.
+ * Unknown selectors are harmless, so libadwaita-only nodes sit next to plain GTK 4 ones. */
+window, .background { background-color: @window_bg_color; color: @window_fg_color; }
+window.csd, window.csd.maximized, window.solid-csd, window.dialog.message.csd, window.dialog.csd { border-radius: 0; box-shadow: 0 0 0 1px @ow_panelOutline, 4px 4px 0 @ow_shadowStrong; }
+window.csd:backdrop { box-shadow: 0 0 0 1px @ow_hairline, 2px 2px 0 @ow_shadow; }
+
+/* ---------- header bars ---------- */
+headerbar, .top-bar, tabbar > revealer > box {
+  background-color: @headerbar_bg_color; color: @headerbar_fg_color; border-radius: 0;
+  box-shadow: inset 0 2px 0 @ow_panelLight, inset 0 -2px 0 @ow_panelShadow, 0 1px 0 @ow_panelOutline;
 }
+headerbar:backdrop { background-color: @headerbar_backdrop_color; box-shadow: inset 0 -1px 0 @ow_hairline; }
+headerbar .title, headerbar title { font-weight: bold; }
+
+/* ---------- buttons ---------- */
+button { border-radius: 0; }
+button.circular, button.pill, button.image-button.circular { border-radius: 0; min-width: 24px; }
+button:not(.flat):not(.suggested-action):not(.destructive-action):not(.circular-flat) {
+  background-color: @ow_surface; background-image: none; color: @ow_text; text-shadow: none;
+  box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline;
+}
+button.suggested-action { background-color: @accent_bg_color; color: @accent_fg_color; box-shadow: inset 2px 2px 0 rgba(255,255,255,.45), inset -2px -2px 0 rgba(0,0,0,.45), 0 0 0 1px @ow_panelOutline; }
+button.destructive-action { background-color: @destructive_bg_color; color: @destructive_fg_color; box-shadow: inset 2px 2px 0 rgba(255,255,255,.45), inset -2px -2px 0 rgba(0,0,0,.45), 0 0 0 1px @ow_panelOutline; }
+button:not(.flat):hover { background-color: @ow_surfaceAlt; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline, 0 0 0 3px @ow_borderActive; }
+button:not(.flat):active, button:not(.flat):checked { background-color: @ow_surfaceAlt; box-shadow: inset 2px 2px 0 @ow_panelShadow, inset -2px -2px 0 @ow_panelLight, 0 0 0 1px @ow_panelOutline; }
+button:not(.flat):disabled { color: @insensitive_fg_color; box-shadow: inset 1px 1px 0 @ow_panelLight, inset -1px -1px 0 @ow_panelShadow, 0 0 0 1px @ow_hairline; }
+button.flat:hover { background-color: @ow_inkWash; box-shadow: inset 0 0 0 2px @ow_borderActive; }
+button:focus-visible { outline: 2px solid @ow_borderActive; outline-offset: -4px; }
+
+/* ---------- text fields ---------- */
+entry, .entry, spinbutton, searchentry {
+  border-radius: 0; background-color: @ow_fieldFill; color: @ow_fieldText; caret-color: @ow_fieldText; text-shadow: none;
+  box-shadow: inset 0 0 0 1px @ow_fieldBorder, 0 0 0 1px @ow_panelOutline;
+}
+entry:focus-within, spinbutton:focus-within, searchentry:focus-within { box-shadow: inset 0 0 0 2px @ow_fieldBorderFocus, 0 0 0 1px @ow_panelOutline; outline: none; }
+entry:disabled { color: @ow_fieldTextDisabled; }
+entry > text > placeholder, searchentry > text > placeholder { color: @ow_fieldPlaceholder; }
+entry > text > selection, searchentry > text > selection, entry selection { background-color: @ow_fieldSelection; color: #ffffff; }
+textview > text > selection, label > selection, selection { background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; }
+spinbutton button { border-radius: 0; box-shadow: none; }
+
+/* ---------- lists / sidebars ---------- */
+row:selected, listview > row:selected, columnview > listview > row:selected, gridview > child:selected, .navigation-sidebar row:selected {
+  background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; border-radius: 0;
+}
+row, listview > row, columnview > listview > row, gridview > child { border-radius: 0; }
+row:hover:not(:selected) { box-shadow: inset 0 0 0 2px @ow_slotHover; }
 .navigation-sidebar, .sidebar-pane, .sidebar { background-color: @sidebar_bg_color; color: @sidebar_fg_color; }
-.card, .boxed-list, list.boxed-list { background-color: @card_bg_color; color: @card_fg_color; border-radius: var(--ow-radius-md); box-shadow: 0 0 0 1px @ow_hairline; }
-popover > contents, menu, .menu { background-color: @popover_bg_color; color: @popover_fg_color; border-radius: var(--ow-radius-md); box-shadow: 0 4px 12px @ow_shadow, 0 0 0 1px @ow_hairline; }
-tooltip, tooltip > * { background-color: @ow_titlebar; color: @ow_titlebarText; border-radius: var(--ow-radius-sm); }
-scrollbar > range > trough > slider { min-width: 5px; min-height: 5px; border-radius: 999px; background-color: @ow_ink4; }
-scrollbar > range > trough > slider:hover { background-color: @ow_ink3; }
+.navigation-sidebar > row, .navigation-sidebar > row:selected { border-radius: 0; }
+
+/* ---------- cards / boxed lists: inventory panel ---------- */
+.card, .boxed-list, list.boxed-list, .content-pane {
+  background-color: @card_bg_color; color: @card_fg_color; border-radius: 0;
+  box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline;
+}
+.dialog-window, window.dialog, window.messagedialog { border-radius: 0; background-color: @dialog_bg_color; color: @dialog_fg_color; }
+
+/* ---------- popovers, menus, tooltips, toasts ---------- */
+popover > contents, popover > arrow, menu, .menu {
+  background-color: @popover_bg_color; color: @popover_fg_color; border-radius: 0;
+  box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline, 4px 4px 0 @ow_shadow;
+}
+popover modelbutton:hover, popover row:hover, menu menuitem:hover { background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; border-radius: 0; }
+tooltip { background-color: transparent; border-radius: 0; box-shadow: none; }
+tooltip > box, tooltip.background, tooltip > * {
+  background-color: #100010; color: #ffffff; border-radius: 0; text-shadow: 1px 1px 0 #3f3f3f;
+  box-shadow: inset 2px 2px 0 #5000ff, inset -2px -2px 0 #28007f, 0 0 0 1px #100010;
+}
+tooltip label { color: #ffffff; }
+toast { background-color: #100010; color: #ffffff; border-radius: 0; box-shadow: inset 2px 2px 0 #5000ff, inset -2px -2px 0 #28007f; }
+
+/* ---------- scrollbars: creative-menu scroller ---------- */
+scrollbar > range > trough { background-color: @ow_slotDark; border-radius: 0; box-shadow: inset 0 0 0 1px @ow_panelOutline; }
+scrollbar > range > trough > slider {
+  min-width: 10px; min-height: 10px; border-radius: 0; background-color: @ow_surface;
+  box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline;
+}
+scrollbar > range > trough > slider:hover { background-color: @ow_surfaceAlt; }
+scrollbar > range > trough > slider:active { box-shadow: inset 2px 2px 0 @ow_panelShadow, inset -2px -2px 0 @ow_panelLight, 0 0 0 1px @ow_panelOutline; }
+
+/* ---------- switches, checks, radios, progress, scales ---------- */
+switch { border-radius: 0; background-color: @ow_slotDark; box-shadow: inset 0 0 0 1px @ow_panelOutline; }
 switch:checked { background-color: @accent_bg_color; }
+switch > slider { border-radius: 0; background-color: @ow_surface; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline; }
+check, radio { border-radius: 0; background-color: @ow_fieldFill; color: @ow_fieldText; box-shadow: inset 0 0 0 1px @ow_fieldBorder, 0 0 0 1px @ow_panelOutline; }
 check:checked, radio:checked { background-color: @accent_bg_color; color: @accent_fg_color; }
-progressbar > trough > progress, scale > trough > highlight { background-color: @accent_bg_color; }
-separator { background-color: @ow_hairline; }
-window.csd { border-radius: var(--ow-radius-md); box-shadow: 0 4px 12px @ow_shadowStrong, 0 0 0 1px @ow_hairline; }
-tabbar .tab:checked, notebook > header > tabs > tab:checked { box-shadow: inset 0 -2px @accent_bg_color; }
+progressbar > trough, levelbar > trough, scale > trough { background-color: @ow_fieldFill; border-radius: 0; box-shadow: inset 0 0 0 1px @ow_fieldBorder, 0 0 0 1px @ow_panelOutline; }
+progressbar > trough > progress, scale > trough > highlight, levelbar > trough > block.filled { background-color: @ow_xp; border-radius: 0; }
+scale > trough > slider { border-radius: 0; background-color: @ow_surface; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_panelOutline; }
+
+/* ---------- tabs ---------- */
+tabbar .tab, notebook > header > tabs > tab { border-radius: 0; }
+tabbar .tab:checked, notebook > header > tabs > tab:checked { box-shadow: inset 0 -3px 0 @accent_bg_color; }
+separator { background-color: @ow_panelShadow; }
 link, *:link { color: @link_color; }

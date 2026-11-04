@@ -1,33 +1,33 @@
-// Overworld Hyprland — fastfetch (ascii fallback — light colours). Linked as ~/.config/fastfetch/config.jsonc via ~/.config/overworld/fastfetch/current.jsonc.
-// Colours are the token values from tokens/out/ascii fallback — light colours/fastfetch-colors.jsonc (display.color). Logo: Maomao, flipped per mode by apply-mode.sh.
+// Overworld Hyprland — fastfetch with an ASCII creeper face (for terminals without the kitty graphics protocol, and the
+// config `apply-mode.sh` falls back to when the grass-block PNG could not be built). Same @…@ template as overworld.jsonc.
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
-  "logo": { "type": "file", "source": "~/.config/overworld/repo/apps/fastfetch/maomao.txt", "color": { "1": "red", "2": "green" }, "padding": { "top": 1, "left": 1, "right": 2 } },
+  "logo": { "type": "file", "source": "~/.config/overworld/repo/apps/fastfetch/creeper.txt", "color": { "1": "@GREEN@", "2": "@BLACK@" }, "padding": { "top": 1, "left": 1, "right": 2 } },
   "display": {
-    "color": { "keys": "38;2;55;106;78", "title": "38;2;176;47;42", "output": "38;2;42;38;34", "separator": "38;2;92;85;75" },
-    "separator": " · ",
-    "key": { "width": 14, "type": "string" },
-    "bar": { "border": { "left": "[", "right": "]" }, "char": { "elapsed": "■", "total": "·" }, "width": 14 },
+    "color": { "keys": "@KEYS@", "title": "@TITLE@", "output": "@OUTPUT@", "separator": "@SEP@" },
+    "separator": ": ",
+    "key": { "type": "string" },
+    "bar": { "border": { "left": "[", "right": "]" }, "char": { "elapsed": "■", "total": "·" }, "width": 12 },
     "percent": { "type": 3 }
   },
   "modules": [
-    { "type": "title", "format": "{user-name-colored}{at-symbol-colored}{host-name-colored}  薬屋のひとりごと" },
-    { "type": "custom", "format": "{#38;2;92;85;75}──────────────────────────────────────────" },
-    { "type": "os",       "key": "薬 OS       " },
-    { "type": "kernel",   "key": "核 Kernel   " },
-    { "type": "uptime",   "key": "刻 Uptime   " },
-    { "type": "packages", "key": "包 Packages " },
-    { "type": "shell",    "key": "殻 Shell    " },
-    { "type": "wm",       "key": "窓 WM       " },
-    { "type": "terminal", "key": "端 Terminal " },
-    { "type": "custom", "format": "{#38;2;92;85;75}──────────────────────────────────────────" },
-    { "type": "cpu",      "key": "脳 CPU      ", "format": "{name} ({cores-physical}c) @ {freq-max}" },
-    { "type": "gpu",      "key": "絵 GPU      ", "format": "{name}", "hideType": "integrated" },
-    { "type": "memory",   "key": "記 Memory   ", "format": "{used} / {total} {percentage-bar}" },
-    { "type": "disk",     "key": "庫 Disk     ", "folders": "/", "format": "{size-used} / {size-total} {size-percentage-bar}" },
-    { "type": "custom", "format": "{#38;2;92;85;75}──────────────────────────────────────────" },
-    { "type": "colors",   "key": "色 Colours  ", "symbol": "circle", "paddingLeft": 0 },
+    { "type": "title", "format": "{user-name-colored}{at-symbol-colored}{host-name-colored} {#@SEP@}— Overworld Hyprland" },
+    { "type": "custom", "format": "{#@SEP@}────────────────────────────────────" },
+    { "type": "os",       "key": "Version",     "format": "{name} {version-id} ({id}/vanilla)" },
+    { "type": "kernel",   "key": "Kernel",      "format": "{release}" },
+    { "type": "uptime",   "key": "Time Played", "format": "{days}d {hours}h {minutes}m" },
+    { "type": "packages", "key": "Items" },
+    { "type": "shell",    "key": "Shell",       "format": "{pretty-name} {version}" },
+    { "type": "wm",       "key": "Dimension",   "format": "{pretty-name} ({protocol-name})" },
+    { "type": "terminal", "key": "Chat",        "format": "{pretty-name}" },
     "break",
-    { "type": "command", "key": "言 Quote    ", "keyColor": "38;2;176;47;42", "text": "jq -r '.[].text | select(length < 96)' ~/.config/overworld/repo/quotes/quotes.json 2>/dev/null | shuf -n1 || echo 'Do things out of love, not for love.'" }
+    { "type": "cpu",      "key": "CPU",     "format": "{cores-logical}x {name}" },
+    { "type": "gpu",      "key": "GPU",     "format": "{name}", "hideType": "integrated" },
+    { "type": "display",  "key": "Display", "format": "{width}x{height} @{refresh-rate}Hz" },
+    { "type": "memory",   "key": "Mem",     "format": "{percentage} {used}/{total} {percentage-bar}" },
+    { "type": "disk",     "key": "World",   "folders": "/", "format": "{size-used}/{size-total} {size-percentage-bar}" },
+    "break",
+    { "type": "colors", "symbol": "block", "paddingLeft": 0 },
+    { "type": "command", "key": "Splash", "keyColor": "@GOLD@", "text": "jq -r '.splashes[].text | select(length < 60)' ~/.config/overworld/repo/quotes/splashes.json 2>/dev/null | shuf -n1 || echo 'Also try Terraria!'" }
   ]
 }

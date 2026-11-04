@@ -1,66 +1,113 @@
-/* ---- apps/gtk/gtk3-tweaks.css — paper tweaks on top of the token @define-colors (GTK 3) ---- */
+/* ---- apps/gtk/gtk3-tweaks.css — Minecraft GUI on top of the token @define-colors (GTK 3) ----
+ * Appended after tokens/out/<mode>/gtk-colors.css by apps/install.sh. Rules: zero border-radius, 1px black outlines,
+ * 2px bevels (light top/left, dark bottom/right), hard pixel shadows, white outline on hover. Fonts are left to gsettings.
+ * Bevel colours come from the tokens: @ow_panelLight / @ow_panelShadow / @ow_panelOutline (Day: white / #555 / black). */
+* { border-radius: 0; }
 window, .background { background-color: @window_bg_color; color: @window_fg_color; }
+
+/* ---------- title bar: the Day/Night window frame ---------- */
 headerbar, .titlebar, .csd headerbar {
-  background-color: @headerbar_bg_color; background-image: none;
-  color: @headerbar_fg_color; border-bottom: 1px solid @headerbar_border_color; box-shadow: none;
+  background-color: @headerbar_bg_color; background-image: none; color: @headerbar_fg_color;
+  border: none; border-bottom: 1px solid @ow_panelOutline; border-radius: 0;
+  box-shadow: inset 0 2px 0 @ow_panelLight, inset 0 -2px 0 @ow_panelShadow;
 }
-headerbar:backdrop, .titlebar:backdrop { background-color: @headerbar_backdrop_color; }
-.titlebar .title, headerbar .title { color: @headerbar_fg_color; font-weight: 600; }
+headerbar:backdrop, .titlebar:backdrop { background-color: @headerbar_backdrop_color; box-shadow: inset 0 -1px 0 @ow_hairline; }
+.titlebar .title, headerbar .title { color: @headerbar_fg_color; font-weight: bold; text-shadow: 1px 1px 0 @ow_shadow; }
+
+/* ---------- buttons: bevelled slot ---------- */
 button, .button {
-  border-radius: 6px; background-image: none; background-color: @ow_surface; color: @ow_text;
-  border: 1px solid @ow_hairline; box-shadow: none; text-shadow: none; -gtk-icon-shadow: none;
+  border-radius: 0; background-image: none; background-color: @ow_surface; color: @ow_text;
+  border: 1px solid @ow_panelOutline; text-shadow: none; -gtk-icon-shadow: none;
+  box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow;
 }
-button:hover { background-color: @ow_surfaceAlt; border-color: @ow_ink3; }
-button:active, button:checked { background-color: @ow_surfaceAlt; border-color: @ow_accent; box-shadow: inset 0 0 0 1px @ow_accent; }
-button:disabled { color: @insensitive_fg_color; background-color: @insensitive_bg_color; }
-button.suggested-action { background-color: @accent_bg_color; color: @accent_fg_color; border-color: @accent_bg_color; }
-button.destructive-action { background-color: @destructive_bg_color; color: @destructive_fg_color; border-color: @destructive_bg_color; }
-headerbar button, .titlebar button { background-color: transparent; border-color: transparent; }
-headerbar button:hover { background-color: @ow_inkWash; }
+button:hover { background-color: @ow_surfaceAlt; border-color: @ow_borderActive; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 0 0 0 1px @ow_borderActive; }
+button:focus { outline: 1px solid @ow_borderActive; outline-offset: -4px; }
+button:active, button:checked {
+  background-color: @ow_surfaceAlt; border-color: @ow_panelOutline;
+  box-shadow: inset 2px 2px 0 @ow_panelShadow, inset -2px -2px 0 @ow_panelLight;
+}
+button:disabled { color: @insensitive_fg_color; background-color: @insensitive_bg_color; box-shadow: inset 1px 1px 0 @ow_panelLight, inset -1px -1px 0 @ow_panelShadow; }
+button.suggested-action { background-color: @accent_bg_color; color: @accent_fg_color; }
+button.destructive-action { background-color: @destructive_bg_color; color: @destructive_fg_color; }
+headerbar button, .titlebar button { background-color: transparent; border-color: transparent; box-shadow: none; }
+headerbar button:hover, .titlebar button:hover { background-color: @ow_inkWash; border-color: @ow_panelOutline; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow; }
+headerbar button:active, headerbar button:checked { background-color: @ow_inkWashStrong; box-shadow: inset 2px 2px 0 @ow_panelShadow, inset -2px -2px 0 @ow_panelLight; }
+
+/* ---------- text fields: black fill, #a0a0a0 border, white when focused ---------- */
 entry, .entry, spinbutton {
-  border-radius: 6px; background-color: @theme_base_color; color: @theme_text_color;
-  border: 1px solid @ow_hairline; box-shadow: none; caret-color: @ow_cursor;
+  border-radius: 0; background-color: @ow_fieldFill; background-image: none; color: @ow_fieldText;
+  border: 1px solid @ow_panelOutline; box-shadow: inset 0 0 0 1px @ow_fieldBorder; caret-color: @ow_fieldText; text-shadow: none;
 }
-entry:focus, spinbutton:focus { border-color: @ow_accent; box-shadow: inset 0 0 0 1px @ow_accent; }
-entry selection, textview text selection, label selection { background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; }
+entry:focus, spinbutton:focus { border-color: @ow_panelOutline; box-shadow: inset 0 0 0 1px @ow_fieldBorderFocus; }
+entry:disabled { color: @ow_fieldTextDisabled; }
+entry placeholder, entry > text > placeholder { color: @ow_fieldPlaceholder; }
+entry selection, entry text selection { background-color: @ow_fieldSelection; color: #ffffff; }
+spinbutton button { background-color: @ow_surface; color: @ow_text; }
+textview text selection, label selection, selection { background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; }
 *:selected, treeview.view:selected, row:selected, .view:selected, iconview:selected, .sidebar row:selected, list row:selected {
   background-color: @theme_selected_bg_color; color: @theme_selected_fg_color;
 }
 .view, textview text, treeview.view, iconview, list, .sidebar { background-color: @theme_base_color; color: @theme_text_color; }
 .sidebar, placessidebar, .sidebar list { background-color: @sidebar_bg_color; color: @sidebar_fg_color; }
 placessidebar row:selected, .sidebar row:selected { background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; }
-treeview.view header button { background-color: @ow_bg1; color: @ow_textMuted; border-color: @ow_hairline; border-radius: 0; font-weight: 600; }
-notebook > header { background-color: @ow_bg0; border-color: @ow_hairline; }
-notebook > header > tabs > tab { color: @ow_textMuted; border-radius: 6px 6px 0 0; }
-notebook > header > tabs > tab:checked { color: @ow_text; background-color: @ow_surface; box-shadow: inset 0 -2px @ow_accent; }
+treeview.view header button { background-color: @ow_surface; color: @ow_text; border-color: @ow_panelOutline; border-radius: 0; font-weight: bold; box-shadow: inset 1px 1px 0 @ow_panelLight, inset -1px -1px 0 @ow_panelShadow; }
+
+/* ---------- tabs ---------- */
+notebook > header { background-color: @ow_bg0; border-color: @ow_panelOutline; }
+notebook > header > tabs > tab {
+  color: @ow_textMuted; border-radius: 0; background-color: @ow_surfaceAlt; border: 1px solid @ow_panelOutline;
+  box-shadow: inset 2px 2px 0 @ow_panelLight;
+}
+notebook > header > tabs > tab:checked { color: @ow_text; background-color: @ow_surface; box-shadow: inset 2px 2px 0 @ow_panelLight, inset 0 -3px 0 @ow_accent; }
 notebook > stack { background-color: @ow_surface; }
+
+/* ---------- menus & popovers: panel with hard shadow ---------- */
 menu, .menu, .context-menu, popover, popover.background, popover > contents {
-  background-color: @popover_bg_color; color: @popover_fg_color; border: 1px solid @ow_hairline; border-radius: 8px; box-shadow: 0 4px 12px @ow_shadow;
+  background-color: @popover_bg_color; color: @popover_fg_color; border: 1px solid @ow_panelOutline; border-radius: 0;
+  box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow, 4px 4px 0 @ow_shadow;
 }
 menuitem:hover, menu menuitem:hover, modelbutton:hover { background-color: @theme_selected_bg_color; color: @theme_selected_fg_color; }
-tooltip, tooltip.background, .tooltip { background-color: @ow_titlebar; color: @ow_titlebarText; border-radius: 6px; border: none; }
-tooltip * { color: @ow_titlebarText; }
-scrollbar { background-color: transparent; border: none; }
-scrollbar slider { min-width: 5px; min-height: 5px; border-radius: 999px; background-color: @ow_ink4; border: 2px solid transparent; }
-scrollbar slider:hover { background-color: @ow_ink3; }
-scrollbar slider:active { background-color: @ow_accent; }
-switch { border-radius: 999px; background-color: @ow_bg0; border: 1px solid @ow_hairline; }
-switch:checked { background-color: @accent_bg_color; border-color: @accent_bg_color; }
-switch slider { border-radius: 999px; background-color: @ow_surface; border: 1px solid @ow_hairline; box-shadow: none; }
-check, radio { border: 1px solid @ow_ink3; background-color: @ow_surface; -gtk-icon-shadow: none; box-shadow: none; }
-check:checked, radio:checked { background-color: @accent_bg_color; border-color: @accent_bg_color; color: @accent_fg_color; }
-check { border-radius: 3px; }
-progressbar trough, scale trough { background-color: @ow_bg0; border: 1px solid @ow_hairline; border-radius: 999px; }
-progressbar progress, scale highlight { background-color: @accent_bg_color; border-color: @accent_bg_color; border-radius: 999px; }
-scale slider { background-color: @ow_surface; border: 1px solid @ow_ink3; border-radius: 999px; box-shadow: none; }
-separator { background-color: @ow_hairline; min-height: 1px; min-width: 1px; }
-frame > border, .frame { border: 1px solid @ow_hairline; border-radius: 6px; }
+menuitem, modelbutton { border-radius: 0; }
+
+/* ---------- tooltips: Minecraft tooltip (#100010 fill, purple frame) ---------- */
+tooltip, tooltip.background, .tooltip {
+  background-color: #100010; background-image: none; color: #ffffff; border-radius: 0;
+  border: 2px solid; border-color: #5000ff #5000ff #28007f #5000ff; box-shadow: none; text-shadow: 1px 1px 0 #3f3f3f;
+}
+tooltip * { color: #ffffff; }
+
+/* ---------- scrollbars: creative-menu scroller ---------- */
+scrollbar { background-color: transparent; border: none; border-radius: 0; }
+scrollbar trough { background-color: @ow_slotDark; border: 1px solid @ow_panelOutline; border-radius: 0; }
+scrollbar slider {
+  min-width: 10px; min-height: 10px; border-radius: 0; background-color: @ow_surface;
+  border: 1px solid @ow_panelOutline; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow;
+}
+scrollbar slider:hover { background-color: @ow_surfaceAlt; border-color: @ow_borderActive; }
+scrollbar slider:active { background-color: @ow_surfaceAlt; box-shadow: inset 2px 2px 0 @ow_panelShadow, inset -2px -2px 0 @ow_panelLight; }
+
+/* ---------- switches, checks, radios (all square) ---------- */
+switch { border-radius: 0; background-color: @ow_slotDark; background-image: none; border: 1px solid @ow_panelOutline; box-shadow: inset 1px 1px 0 @ow_panelShadow; color: @ow_textOnAccent; }
+switch:checked { background-color: @accent_bg_color; }
+switch slider { border-radius: 0; background-color: @ow_surface; background-image: none; border: 1px solid @ow_panelOutline; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow; }
+check, radio { border: 1px solid @ow_panelOutline; border-radius: 0; background-color: @ow_fieldFill; background-image: none; color: @ow_fieldText; -gtk-icon-shadow: none; box-shadow: inset 0 0 0 1px @ow_fieldBorder; }
+check:checked, radio:checked { background-color: @accent_bg_color; color: @accent_fg_color; }
+
+/* ---------- XP-bar style progress / scales ---------- */
+progressbar trough, scale trough, levelbar trough { background-color: @ow_fieldFill; border: 1px solid @ow_panelOutline; border-radius: 0; box-shadow: inset 0 0 0 1px @ow_fieldBorder; }
+progressbar progress, scale highlight, levelbar block.filled { background-color: @ow_xp; background-image: none; border: none; border-radius: 0; }
+scale slider { background-color: @ow_surface; border: 1px solid @ow_panelOutline; border-radius: 0; box-shadow: inset 2px 2px 0 @ow_panelLight, inset -2px -2px 0 @ow_panelShadow; }
+scale slider:hover { border-color: @ow_borderActive; }
+
+/* ---------- misc ---------- */
+separator { background-color: @ow_panelShadow; min-height: 1px; min-width: 1px; }
+frame > border, .frame { border: 1px solid @ow_panelOutline; border-radius: 0; }
 infobar, .info { background-color: @ow_surfaceAlt; color: @ow_text; }
 .warning { background-color: @warning_bg_color; color: @warning_fg_color; }
 .error { background-color: @error_bg_color; color: @error_fg_color; }
-statusbar, .statusbar, actionbar, searchbar { background-color: @ow_bg0; border-top: 1px solid @ow_hairline; }
-toolbar, .toolbar, .primary-toolbar { background-color: @ow_bg1; border-bottom: 1px solid @ow_hairline; }
-decoration { border-radius: 8px; box-shadow: 0 4px 12px @ow_shadowStrong, 0 0 0 1px @ow_hairline; }
-decoration:backdrop { box-shadow: 0 2px 6px @ow_shadow, 0 0 0 1px @ow_hairline; }
+statusbar, .statusbar, actionbar, searchbar { background-color: @ow_bg0; border-top: 1px solid @ow_panelOutline; }
+toolbar, .toolbar, .primary-toolbar { background-color: @ow_bg1; border-bottom: 1px solid @ow_panelOutline; }
+decoration { border-radius: 0; box-shadow: 0 0 0 1px @ow_panelOutline, 4px 4px 0 @ow_shadowStrong; }
+decoration:backdrop { box-shadow: 0 0 0 1px @ow_hairline, 2px 2px 0 @ow_shadow; }
 link, *:link { color: @link_color; }
 *:visited { color: @visited_link_color; }

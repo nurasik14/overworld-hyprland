@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # apps/uninstall.sh — reverse apps/install.sh exactly.
-#   1. apply-mode.sh off  (restores gsettings + sed'd keys + points symlinks at backups)
+#   1. apply-mode.sh off --no-handback  (restores gsettings + sed'd keys + points symlinks at backups + removes the Zen imports)
 #   2. every user file we replaced with a symlink gets its `.pre-overworld` backup moved back
 #   3. marker lines are removed, files we created are deleted, theme files we installed are removed
 #   4. ~/.config/overworld/<app>/ dirs and apps-state.json are removed
@@ -10,7 +10,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 [[ -f "$APPS_STATE" ]] || { log "nothing installed (no $APPS_STATE)"; exit 0; }
 
-"$APPS/apply-mode.sh" off || warn "apply-mode off reported errors; continuing"
+"$APPS/apply-mode.sh" off --no-handback || warn "apply-mode off reported errors; continuing"
 
 # 2. restore replaced files
 while IFS= read -r f; do
@@ -52,5 +52,5 @@ done
 
 # 4. state
 for d in kitty fastfetch rofi gtk qt6ct superfile cava btop starship wlogout swappy zen nvim; do rm -rf "$STATE_DIR/$d"; done
-rm -f "$APPS_STATE" "$STATE_DIR/apps-mode" "$STATE_DIR/apps-mode.installed" "$STATE_DIR/empty"
+rm -f "$APPS_STATE" "$STATE_DIR/apps-mode" "$STATE_DIR/apps-mode.installed" "$STATE_DIR/empty" "$STATE_DIR/.apps.lock"
 log "uninstalled. (~/.config/overworld/repo and the hyprland files are owned by scripts/uninstall.sh)"

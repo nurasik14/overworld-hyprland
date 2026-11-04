@@ -1,20 +1,21 @@
 # Overworld Hyprland — starship preset (apps/starship/overworld.toml)
 # apps/install.sh appends both token palettes (tokens/out/<mode>/starship-palette.toml) to this file into
 # ~/.config/overworld/starship/overworld.toml and apps/apply-mode.sh flips the `palette =` line below.
-# Two lines: [薬] seal · directory · git 枝 · duration 刻  /  ❯
+# Two lines:   ❤ user  dir  branch status ... [Day]    (hearts = the prompt badge, [Day]/[Night] = the world's mode)
+# Needs a Nerd Font: Monocraft (patched) has every glyph used here.
 "$schema" = 'https://starship.rs/config-schema.json'
 palette = "overworld_light"
 add_newline = true
 command_timeout = 800
 
 format = """
-[ 薬 ](bold textOnSeal bg:seal)$username$hostname[](fg:seal bg:surfaceAlt)$directory[](fg:surfaceAlt)\
+[  ](bold textOnSeal bg:seal)$username$hostname[](fg:seal bg:surfaceAlt)$directory[](fg:surfaceAlt)\
 $git_branch$git_status$git_state\
 $python$nodejs$rust$golang$lua\
-$cmd_duration$jobs
+$cmd_duration$jobs$battery
 $character"""
 
-right_format = "$time"
+right_format = "$custom$time"
 
 [username]
 show_always = false
@@ -28,34 +29,34 @@ style = "textOnSeal bg:seal"
 format = "[@$hostname ]($style)"
 
 [directory]
-style = "bold accent bg:surfaceAlt"
+style = "bold text bg:surfaceAlt"
 read_only_style = "seal bg:surfaceAlt"
-read_only = " 鎖"
+read_only = " 󰌾"
 truncation_length = 4
 truncation_symbol = "…/"
 truncate_to_repo = true
 format = "[ $path ]($style)[$read_only]($read_only_style)"
 [directory.substitutions]
-"~" = "家"
-"Projects" = "工"
-"Documents" = "書"
-"Downloads" = "収"
-"Media" = "画"
+"~" = "󰋜"
+"Projects" = "󰏗"
+"Documents" = "󰈙"
+"Downloads" = "󰇚"
+"Media" = "󰋩"
 
 [git_branch]
-symbol = "枝 "
+symbol = " "
 style = "accent2"
 format = " [$symbol$branch(:$remote_branch)]($style)"
 
 [git_status]
 style = "plum"
 format = "[ $all_status$ahead_behind]($style)"
-conflicted = "乱"
+conflicted = "󰞇"
 ahead = "↑${count}"
 behind = "↓${count}"
 diverged = "↕${ahead_count}${behind_count}"
 untracked = "?${count}"
-stashed = "蔵"
+stashed = "󰆼"
 modified = "!${count}"
 staged = "+${count}"
 renamed = "»${count}"
@@ -65,20 +66,39 @@ deleted = "✘${count}"
 style = "warning"
 format = " [$state( $progress_current/$progress_total)]($style)"
 
+# XP: how long the last command took
 [cmd_duration]
 min_time = 2000
-style = "textMuted"
-format = " [刻 $duration]($style)"
+style = "xp"
+format = " [󰔟 $duration]($style)"
 
 [jobs]
-symbol = "煎"
+symbol = "󰐊"
 style = "accent2"
 format = " [$symbol$number]($style)"
+
+# hearts only show up when the battery is low, like the game's heart row jiggling
+[battery]
+full_symbol = "󰁹"
+charging_symbol = "󰂄"
+discharging_symbol = ""
+unknown_symbol = ""
+format = " [$symbol $percentage]($style)"
+[[battery.display]]
+threshold = 30
+style = "bold seal"
 
 [character]
 success_symbol = "[❯](bold accent)"
 error_symbol = "[❯](bold seal)"
 vimcmd_symbol = "[❮](bold accent2)"
+
+# [Day] / [Night] — follows ~/.config/overworld/mode
+[custom.world]
+command = 'case "$(cat ~/.config/overworld/mode 2>/dev/null)" in dark) echo Night ;; *) echo Day ;; esac'
+when = 'test -e ~/.config/overworld/enabled'
+style = "bold accent2"
+format = "[\\[$output\\]]($style) "
 
 [time]
 disabled = false
@@ -87,22 +107,22 @@ format = "[$time]($style)"
 time_format = "%H:%M"
 
 [python]
-symbol = "蛇 "
+symbol = " "
 style = "jade"
 format = " [${symbol}${pyenv_prefix}(${version} )(\\($virtualenv\\))]($style)"
 [nodejs]
-symbol = "節 "
+symbol = " "
 style = "success"
 format = " [$symbol($version)]($style)"
 [rust]
-symbol = "錆 "
+symbol = " "
 style = "accent2"
 format = " [$symbol($version)]($style)"
 [golang]
-symbol = "鼠 "
+symbol = " "
 style = "indigo"
 format = " [$symbol($version)]($style)"
 [lua]
-symbol = "月 "
+symbol = " "
 style = "indigo"
 format = " [$symbol($version)]($style)"

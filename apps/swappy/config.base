@@ -1,0 +1,14 @@
+# Overworld Hyprland — swappy. Rendered per mode by apps/install.sh into ~/.config/overworld/swappy/config-<light|dark>
+# (@RED@ = the `error` token); ~/.config/swappy/config is linked to ~/.config/overworld/swappy/current.
+# The user's original stays at ~/.config/swappy/config.pre-overworld.
+[Default]
+save_dir=$HOME/Media/Screenshots/
+save_filename_format=swappy-%Y%m%d-%H%M%S.png
+show_panel=true
+line_size=4
+text_size=16
+text_font=Overworld Mojangles
+paint_mode=brush
+early_exit=false
+fill_shape=false
+custom_color=@RED@

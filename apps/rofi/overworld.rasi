@@ -1,10 +1,12 @@
-/* Overworld Hyprland — rofi theme (both modes).
+/* Overworld Hyprland — rofi theme (Day + Night): the creative inventory.
  * Loaded last from ~/.config/rofi/config.rasi via
  *   @theme "~/.config/overworld/rofi/current.rasi"
- * Colours: ~/.config/overworld/rofi/colors.rasi → tokens/out/<mode>/rofi-colors.rasi (flipped by apps/apply-mode.sh).
- * Shape: a mounted paper card — lacquer title strip with a centred title and a red seal on the right,
- * drawer-like rows, the selected row stamped with the seal. Width 720.
+ * Colours: ~/.config/overworld/rofi/colors.rasi -> tokens/out/<mode>/rofi-colors.rasi (flipped by apps/apply-mode.sh).
+ * Shape: the game's grey panel (white top/left bevel, dark bottom/right bevel, black outline) titled "Search Items",
+ * a black text field, app rows with the icon in a slot, the selected slot highlighted white like a hovered slot,
+ * modes as creative-inventory tabs. rofi has no multi-colour borders, so every bevel is two nested boxes.
  * JaKooLit's menus (emoji, clipboard, keybinds, wallpaper…) @import config.rasi and override widgets after this.
+ * Fonts: Overworld Mojangles 12 pt = 16 px (crisp), Monocraft 13.5 pt = 18 px (crisp) — see docs/DESIGN.md.
  */
 
 @import "~/.config/overworld/rofi/colors.rasi"
@@ -12,191 +14,181 @@
 configuration {
     modi:                       "drun,run,filebrowser,window";
     show-icons:                 true;
-    display-drun:               "药 Apps";
-    display-run:                "令 Run";
-    display-filebrowser:        "庫 Files";
-    display-window:             "窓 Windows";
+    display-drun:               "Apps";
+    display-run:                "Run";
+    display-filebrowser:        "Files";
+    display-window:             "Windows";
     drun-display-format:        "{name}";
     window-format:              "{w} · {c} · {t}";
     hover-select:               true;
     me-select-entry:            "MouseSecondary";
     me-accept-entry:            "MousePrimary";
-    font:                       "Noto Sans 12";
+    font:                       "Overworld Mojangles 12";
 }
 
 * {
     background-color:           transparent;
-    text-color:                 @text;
+    text-color:                 @guiText;
     spacing:                    0px;
     margin:                     0px;
     padding:                    0px;
+    border:                     0px;
+    border-radius:              0px;
 }
 
 window {
     location:                   center;
     anchor:                     center;
-    width:                      720px;
+    width:                      700px;
     border:                     2px;
-    border-radius:              8px;
-    border-color:               @frame;
-    background-color:           @bg1;
+    border-color:               @panelOutline;
+    background-color:           @panelOutline;
     cursor:                     "default";
 }
 
 mainbox {
     orientation:                vertical;
-    children:                   [ "titlebar", "inputbar", "message", "listview", "mode-switcher" ];
-    background-color:           @bg1;
-    border-radius:              6px;
+    children:                   [ "bevel-dark" ];
 }
-
-/* lacquer title strip: 药櫃 · OVERWORLD ........ [印] */
-titlebar {
-    expand:                     false;
-    orientation:                horizontal;
-    children:                   [ "textbox-title", "textbox-seal" ];
-    background-color:           @titlebar;
-    padding:                    6px 12px 6px 36px;
+/* panel bevel: dark bottom/right edge around a light top/left edge around the grey body */
+bevel-dark {
+    border:                     0px 2px 2px 0px;
+    border-color:               @panelShadow;
+    background-color:           @panel;
+    children:                   [ "bevel-light" ];
+}
+bevel-light {
+    border:                     2px 0px 0px 2px;
+    border-color:               @panelLight;
+    background-color:           @panel;
+    padding:                    10px 12px 12px 12px;
     spacing:                    8px;
-    border-radius:              6px 6px 0px 0px;
-}
-textbox-title {
-    content:                    "药櫃 · OVERWORLD";
-    font:                       "ZCOOL XiaoWei 15";
-    text-color:                 @titlebarText;
-    horizontal-align:           0.5;
-    vertical-align:             0.5;
-    expand:                     true;
-    background-color:           transparent;
-}
-textbox-seal {
-    content:                    "印";
-    font:                       "Ma Shan Zheng 11";
-    text-color:                 @textOnSeal;
-    background-color:           @seal;
-    border-radius:              3px;
-    padding:                    1px 5px;
-    expand:                     false;
-    vertical-align:             0.5;
+    orientation:                vertical;
+    children:                   [ "textbox-title", "inputbar", "message", "listview", "mode-switcher" ];
 }
 
-/* search drawer */
+textbox-title {
+    content:                    "Search Items";
+    text-color:                 @guiTitle;
+    background-color:           transparent;
+    expand:                     false;
+    padding:                    0px 0px 2px 0px;
+}
+
+/* the game's text field: black fill, grey outline (white when focused) */
 inputbar {
     expand:                     false;
     children:                   [ "prompt", "entry" ];
-    background-color:           @surface;
-    border:                     0px 0px 1px 0px;
-    border-color:               @hairline;
-    padding:                    12px 16px;
-    spacing:                    10px;
+    background-color:           @fieldFill;
+    border:                     2px;
+    border-color:               @fieldBorderFocus;
+    padding:                    6px 8px;
+    spacing:                    8px;
 }
 prompt {
-    text-color:                 @accent;
-    font:                       "LXGW WenKai 13";
-    vertical-align:             0.5;
+    text-color:                 @chatYellow;
     background-color:           transparent;
+    vertical-align:             0.5;
 }
 entry {
-    placeholder:                "找 · search…";
-    placeholder-color:          @textMuted;
+    text-color:                 @fieldText;
+    placeholder:                "Search…";
+    placeholder-color:          @fieldPlaceholder;
     cursor:                     text;
-    cursor-color:               @cursor;
+    cursor-color:               @fieldText;
+    cursor-width:               2px;
     vertical-align:             0.5;
     background-color:           transparent;
 }
 message {
-    background-color:           @surfaceAlt;
-    padding:                    8px 16px;
-    border:                     0px 0px 1px 0px;
-    border-color:               @hairline;
+    background-color:           @bg1;
+    border:                     2px;
+    border-color:               @panelOutline;
+    padding:                    6px 8px;
 }
 textbox {
-    text-color:                 @textMuted;
+    text-color:                 @guiText;
     background-color:           transparent;
 }
 
-/* drawers */
+/* the item grid: a sunken area (bg1) with the icons sitting in grey slots */
 listview {
     columns:                    2;
     lines:                      8;
     cycle:                      true;
     dynamic:                    true;
     scrollbar:                  true;
-    spacing:                    6px;
-    padding:                    12px 12px 12px 16px;
+    spacing:                    4px;
+    padding:                    4px;
     fixed-height:               true;
     background-color:           @bg1;
+    border:                     2px;
+    border-color:               @panelOutline;
 }
+/* scroller like the creative inventory: thin dark track, bevelled light thumb */
 scrollbar {
-    handle-width:               4px;
-    handle-color:               @hairline;
-    background-color:           transparent;
-    margin:                     0px 0px 0px 6px;
+    handle-width:               12px;
+    handle-color:               @panelLight;
+    background-color:           @slotDark;
+    border:                     2px;
+    border-color:               @panelOutline;
+    margin:                     0px 0px 0px 4px;
 }
 element {
     orientation:                horizontal;
     spacing:                    10px;
-    padding:                    8px 10px;
-    border-radius:              6px;
-    border:                     1px;
-    border-color:               @hairline;
-    background-color:           @surface;
+    padding:                    4px 8px 4px 4px;
+    border:                     2px;
+    border-color:               transparent;
+    background-color:           transparent;
     cursor:                     pointer;
 }
-element normal.normal, element alternate.normal { background-color: @surface;    text-color: @text; }
-element normal.urgent, element alternate.urgent { background-color: @sealWash;   text-color: @error; border-color: @seal; }
-element normal.active, element alternate.active { background-color: @surfaceAlt; text-color: @accent; }
-element selected.normal {
-    background-color:           @surfaceAlt;
-    text-color:                 @text;
-    border:                     1px 1px 1px 3px;
-    border-color:               @seal;
-}
-element selected.urgent { background-color: @seal;   text-color: @textOnSeal;   border-color: @seal; }
-element selected.active { background-color: @accent; text-color: @textOnAccent; border-color: @accent; }
+element normal.normal, element alternate.normal { background-color: transparent; text-color: @guiText; }
+element normal.urgent, element alternate.urgent { background-color: transparent; text-color: @error; }
+element normal.active, element alternate.active { background-color: transparent; text-color: @accent; }
+/* hovered / selected slot: white frame + translucent white fill (the game's slot highlight) */
+element selected.normal { background-color: @slotHover; border-color: @borderActive; text-color: @guiText; }
+element selected.urgent { background-color: @slotHover; border-color: @error;        text-color: @error; }
+element selected.active { background-color: @slotHover; border-color: @borderActive; text-color: @accent; }
 element-icon {
-    size:                       24px;
+    size:                       32px;
+    padding:                    4px;
+    background-color:           @slot;
+    border:                     2px;
+    border-color:               @slotDark;
     vertical-align:             0.5;
-    background-color:           transparent;
 }
 element-text {
     vertical-align:             0.5;
-    highlight:                  bold;
+    highlight:                  underline;
     text-color:                 inherit;
     background-color:           transparent;
 }
 
-/* bottom: mode tabs as paper labels */
+/* creative-inventory tabs */
 mode-switcher {
     expand:                     false;
-    spacing:                    8px;
-    padding:                    8px 16px 12px 16px;
-    background-color:           @bg0;
-    border:                     1px 0px 0px 0px;
-    border-color:               @hairline;
-    border-radius:              0px 0px 6px 6px;
+    spacing:                    4px;
+    background-color:           transparent;
 }
 button {
-    padding:                    6px 10px;
-    border-radius:              6px;
-    background-color:           @surface;
-    text-color:                 @textMuted;
-    font:                       "LXGW WenKai 12";
-    border:                     1px;
-    border-color:               @hairline;
+    padding:                    6px 14px;
+    background-color:           @bg1;
+    text-color:                 @guiText;
+    border:                     2px;
+    border-color:               @panelOutline;
     cursor:                     pointer;
+    horizontal-align:           0.5;
 }
 button selected {
-    background-color:           @titlebar;
-    text-color:                 @titlebarText;
-    border-color:               @titlebar;
+    background-color:           @panelLight;
+    text-color:                 @guiTitle;
+    border-color:               @borderActive;
 }
 
-/* error */
 error-message {
-    padding:                    16px;
-    background-color:           @bg1;
+    padding:                    12px;
+    background-color:           @panel;
     border:                     2px;
-    border-color:               @seal;
-    border-radius:              8px;
+    border-color:               @error;
 }

@@ -12,8 +12,8 @@
 
 set -euo pipefail
 
-APO_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$APO_LIB_DIR/.." && pwd)"
+OW_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$OW_LIB_DIR/.." && pwd)"
 APPS="$REPO/apps"
 TOKENS="$REPO/tokens/out"
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -167,6 +167,55 @@ gset() { have gsettings && gsettings set "$GS_SCHEMA" "$1" "$2" 2>/dev/null || t
 current_mode() {   # light|dark|off  — what apply-mode last applied for apps
   local m; m="$(cat "$STATE_DIR/apps-mode" 2>/dev/null || echo off)"
   case "$m" in light|dark) echo "$m" ;; *) echo off ;; esac
+}
+dn() { [[ "$1" == dark ]] && echo night || echo day; }   # internal mode -> user-facing name (Day/Night)
+
+# ---------------------------------------------------------------- coexistence with Apothecary
+APO_STATE="$CFG/apothecary"
+apo_repo() {   # the Apothecary checkout (read-only reference), via its own state dir symlink
+  local r; r="$(readlink -f "$APO_STATE/repo" 2>/dev/null || true)"
+  [[ -x "$r/apps/apply-mode.sh" ]] || r="$HOME/Projects/apothecary-hyprland"
+  [[ -x "$r/apps/apply-mode.sh" ]] && echo "$r" || true
+}
+# apo_apps_wait: Apothecary's `apothecary off` runs its apps/apply-mode.sh detached; if we activate while it is
+# still restoring user files/keys it would overwrite what we set. Wait (max 25 s) until it has finished.
+apo_apps_wait() {
+  local r i; r="$(apo_repo)"; [[ -n "$r" ]] || return 0
+  for i in $(seq 1 50); do pgrep -f "$r/apps/apply-mode.sh" >/dev/null 2>&1 || return 0; sleep 0.5; done
+  warn "Apothecary's apps/apply-mode.sh still running after 25 s — continuing"
+}
+# detect_previous: print "<apothecary|stock> <light|dark>" — which theme Overworld is replacing.
+#   1. $OW_PREVIOUS_THEME ("apothecary [mode]" / "stock")     2. ~/.config/overworld/previous-theme (hyprland-engineer's
+#   `overworld on` writes it before turning Apothecary off; first word apothecary|stock, optional second word light|dark)
+#   3. fallback: Apothecary still enabled / its apps still on
+detect_previous() {
+  local raw="${OW_PREVIOUS_THEME:-}" w1 w2 amode
+  [[ -n "$raw" ]] || raw="$(head -n1 "$STATE_DIR/previous-theme" 2>/dev/null || true)"
+  amode="$(cat "$APO_STATE/mode" 2>/dev/null || true)"
+  case "$amode" in light|dark) ;; *) amode="$(cat "$APO_STATE/apps-mode" 2>/dev/null || true)"; case "$amode" in light|dark) ;; *) amode=dark ;; esac ;; esac
+  w1="${raw%% *}"; w2=""; [[ "$raw" == *" "* ]] && w2="${raw#* }"
+  case "$w1" in
+    apothecary) case "$w2" in light|dark) amode="$w2" ;; esac; echo "apothecary $amode"; return ;;
+    stock|none|"") [[ -n "$w1" ]] && { echo "stock $amode"; return; } ;;
+  esac
+  if [[ -e "$APO_STATE/enabled" ]] || [[ "$(cat "$APO_STATE/apps-mode" 2>/dev/null || echo off)" =~ ^(light|dark)$ ]]; then
+    echo "apothecary $amode"
+  else echo "stock $amode"; fi
+}
+# capture_pre: called on every off -> light|dark transition. The values apps hold NOW are, by definition, the ones
+# `off` must restore, so forget the ones recorded earlier (install time, or a previous session) and re-record them.
+capture_pre() {
+  local tmp; tmp="$(mktemp)"
+  jq '.gsettings = {} | .keys |= with_entries(select(.key | contains("|") | not))' "$APPS_STATE" > "$tmp" && mv "$tmp" "$APPS_STATE"
+  record_gsettings
+  local prev; prev="$(detect_previous)"
+  state_put '.keys["previous.theme"]' "${prev%% *}"
+  state_put '.keys["previous.apothecary_mode"]' "${prev##* }"
+  log "previous theme: ${prev%% *} (${prev##* })"
+}
+state_put() {   # state_put <jq-path> <string>   (always overwrites)
+  local tmp; tmp="$(mktemp)"
+  jq --arg v "$2" "$1 = \$v" "$APPS_STATE" > "$tmp" && mv "$tmp" "$APPS_STATE"
 }
 palette() {   # palette <mode> <role>  → hex from tokens/out/<mode>/palette.json
   jq -r --arg r "$2" '.[$r]' "$TOKENS/$1/palette.json"
