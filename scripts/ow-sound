@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# ow-sound — the one sound player for Overworld.   ow-sound <id> [volume-multiplier]   |   ow-sound --list
+#
+#   id          a key of tokens/sounds.json (ui.click, xp.levelup, block.break.stone, …; --list shows them all)
+#   mapping     "files": ["mc:<p>"] → assets/mc/sounds/<p>.ogg (Mojang, fetched);  "fallback": ["gen:<n>"] → assets/gen/sounds/<n>.wav
+#               (our own synthesized sounds, used when none of the mc: files exist).  Several files = random variant.
+#   volume      base × config.json sound_volume.master/100 × sound_volume.<category>/100 (ui|toasts|blocks|ambient; default 100)
+#   sounds:false in ~/.config/overworld/config.json → silent, exit 0.  Never blocks: pw-play is started detached.
+#   OW_SOUND_DRYRUN=1  print "id -> file  volume=…" instead of playing (also when sounds:false — flagged "MUTED").
+#   Env overrides: OW_CONFIG (config.json path), OW_MC_DIR (default <repo>/assets/mc).
+set -u
+
+REPO="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.." && pwd -P)"
+TOK="$REPO/tokens/sounds.json"
+CONF="${OW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/overworld/config.json}"
+MC="${OW_MC_DIR:-$REPO/assets/mc}"
+GEN="$REPO/assets/gen/sounds"
+
+command -v jq >/dev/null || exit 0
+[[ -r "$TOK" ]] || { echo "ow-sound: $TOK missing" >&2; exit 0; }
+
+cfg='{}'
+[[ -r "$CONF" ]] && cfg="$(jq -c . "$CONF" 2>/dev/null || echo '{}')"
+
+if [[ "${1:-}" == --list || "${1:-}" == -l ]]; then
+    printf '%-26s %-8s %-5s %-9s %s\n' ID CATEGORY VOL FILES DESCRIPTION
+    jq -r 'to_entries[] | select(.key|startswith("_")|not) | select(.value.alias==null) | [.key,.value.category,(.value.volume|tostring),((.value.files|map(sub("^mc:";""))|join(",")|.[0:200])),(.value.fallback|join(",")),.value.desc]|@tsv' "$TOK" |
+    while IFS=$'\t' read -r id cat vol files fb desc; do
+        have=0 total=0
+        IFS=, read -ra fa <<<"$files"
+        for f in "${fa[@]}"; do total=$((total+1)); [[ -f "$MC/sounds/$f.ogg" ]] && have=$((have+1)); done
+        printf '%-26s %-8s %-5s %-9s %s\n' "$id" "$cat" "$vol" "mc $have/$total" "$desc"
+    done
+    jq -r 'to_entries[] | select(.value|type=="object") | select(.value.alias!=null) | "\(.key) -> \(.value.alias)"' "$TOK" | sed 's/^/alias: /'
+    exit 0
+fi
+
+id="${1:-}"
+[[ -n "$id" ]] || { echo "usage: ow-sound <id> [volume-multiplier] | --list" >&2; exit 2; }
+mult="${2:-1}"
+[[ "$mult" =~ ^[0-9]*\.?[0-9]+$ ]] || mult=1
+
+# one jq call: line1 enabled, line2 resolved id, line3 category, line4 effective volume, line5 "base master cat", rest = file refs
+mapfile -t R < <(jq -rn --arg id "$id" --argjson mult "$mult" --slurpfile t "$TOK" --argjson c "$cfg" '
+  $t[0] as $T
+  | def res($i; $n): if $n > 5 then $i elif ($T[$i].alias // null) != null then res($T[$i].alias; $n + 1) else $i end;
+  res($id; 0) as $rid | $T[$rid] as $e
+  | if $e == null or ($e.files == null) then "UNKNOWN"
+    else ($c.sound_volume // {}) as $sv
+      | (($sv.master // 100) | tonumber) as $m
+      | (($sv[$e.category] // 100) | tonumber) as $cv
+      | ($e.volume * $m / 100 * $cv / 100 * $mult | if . > 1 then 1 elif . < 0 then 0 else . end) as $v
+      | (if ($c | has("sounds")) and $c.sounds == false then "false" else "true" end),
+        $rid, $e.category, ($v * 1000 | round / 1000 | tostring), "\($e.volume) \($m) \($cv)",
+        ($e.files[]), ($e.fallback[]? // empty)
+    end' 2>/dev/null)
+
+if [[ "${R[0]:-UNKNOWN}" == UNKNOWN ]]; then
+    echo "ow-sound: unknown sound id '$id' (ow-sound --list)" >&2
+    exit 0
+fi
+enabled="${R[0]}" rid="${R[1]}" cat="${R[2]}" vol="${R[3]}" parts="${R[4]}"
+dry="${OW_SOUND_DRYRUN:-}"
+[[ "$enabled" == false && -z "$dry" ]] && exit 0
+
+# candidates: existing mc: files; if none, existing gen: fallbacks
+cands=() gens=()
+for ref in "${R[@]:5}"; do
+    case "$ref" in
+        mc:*)  [[ -f "$MC/sounds/${ref#mc:}.ogg" ]] && cands+=("$MC/sounds/${ref#mc:}.ogg") ;;
+        gen:*) [[ -f "$GEN/${ref#gen:}.wav" ]] && gens+=("$GEN/${ref#gen:}.wav") ;;
+    esac
+done
+((${#cands[@]})) || cands=("${gens[@]}")
+if ((${#cands[@]} == 0)); then
+    [[ -n "$dry" ]] && echo "ow-sound: $id -> (no file found)"
+    exit 0
+fi
+file="${cands[RANDOM % ${#cands[@]}]}"
+
+if [[ -n "$dry" ]]; then
+    read -r b m c <<<"$parts"
+    echo "ow-sound: $id$([[ $rid != "$id" ]] && echo " ($rid)") -> ${file#"$REPO"/}  volume=$vol  category=$cat (base $b × master $m% × $cat $c% × $mult)$([[ $enabled == false ]] && echo '  MUTED: sounds=false')"
+    exit 0
+fi
+[[ "$vol" == 0 || "$vol" == 0.0 ]] && exit 0
+
+if command -v pw-play >/dev/null; then
+    setsid -f pw-play --volume "$vol" "$file" >/dev/null 2>&1 </dev/null
+elif command -v paplay >/dev/null; then
+    setsid -f paplay --volume "$(awk -v v="$vol" 'BEGIN{printf "%d", v*65536}')" "$file" >/dev/null 2>&1 </dev/null
+fi
+exit 0
