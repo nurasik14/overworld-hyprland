@@ -706,8 +706,17 @@ cmd_brew() {
     esac
 }
 
+cmd_event() {                   # overworld event <name> ['<json object>']  → GameEvents bus (BRIEF §4.4)
+    local name="${1:-}" data="${2:-{\}}" dir="${XDG_RUNTIME_DIR:-/tmp}/overworld"
+    [[ -n "$name" ]] || die "usage: overworld event <name> ['<json>']"
+    mkdir -p "$dir"
+    jq -cn --arg n "$name" --argjson d "$data" '{t:(now*1000|floor), name:$n, data:$d}' >>"$dir/events.jsonl" \
+        || die "event data must be a JSON object"
+}
+
 case "${1:-help}" in
     on)            cmd_on ;;
+    event)         shift; cmd_event "$@" ;;
     ws|workspace)  shift; cmd_ws "$@" ;;
     brew)          shift; cmd_brew "$@" ;;
     off)           cmd_off ;;

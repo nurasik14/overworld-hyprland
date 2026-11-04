@@ -12,6 +12,9 @@ import qs.Wallpapers
 import qs.Osd
 import qs.Widgets
 import qs.Brew
+import qs.Game
+import qs.World
+import qs.Interact
 
 /*  Overworld Hyprland — Quickshell entry.  `qs -c overworld`
  *  Surfaces (layer namespaces): overworld-bar · overworld-launcher · overworld-notif · overworld-notifcenter ·
@@ -32,6 +35,11 @@ ShellRoot {
     WorkspaceCard { id: wsCard }
     DesktopWidgets {}
     BrewDialog {}
+
+    // phase-2 modules (stubs until their owners land them; each owns its IpcHandlers)
+    GameSystems {}      // qs-features: chat console, advancements, statistics, options screen
+    WorldFx {}          // fx-world: day/night cycle, weather overlay, F3 debug screen
+    Interactions {}     // fx-interactions: block-break close, place-block open, screenshot, low-battery screens
 
     // ------------------------------------------------------------ IPC (BRIEF §4)
     IpcHandler {

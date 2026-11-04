@@ -17,3 +17,14 @@ qa/current-desktop.png
 
 # Minecraft brewing sounds (© Mojang) — scripts/fetch-minecraft-sounds.sh downloads them
 assets/sounds/minecraft/
+
+# ---- Overworld: Mojang-derived assets are never committed (scripts/fetch-minecraft-assets.sh recreates them)
+assets/mc/
+assets/wallpapers/
+assets/renders/
+assets/fonts/
+assets/icons/mc/
+qa/screenshots/
+.orchestrator/
+*.log
+.venv/
