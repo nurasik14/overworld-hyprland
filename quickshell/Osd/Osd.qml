@@ -45,8 +45,10 @@ Scope {
             visible: root.shown || slider.opacity > 0.01
 
             readonly property bool isBrightness: root.kind === "brightness"
+            // the handle stops at the end of the track; the number keeps counting past 100 % and turns red (§c)
             readonly property real value: isBrightness ? AudioService.brightness : Math.min(1, AudioService.volume)
-            readonly property int percent: Math.round(value * 100)
+            readonly property int percent: Math.round((isBrightness ? AudioService.brightness : AudioService.volume) * 100)
+            readonly property bool overdrive: !isBrightness && !AudioService.muted && percent > 100
             readonly property string label: {
                 if (!isBrightness) return AudioService.muted ? "Master Volume: OFF" : "Master Volume: " + percent + "%";
                 if (!AudioService.brightnessAvailable) return "Brightness: no device";
@@ -61,6 +63,7 @@ Scope {
                 from: 0; to: 1
                 value: AudioService.muted && !win.isBrightness ? 0 : win.value
                 text: win.label
+                codes: win.overdrive ? "Master Volume: §c" + win.percent + "%" : ""
                 highlighted: true
                 soundId: ""
                 opacity: root.shown ? 1 : 0

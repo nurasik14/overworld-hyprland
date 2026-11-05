@@ -5,6 +5,7 @@ import qs.Common
  *    label: string          "Master Volume"
  *    value, from, to, stepSize: real    default 0..1, step 0 = continuous
  *    valueText: string      what follows the colon; default percent of the range
+ *    codes: string          §-coded override of the printed text (McText codes), e.g. a red value
  *    text: string           full override of the printed text (e.g. the brightness "Moody"/"Bright" labels)
  *    live: bool             moved() fires during the drag; default true. false fires only on release
  *    highlighted: bool      force the highlighted handle (previews)
@@ -24,6 +25,7 @@ Item {
     property real stepSize: 0
     property string valueText: Math.round(position * 100) + "%"
     property string text: label.length ? label + ": " + valueText : valueText
+    property string codes: ""          // optional §-coded label (e.g. "Master Volume: §c120%"); overrides text when set
     property bool live: true
     property bool highlighted: false
     property bool focusLook: false
@@ -71,8 +73,18 @@ Item {
     }
     McText {
         anchors.centerIn: parent
+        visible: root.codes.length === 0
         width: Math.min(implicitWidth, root.width - Theme.px(4))
         text: root.text
+        color: root.enabled ? Theme.buttonText : Theme.buttonTextDisabled
+        elide: Text.ElideRight
+    }
+    McText {   // §-coded variant; the slider track is dark in both modes, so colours are literal
+        anchors.centerIn: parent
+        visible: root.codes.length > 0
+        width: Math.min(implicitWidth, root.width - Theme.px(4))
+        codes: root.codes
+        darkGround: true
         color: root.enabled ? Theme.buttonText : Theme.buttonTextDisabled
         elide: Text.ElideRight
     }
