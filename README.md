@@ -15,20 +15,12 @@ Two modes, switchable live. The CLI names are `light` and `dark`:
 
 A day/night cycle can switch them by itself at local sunrise and sunset (`daycycle` in `config.json`, or `/time set auto`).
 
-| Desktop thing | Minecraft thing |
-|---|---|
-| workspaces 1-10 | hotbar (1-9) and offhand slot (10); the item is the busiest app, the stack count is the window count |
-| battery / free RAM / CPU | hearts / hunger / air bubbles |
-| uptime | XP level (hours) and XP bar |
-| launcher | creative inventory (`=` calculator and `>` run kept) |
-| notifications / history / Do Not Disturb | toasts ("Challenge Complete!" for urgent) / chat history / Peaceful difficulty |
-| network panel | Multiplayer server list (signal = ping bars) |
-| power menu | Game Menu (Esc screen) |
-| wallpaper picker | Select World (Create New World renders a new wallpaper) |
-| brew timer | brewing stand, boss bar |
-| workspace title card | `/title` |
-| closing / opening a window | mining a block (crack stages, break sound) / placing one |
-| lock screen, login screen | title screen with the OVERWORLD wordmark and a splash |
+> **New to this?** Read [docs/GUIDE.md](docs/GUIDE.md): it explains how the pieces fit together, traces one key press
+> through the real files, and shows how to add a chat command, an advancement, a widget card or a sound.
+
+Contents: [theme system](#a-theme-system-you-can-switch-on-and-off) - [tour](#feature-tour) - [install](#requirements-and-install) -
+[first run](#first-run) - [keybinds](#keybind-cheat-sheet) - [CLI](#cli-reference) - [config](#configjson-keys) -
+[repo layout](#layout-of-the-repo) - [docs](#docs) - [credits](#credits-and-licence)
 
 ## A theme system you can switch on and off
 
@@ -55,6 +47,79 @@ overworld status   # enabled, mode, previous theme, game mode, day cycle, proces
   removes the hook and links. The SDDM login theme is separate and needs sudo ([docs/SUDO-STEPS.md](docs/SUDO-STEPS.md)).
 - Day/Night (`SUPER+T`) is a separate switch inside the theme.
 
+> **Careful with `install.sh` and `uninstall.sh`.** They do not have a `--help` mode: running them with any argument
+> still performs the install or uninstall (and `uninstall.sh` turns the theme off). Read them before running.
+
+## Feature tour
+
+### The HUD (the bar is Minecraft's in-game HUD)
+
+Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to the bottom centre, like the game's HUD
+(layout comment at the top of `quickshell/Bar/Bar.qml`).
+
+| Desktop thing | Minecraft thing | Component | Behaviour |
+|---|---|---|---|
+| workspaces 1-9, 10 | hotbar slots, offhand slot | `Bar/Hotbar.qml` | selection frame snaps; the item is the busiest app on that workspace (`tokens/items.json`), the stack count is the window count; hover = tooltip with title and note; wheel cycles; the item name pops above the hotbar on a switch |
+| battery | hearts | `Common/HeartsRow.qml` | regen pulse while charging, hearts jiggle at 2 hearts or fewer, hardcore hearts when critical |
+| free RAM | hunger (drumsticks) | `Common/HungerRow.qml` | fills from the right; shakes when swap is heavily used |
+| CPU headroom | air bubbles | `Common/AirRow.qml` | bubbles burst as load rises |
+| uptime | XP level and XP bar | `Bar/Bar.qml`, `Bar/LevelSparkle.qml` | level = hours of uptime, bar = progress through the hour; sparkle on each new level |
+| brew timer, else playing media | boss bar (top centre) | `Bar/BossBar.qml` | only while active: "Brewing: <task>" or "Now Playing: <title>" (`hud.bossbar_media`) |
+| tray, Wi-Fi, Bluetooth, volume, widgets | slots at the HUD's flanks | `Bar/WifiChip.qml`, `BluetoothChip.qml`, `TrayItem.qml`, `WidgetsChip.qml` | wheel and middle-click where it makes sense |
+| workspace title card | `/title` | `Osd/WorkspaceCard.qml` | fade-in 10 ticks, stay 70, fade-out 20 (the game's defaults; 1 tick = 50 ms) |
+| volume / brightness | Options slider | `Osd/Osd.qml` | "Master Volume: 75%"; brightness labels from "Moody" to "Bright" |
+
+### Screens
+
+| Desktop thing | Minecraft thing | Key | Source |
+|---|---|---|---|
+| launcher | creative inventory (tabs, 9-column slot grid, tooltips; `=` calculator, `>` run) | `SUPER+Space` / `SUPER+D` | `Launcher/` |
+| notifications | toasts ("Challenge Complete!" for urgent) | (automatic) | `Notifications/` |
+| notification centre, Do Not Disturb | chat history, Peaceful difficulty | `SUPER+I`, `SUPER+SHIFT+I` | `Notifications/NotificationCenter.qml` |
+| network panel | Multiplayer server list (signal = ping bars, hidden SSID = Direct Connection) | `SUPER+N` | `Network/` |
+| power menu | Game Menu (Back to Game, Lock, Sleep in Bed, Save and Quit, Respawn, Quit Game) | `SUPER+Escape` | `Power/` |
+| wallpaper picker | Select World (Create New World renders a new wallpaper) | `SUPER+W` | `Wallpapers/` |
+| brew timer | brewing stand GUI | `SUPER+B`, `SUPER+SHIFT+B` | `Brew/`, `Widgets/BrewTimer/` |
+| lock screen | title screen: our panorama, OVERWORLD wordmark, bouncing splash text | `CTRL+ALT+L` | `hypr/hyprlock.conf` |
+| login (SDDM) | title screen with a slowly rotating panorama (needs sudo) | | `sddm/overworld/` |
+| Options | Minecraft Options menu; edits `config.json` live | `SUPER+O` | `Game/OptionsScreen.qml` |
+
+### Game systems (`quickshell/Game/`)
+
+- **Chat console** (`SUPER+SHIFT+T`, or `SUPER+/` with `/` typed): `/help` lists the commands. `/time set day|night|auto`,
+  `/weather clear|rain|thunder|snow|auto`, `/gamemode`, `/tp <1-10>`, `/give <app>`, `/locate <app>`, `/kill [class]`,
+  `/brew 25m`, `/title <ws> <text>`, `/msg <text> in <duration>` (a real reminder), `/advancement`, `/stats`, `/f3`,
+  `/seed`, `/clear`, `/reload`. Tab completes, Up/Down is history. System events appear as chat lines that fade after 10 s.
+- **Game modes** (`overworld gamemode ...`, `SUPER+F4` switcher): *survival* is normal; *creative* removes the HUD warnings;
+  *adventure* is the performance mode (animations, blur, shadows, gaps, rounding off, widgets hidden); *spectator* is focus
+  mode (HUD and widgets hidden, gaps 0, Do Not Disturb on).
+- **Advancements and statistics**: 60 advancements in five tabs (`quotes/advancements.json`), unlocked by real desktop events
+  (first terminal, first brew, 100 windows mined, 3 hours of uptime, Wi-Fi connected ...). Statistics are counts of shell and
+  Hyprland events only, no keystrokes.
+- **Desktop widgets** (`SUPER+G`): eight cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
+  (media), Brewing Stand, Block of the Day, Clock and Calendar, System (F3 style), Note Block (cava), Sign (quote).
+  Opacity is `widgets.opacity` (default 0.72). See [docs/WIDGETS.md](docs/WIDGETS.md).
+
+### World effects (`quickshell/World/`)
+
+Day/night cycle from locally computed sun times with time-of-day wallpapers; a rain, snow and thunder overlay driven by
+Open-Meteo weather or forced by `/weather`; the F3 debug screen (`SUPER+F3`, with a frame graph on `SUPER+SHIFT+F3`).
+See [docs/WORLD.md](docs/WORLD.md).
+
+### Interactions (`quickshell/Interact/`)
+
+- Closing a window (`SUPER+Q`) mines it: crack stages over the window, break particles in the window's own colours, a
+  material-dependent break sound, then it closes. Opening one plays a place sound and dust.
+- `Print` takes a screenshot and prints "Saved screenshot as ..." in chat with an item-pickup pop.
+- At 5 % battery while discharging a "You died!" screen appears (once per discharge). Respawn dismisses it.
+- Each uptime hour is an XP level with orbs and a sparkle. See [docs/INTERACTIONS.md](docs/INTERACTIONS.md).
+
+### Screenshots
+
+Renders of this theme contain Mojang textures, so they are not committed. After fetching the assets and running the
+theme, look at `qa/screenshots/qa-*.png` locally (Day and Night pairs, produced by the QA pass; the folder is gitignored,
+so a fresh clone has none) or take your own with `SUPER+F2`. The images in `docs/screenshots/*.webp` are Apothecary's, left over from the fork.
+
 ## Requirements and install
 
 Fedora with JaKooLit's Hyprland dotfiles, Hyprland 0.56 (developed on 0.56.2), Quickshell (`qs`) 0.3, awww, kitty,
@@ -65,56 +130,112 @@ the font and icon builds. Optional: the `claude` CLI (logged in) for workspace a
 git clone <this repo> ~/Projects/overworld-hyprland && cd ~/Projects/overworld-hyprland
 scripts/fetch-minecraft-assets.sh --build      # Mojang textures and sounds, then the local font and icons
 (cd tools/worldgen && uv run python -m worldgen catalog)   # render the wallpaper set (docs/WORLDGEN.md)
-scripts/install.sh                             # links the layer into ~/.config; idempotent
+scripts/install.sh                             # links the layer into ~/.config; idempotent; theme stays off
 overworld on
 ```
 
 Mojang assets are never committed. `scripts/fetch-minecraft-assets.sh` copies them from your own `~/.minecraft`
 (read-only) or, if that is missing, downloads them from Mojang's servers into the gitignored `assets/mc/`. Anything
 derived from them (wallpapers, renders, the bitmap font, icons) is built locally and also gitignored. Without the
-assets the theme falls back to original art in `assets/gen/`.
-
-Sounds are off on the owner's machine: `~/.config/overworld/config.json` has `"sounds": false`. To enable them set
-`"sounds": true` there, or use Options > Music & Sounds (`SUPER+O`). (`install.sh` creates a config with
-`"sounds": true` only when none exists.)
+assets the theme falls back to original art in `assets/gen/` (some fallbacks are incomplete, see `qa/REPORT.md`).
 
 Full steps and removal: [docs/INSTALL.md](docs/INSTALL.md).
 
-## Main keybinds
+## First run
 
-Active only while the theme is on. All of them are in [docs/KEYBINDS.md](docs/KEYBINDS.md), with what each replaced.
+1. **Fetch assets and fonts**: the `fetch-minecraft-assets.sh --build` line above. Monocraft (the terminal font) and
+   `Overworld Mojangles` (the proportional GUI font) are installed into `~/.local/share/fonts/overworld/`.
+2. **Install and switch on**: `scripts/install.sh`, then `overworld on` (about a second). `overworld off` is always the way back.
+3. **Sounds are your call.** A config created by `install.sh` has `"sounds": true`; a machine that was set up silent has
+   `"sounds": false`. Switch on/off with Options > Music & Sounds (`SUPER+O`) or by editing `~/.config/overworld/config.json`.
+   Test the sound paths without making noise: `OW_SOUND_DRYRUN=1 scripts/ow-sound ui.click`.
+4. **Sudo step (optional)**: the SDDM login theme. `sudo ~/Projects/overworld-hyprland/scripts/install-sddm.sh`
+   (see [docs/SUDO-STEPS.md](docs/SUDO-STEPS.md)). Nothing else needs root.
+5. **Try the keys**: `SUPER+Space` (inventory), `SUPER+Escape` (Game Menu), `SUPER+SHIFT+T` then `/help` and Tab,
+   `SUPER+F4` (game modes), `SUPER+L` (advancements). Mine a throwaway window with `SUPER+Q`. Lock once with `CTRL+ALT+L`.
+6. **Workspace titles**: `overworld ws 1 "Code" "nvim and kitty"`; optional Claude labelling with `overworld ws auto on`.
+
+## Keybind cheat sheet
+
+Active only while the theme is on (`hypr/keybinds.conf`). The full table, with what each key replaced from JaKooLit, is in
+[docs/KEYBINDS.md](docs/KEYBINDS.md).
 
 | Key | Action |
 |---|---|
 | `SUPER+Space` / `SUPER+D` | creative inventory (launcher) |
-| `SUPER+Q` | mine the window (crack animation, then it closes) |
+| `SUPER+Q` | mine the window (crack animation, then it closes); `SUPER+SHIFT+Q` is the hard kill |
 | `SUPER+Escape` | Game Menu |
-| `SUPER+W` / `SUPER+SHIFT+W` | Select World / next wallpaper |
+| `SUPER+W` / `SUPER+SHIFT+W` / `CTRL+ALT+W` | Select World / next wallpaper / random wallpaper |
 | `SUPER+T` | Day / Night |
-| `SUPER+N` / `SUPER+I` | Multiplayer (network) / chat history (notifications) |
+| `SUPER+N` / `SUPER+I` / `SUPER+SHIFT+I` | Multiplayer (network) / chat history (notifications) / Peaceful (DND) |
 | `SUPER+SHIFT+T` / `SUPER+/` | chat console / chat console with `/` typed |
 | `SUPER+L` / `SUPER+SHIFT+L` / `SUPER+O` | advancements / statistics / options |
-| `SUPER+F3` / `SUPER+F4` | F3 debug screen / gamemode switcher |
-| `SUPER+G` / `SUPER+B` | desktop widgets / brewing stand |
+| `SUPER+F1` / `SUPER+F2` | hide the HUD / screenshot of everything |
+| `SUPER+F3` / `SUPER+SHIFT+F3` / `SUPER+F4` | F3 debug screen / with frame graph / gamemode switcher |
+| `SUPER+G` / `SUPER+B` / `SUPER+SHIFT+B` | desktop widgets / brew start-pause / brew dialog |
+| `SUPER+E` | superfile |
 | `SUPER+SHIFT+G` / `SUPER+ALT+R` | adventure (performance) mode / repair |
 | `SUPER+SHIFT+Space` | float or tile the window (`SUPER+Space` is the launcher) |
+| `Print` / `SHIFT+Print` / `ALT+Print` / `SUPER+SHIFT+S` | screenshot: area / screen / window / area then annotate |
 
-## Chat console, game modes, advancements, world effects
+`SUPER+Return`, `SUPER+1...0`, `SUPER+arrows` and the other JaKooLit binds are unchanged; see
+[docs/HYPRLAND-GUIDE.md](docs/HYPRLAND-GUIDE.md).
 
-- **Chat**: `/help` lists the commands. Examples: `/time set day|night|auto`, `/weather clear|rain|thunder|snow|auto`,
-  `/gamemode`, `/tp <1-10>` (go to a workspace), `/give <app>` (launch), `/locate <app>`, `/kill [class]`,
-  `/brew 25m`, `/title <ws> <text>`, `/msg <text> in <duration>` (a real reminder), `/advancement`, `/stats`, `/f3`.
-  Tab completes, Up/Down is history. System events show up as chat lines that fade after 10 s.
-- **Game modes** (`overworld gamemode ...`, `SUPER+F4`): survival is normal; creative removes the HUD warnings; adventure
-  is the performance mode (animations, blur, shadows, gaps, rounding off, widgets hidden); spectator is focus mode
-  (HUD and widgets hidden, gaps 0, Do Not Disturb on).
-- **Advancements and statistics**: 60 advancements in five tabs, unlocked by real desktop events (first terminal,
-  first brew, 100 windows mined, 3 hours of uptime, Wi-Fi connected ...). The counts are of shell and Hyprland events
-  only, no keystrokes.
-- **World effects**: the day/night cycle (sun times computed locally) with time-of-day wallpapers; a rain, snow and
-  thunder overlay driven by Open-Meteo weather or overridden by `/weather`; the F3 screen with live system values.
-- **Interactions**: opening a window plays a place sound and dust; a screenshot (`Print`) prints "Saved screenshot as ..."
-  in chat; at 5% battery while discharging a "You died!" screen appears; each uptime hour is an XP level.
+## CLI reference
+
+`overworld help` and `overworld help <verb>` print this (checked against `scripts/overworld`'s own help):
+
+| Command | What it does |
+|---|---|
+| `overworld on` / `off` / `status` | enable the theme / disable and restore the previous one / show state |
+| `overworld light` / `dark` / `toggle` | Day / Night / flip |
+| `overworld reload` / `repair` | `hyprctl reload` and restart the shell / undo what JaKooLit scripts did to the theme |
+| `overworld session-start` | run by Hyprland at login (no-op unless enabled); not for typing |
+| `overworld wallpaper next\|prev\|random\|current\|pick\|<path>` | wallpaper for the current mode, remembered per mode |
+| `overworld world new [--scene S] [--time T] [--mode light\|dark] [--seed N] [--out PATH]` | render a new world wallpaper (10-60 s). Scenes: plains birch-forest snowy-taiga desert cherry-grove ocean-beach mountains mushroom-fields nether the-end. Times: day dawn dusk night |
+| `overworld gamemode survival\|creative\|adventure\|spectator\|switcher\|status` | game modes (`on`, `off`, `toggle` are old names for adventure / survival / flip) |
+| `overworld weather clear\|rain\|thunder\|snow\|auto` | force the weather overlay, or follow the real weather; no argument prints it |
+| `overworld daycycle auto\|day\|night\|off` | day/night cycle |
+| `overworld f3 [on\|off\|toggle\|graph]` | the debug screen |
+| `overworld kill [address]` | mine the focused window, or the one at that address (from `hyprctl clients`) |
+| `overworld chat [text]` | open the console, or run a `/command` or say a line without opening it |
+| `overworld advancements` / `stats` / `options` | the game screens |
+| `overworld screenshot [area\|window\|screen\|swappy]` | saved to `~/Pictures/Screenshots` and copied |
+| `overworld sound <id>` | play an id from `tokens/sounds.json` (honours `sounds` and volumes; `OW_SOUND_DRYRUN=1` prints instead) |
+| `overworld ws ...` | workspace titles and notes, Claude auto-labelling (`overworld help ws`) |
+| `overworld brew ...` | brew timer (`brew set 50 10`, `brew start`, `brew toggle`, `brew rest 0`; `overworld help brew`) |
+| `overworld event <name> ['<json>']` | post to the event bus (`$XDG_RUNTIME_DIR/overworld/events.jsonl`) |
+
+Other tools: `scripts/ow-sound --list` (all sound ids), `scripts/fetch-minecraft-assets.sh [--build] [--sounds-only]
+[--force] [--download] [--version V]`. The shell's own commands go through `qs -c overworld ipc call <target> <function>`;
+the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew widgets chat
+advancements stats options gamemode world interact` (see [docs/QUICKSHELL.md](docs/QUICKSHELL.md)).
+
+## config.json keys
+
+`~/.config/overworld/config.json` is watched live. The Options screen (`SUPER+O`) edits most of these; missing keys use the default.
+Defaults are in `quickshell/Services/ConfigService.qml`.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `sounds` | `true` | master switch for `scripts/ow-sound` |
+| `sound_volume.master` `.ui` `.toasts` `.blocks` `.ambient` | 100 | 0-100 |
+| `gui_scale` | `2` | 1-4 or `"auto"` (integer scale of all pixel art) |
+| `animations` / `reduced_motion` | `true` / `false` | `reduced_motion` or `animations:false` = instant closes, no particles |
+| `particles` | `"all"` | `"all"`, `"decreased"`, `"minimal"` |
+| `weather_effects` | `true` | the rain/snow overlay |
+| `daycycle` | `"auto"` | `"auto"`, `"day"`, `"night"`, `"off"` |
+| `difficulty` | `"normal"` | `"peaceful"` = Do Not Disturb |
+| `widgets.opacity` | `0.72` | desktop card fill opacity |
+| `death_screen` | `true` | the "You died!" screen at 5 % battery |
+| `hud.bossbar_media` | `"playing"` | `"playing"`, `"track"`, `"off"` |
+| `notifications.timeout.low` / `.normal` | 4000 / 7000 | ms |
+| `workspace_card.enabled` `.duration` `.position` `.show_untitled` | true, 0, `"center"`, true | the /title card |
+| `workspace_auto.enabled` (+ `model`, `settle`, `cooldown`, `recheck`, `reset_after`, `max_per_hour`, ...) | false | Claude labelling, see `overworld help ws` |
+| `interact.break` `.break_ms` `.hit_every` `.place` | true, 450, 2, true | block-break / place effects |
+| `brew.work` / `brew.break` | 25 / 5 | minutes, or a string like `"90s"` |
+| `weather.lat` `.lon` `.name` | unset | location for sun times and the Weather card |
+| `weather_thunder_sound` | `false` | thunder sound with the overlay |
 
 ## Layout of the repo
 
@@ -134,10 +255,11 @@ docs/         documentation   BRIEF.md  the design contract the project was buil
 
 ## Docs
 
-[INSTALL](docs/INSTALL.md) - [KEYBINDS](docs/KEYBINDS.md) - [HYPRLAND-GUIDE](docs/HYPRLAND-GUIDE.md) (a field guide to Hyprland on this setup) -
-[QUICKSHELL](docs/QUICKSHELL.md) - [GAMEPLAY](docs/GAMEPLAY.md) - [WORLD](docs/WORLD.md) - [INTERACTIONS](docs/INTERACTIONS.md) -
-[WIDGETS](docs/WIDGETS.md) - [APPS](docs/APPS.md) - [WORLDGEN](docs/WORLDGEN.md) - [DESIGN](docs/DESIGN.md) -
-[SUDO-STEPS](docs/SUDO-STEPS.md) - [STATUS](docs/STATUS.md).
+[GUIDE](docs/GUIDE.md) (how it works, start here) - [INSTALL](docs/INSTALL.md) - [KEYBINDS](docs/KEYBINDS.md) -
+[HYPRLAND-GUIDE](docs/HYPRLAND-GUIDE.md) (a field guide to Hyprland on this setup) - [QUICKSHELL](docs/QUICKSHELL.md) -
+[GAMEPLAY](docs/GAMEPLAY.md) - [WORLD](docs/WORLD.md) - [INTERACTIONS](docs/INTERACTIONS.md) - [WIDGETS](docs/WIDGETS.md) -
+[APPS](docs/APPS.md) - [WORLDGEN](docs/WORLDGEN.md) - [DESIGN](docs/DESIGN.md) - [SUDO-STEPS](docs/SUDO-STEPS.md) -
+[CHANGELOG](CHANGELOG.md) - [QA report](qa/REPORT.md).
 
 ## Credits and licence
 

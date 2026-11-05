@@ -7,6 +7,7 @@
 # apps/apply-mode.sh <light|dark>, so installing on top of a live Apothecary desktop changes nothing you can see.
 # Reverse everything with apps/uninstall.sh. Idempotent: run it again after pulling the repo or rebuilding tokens.
 set -euo pipefail
+case "${1:-}" in -h|--help) sed -n "2,/^[^#]/{/^#/s/^# \{0,1\}//p}" "$0"; exit 0 ;; esac
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 have jq || die "jq is required"

@@ -4,6 +4,7 @@
 # symlinks and (with --purge) the state dir. Only Overworld's changes: Apothecary's line, links and state stay as they are.
 # SDDM: see docs/SUDO-STEPS.md for the revert one-liner.
 set -euo pipefail
+case "${1:-}" in -h|--help) sed -n "2,/^[^#]/{/^#/s/^# \{0,1\}//p}" "$0"; exit 0 ;; esac
 
 REPO="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.." && pwd -P)"
 CFG="${XDG_CONFIG_HOME:-$HOME/.config}"

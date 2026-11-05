@@ -6,6 +6,7 @@
 #   4. ~/.config/overworld/<app>/ dirs and apps-state.json are removed
 # Safe to run twice. Never touches ~/.config/nvim or the pre-theme backup repo.
 set -euo pipefail
+case "${1:-}" in -h|--help) sed -n "2,/^[^#]/{/^#/s/^# \{0,1\}//p}" "$0"; exit 0 ;; esac
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 [[ -f "$APPS_STATE" ]] || { log "nothing installed (no $APPS_STATE)"; exit 0; }

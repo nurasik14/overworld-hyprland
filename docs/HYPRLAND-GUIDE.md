@@ -692,6 +692,78 @@ and a Singleplayer button that says what Enter does. Type your password and pres
 | Keyboard layout skips one (us → kz) | Alt+Shift is handled by xkb **and** JaKooLit's `KeyboardLayout.sh`. If it double-steps, remove one of them (e.g. `kb_options` in `hyprland.conf`) |
 | A floating window went off-screen | Focus it (`SUPER+CTRL+S`) and run `hyprctl dispatch centerwindow`, or press `SUPER+SHIFT+Space` twice |
 
-Further reading in this repo: `docs/KEYBINDS.md` (what each theme key replaced) · `docs/QUICKSHELL.md` (shell
+---
+
+## 9. Reading the Overworld layer files
+
+Everything the theme changes in Hyprland is in four short files under `hypr/`, loaded by `hypr/on.conf` only while the theme is on.
+Here is what the lines mean, quoted from the real files. (How the files get loaded: `docs/GUIDE.md` §1.)
+
+### 9.1 `hypr/keybinds.conf`: binds
+
+```
+$ow = $HOME/.local/bin/overworld            # a variable: $ow expands to this path
+$qs = qs -c overworld ipc call              # run a function inside the Quickshell shell
+
+unbind = SUPER, Q                           # first remove JaKooLit's bind for the same key (killactive)
+bindd  = SUPER, Q, Mine the window (block-break close), exec, $ow kill
+```
+
+- `bindd = MODS, KEY, description, dispatcher, argument`. The `d` means "has a description" (shown by `SUPER+SHIFT+K` search and `hyprctl binds`).
+  `exec` is the dispatcher that runs a command. Other dispatchers you have seen: `togglefloating`, `killactive`, `workspace`.
+- `unbind` must spell the key **exactly** as the original bind did (`SPACE` is not `Space`), otherwise both binds stay and both fire.
+  `hypr/test/check-config.sh` checks every key against JaKooLit's files.
+- JaKooLit actions that had to move got a new key rather than disappearing: float is now `SUPER+SHIFT+Space`, night light `SUPER+CTRL+N`, group `SUPER+ALT+G`.
+
+### 9.2 `hypr/decorations.conf`: the look of blocks
+
+| Setting | Value | Why |
+|---|---|---|
+| `general:border_size` | 3 | a hard outline like a selected block |
+| `gaps_in` / `gaps_out` | 4 / 8 | multiples of the 4 px GUI grid |
+| `decoration:rounding` | 0 | blocks have corners |
+| `active_opacity` / `inactive_opacity` | 0.94 / 0.88 | the blurred world shows through a little |
+| `blur` | size 6, passes 3 | blur behind windows and popups; `xray = false` blurs what is really behind |
+| `shadow` | `sharp = true`, `offset = 5 5`, `range = 1` | a hard drop shadow, like the game's text shadow |
+
+The last block of the file is the **layer rules**. A *layer* is a shell surface (bar, menus), not a window; our namespaces all start with `overworld-`:
+
+```
+layerrule = match:namespace ^(overworld-.*)$, blur on, ignore_alpha 0.35, no_anim on
+layerrule = match:namespace ^(overworld-bar)$, blur off, ignore_alpha 0
+```
+
+The first line is the default for all our surfaces: blur behind them, but ignore pixels that are mostly transparent (`ignore_alpha`), and
+no Hyprland animation (`no_anim`), because the QML animates them itself on the 20-tick clock. **Later rules win**, so the catch-all comes
+first and the exceptions after it: the bar, widgets and overlays that cover the whole screen get `blur off`, otherwise every transparent pixel
+would smear the windows behind. See your layers with `hyprctl layers`.
+
+### 9.3 `hypr/animations.conf`: motion
+
+A **bezier** is a curve `x1, y1, x2, y2` from "start" to "end". An `animation =` line is `name, on/off, speed, curve, style`, where speed is in
+units of 100 ms (`2.5` = 250 ms):
+
+```
+bezier    = place, 0.2, 1.25, 0.4, 1                 # y1 above 1 = overshoot: a block landing on the grid
+animation = windows, 1, 2.5, place, popin 85%        # open: grow from 85 % in 250 ms
+animation = windowsOut, 1, 1, snap, popin 85%        # close: almost instant, the shell already "broke" the block
+animation = workspaces, 1, 3.5, snap, slide          # 350 ms slide: quick, as you like it
+animation = border, 0                                # borders do not animate
+```
+
+To experiment live: `hyprctl keyword animation workspaces,1,2,snap,slide`; `hyprctl reload` puts the file back.
+
+### 9.4 `hypr/rules.conf`: window rules
+
+Hyprland 0.56 syntax: `windowrule = match:<property> <regex>, <effect> <value>, ...`. Example from the file:
+
+```
+windowrule = match:class ^(spf)$, float on, center on, size (monitor_w*0.70) (monitor_h*0.70)
+```
+
+Find the class of any window with `hyprctl clients` (the `class:` line). `^(...)$` anchors the regex so `spf` does not also match `spf2`.
+When two rules set the same property, the later one wins; this file loads after JaKooLit's `WindowRules.conf`, so the theme takes precedence.
+
+Further reading in this repo: `docs/GUIDE.md` (how the whole thing works) · `docs/KEYBINDS.md` (what each theme key replaced) · `docs/QUICKSHELL.md` (shell
 internals) · `docs/GAMEPLAY.md` (chat, modes, advancements) · `docs/WIDGETS.md` (cards) · `docs/INSTALL.md`
 (install/uninstall, coexistence with Apothecary) · `docs/SUDO-STEPS.md` (root-only fixes).
