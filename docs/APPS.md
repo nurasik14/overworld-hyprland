@@ -76,3 +76,12 @@ See `docs/agent-reports/app-theming.md` for the exact list of what was run, scre
 * Running GTK/Qt apps and Zen keep their old look until restarted (apply-mode restarts nothing).
 * Starship, spicetify are not installed on this machine → configs only validated syntactically.
 * `tokens/out/*/fastfetch-colors.jsonc` and `nvim-palette.lua` have generator bugs (see REQUESTS.md); install.sh works around them.
+
+## Zen / Firefox: YouTube progress for the Now Playing boss bar
+
+Firefox exports YouTube's title/artist over MPRIS but no `mpris:length` and position 0, so nothing on the desktop can
+show track progress. `apps/zen/youtube-mpris-position.user.js` (a Violentmonkey userscript, `@grant none`, page context)
+feeds the `<video>` duration/position into `navigator.mediaSession.setPositionState()` once a second and on
+seek/rate/track changes; Firefox then reports real Position + length. Install: Violentmonkey from addons.mozilla.org,
+then open the .user.js file (e.g. `python3 -m http.server 8765 --bind 127.0.0.1` in apps/zen and visit
+http://127.0.0.1:8765/youtube-mpris-position.user.js) → Install. Check: `playerctl -p firefox.instance_* position`.
