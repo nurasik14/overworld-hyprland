@@ -1,4 +1,12 @@
-# Overworld Hyprland
+<p align="center"><img src="assets/gen/wordmark/overworld.png" alt="OVERWORLD" width="640"></p>
+
+<h1 align="center">Overworld Hyprland</h1>
+
+<p align="center"><b>Your Hyprland desktop, as a Minecraft world.</b><br>
+The Quickshell shell is the game&rsquo;s HUD and menus; windows are mined when you close them and placed when you open them.</p>
+
+<p align="center"><img src="docs/screenshots/01-hero-day-night.webp" alt="The same desktop in Day (left) and Night (right)" width="900"><br>
+<sub>One desktop, two modes: <b>Day</b> on the left, <b>Night</b> on the right.</sub></p>
 
 A Minecraft-inspired theme for a real Hyprland desktop. The desktop is a Minecraft world and the Quickshell shell
 is its HUD and menus: a hotbar for workspaces, hearts for the battery, a creative inventory for the launcher, toasts
@@ -15,12 +23,178 @@ Two modes, switchable live. The CLI names are `light` and `dark`:
 
 A day/night cycle can switch them by itself at local sunrise and sunset (`daycycle` in `config.json`, or `/time set auto`).
 
+<p align="center"><img src="docs/screenshots/45-day-night.webp" alt="Day to Night animation" width="480"><br><sub>Day and Night, flipped with <code>SUPER+T</code>.</sub></p>
+
 > **New to this?** Read [docs/GUIDE.md](docs/GUIDE.md): it explains how the pieces fit together, traces one key press
 > through the real files, and shows how to add a chat command, an advancement, a widget card or a sound.
 
-Contents: [theme system](#a-theme-system-you-can-switch-on-and-off) - [tour](#feature-tour) - [install](#requirements-and-install) -
-[first run](#first-run) - [keybinds](#keybind-cheat-sheet) - [CLI](#cli-reference) - [config](#configjson-keys) -
-[repo layout](#layout-of-the-repo) - [docs](#docs) - [credits](#credits-and-licence)
+Contents: [showcase](#showcase) - [theme system](#a-theme-system-you-can-switch-on-and-off) - [tour](#feature-tour) -
+[install](#requirements-and-install) - [first run](#first-run) - [keybinds](#keybind-cheat-sheet) - [CLI](#cli-reference) -
+[config](#configjson-keys) - [repo layout](#layout-of-the-repo) - [docs](#docs) - [credits](#credits-and-licence)
+
+## Showcase
+
+Every image below is a real capture of the running theme on a 1920x1080 Hyprland desktop (Fedora 44, Hyprland 0.56,
+Quickshell 0.3), taken during the QA pass, with a few personal details blurred. Keys are the ones from
+[docs/KEYBINDS.md](docs/KEYBINDS.md) and work while the theme is on. The lock and login images are labelled as what they are.
+
+### The HUD
+
+The bar is Minecraft's in-game HUD, pinned to the bottom centre: workspaces are hotbar slots (the item is the busiest app,
+the stack count is the window count), the battery is hearts, free RAM is hunger, CPU headroom is air bubbles, uptime is the
+XP level and bar. A boss bar appears at the top while a brew runs or media plays. Eight see-through cards sit on the wallpaper.
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/02-desktop-day.webp" width="440" alt="Full desktop, Day"><br><sub><b>Day</b>: hotbar, hearts, hunger, air, XP level 31, the eight widget cards (Weather, Jukebox, Brewing Stand, Block of the Day, Clock and Calendar, System, Note Block, Sign), chat line and the workspace /title card.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/03-desktop-night.webp" width="440" alt="Full desktop, Night"><br><sub><b>Night</b>: the same shell in the deepslate palette. <code>SUPER+T</code> flips Day/Night, <code>SUPER+G</code> shows or hides the cards, <code>SUPER+F1</code> hides the HUD.</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/04-hud-closeup.webp" width="520" alt="HUD close-up"><br><sub>Hearts (battery), hunger (RAM), air bubbles (CPU), XP bar and level (uptime), hotbar with the offhand slot for workspace 10. Hover a slot for a tooltip with the title and note.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/05-xp-levelup.webp" width="320" alt="XP level-up"><br><sub>XP orbs and sparkle on a level-up: one level per hour of uptime, with a <code>+1</code> next to the XP bar.</sub></td>
+</tr>
+</table>
+<p align="center"><img src="docs/screenshots/24-brewing-bossbar-chat.webp" width="760" alt="Brewing boss bar, advancement toast and chat"><br><sub><b>Boss bar and brew.</b> A purple "Brewing 09:59" boss bar at the top centre while a brew runs, an advancement toast beside it, the Brewing Stand card, and fading chat lines that log system events. <code>SUPER+B</code> starts or pauses a brew, <code>SUPER+SHIFT+B</code> opens the brewing stand dialog.</sub></p>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/20-osd-volume.webp" width="400" alt="Volume OSD"><br><sub><b>Master Volume: 80%</b> is the Options slider; the volume keys (<code>XF86AudioRaiseVolume</code> and friends) open it.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/21-osd-brightness.webp" width="400" alt="Brightness OSD"><br><sub><b>Brightness: Moody (4%)</b> uses the labels of the real option, "Moody" to "Bright" (<code>XF86MonBrightnessUp/Down</code>).</sub></td>
+</tr>
+</table>
+<p align="center"><img src="docs/screenshots/22-title-workspace-card.webp" width="520" alt="The /title workspace card"><br><sub><b>/title workspace card.</b> Switching workspace (<code>SUPER+1...0</code>) shows the workspace title and subtitle with the game&rsquo;s /title timing (fade-in 10 ticks, stay 70, fade-out 20). Titles come from <code>overworld ws ...</code> or <code>/title &lt;ws&gt; &lt;text&gt;</code>.</sub></p>
+
+### Screens
+
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/06-launcher-day-tooltip.webp" width="440" alt="Launcher with tooltip"><br><sub><b>Creative inventory launcher</b> (<code>SUPER+Space</code> or <code>SUPER+D</code>), Day: category tabs, a 9-column grid of app icons, a purple-bordered tooltip with name, description and category.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/07-launcher-calc-night.webp" width="440" alt="Launcher calculator"><br><sub>Night, calculator mode: start the search with <code>=</code> (here <code>=2+3*7</code> gives 23, Enter copies it); <code>&gt;</code> runs a command.</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/08-toasts.webp" width="400" alt="Toasts"><br><sub><b>Toasts.</b> Notifications slide in at the top right: low urgency, a purple <b>Challenge Complete!</b> for urgent ones, and the yellow advancement style for normal ones.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/09-chat-history.webp" width="240" alt="Chat history"><br><sub><b>Chat history</b> (<code>SUPER+I</code>) is the notification centre; the "Difficulty" button is Do Not Disturb ("Peaceful", <code>SUPER+SHIFT+I</code>).</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/17-game-menu.webp" width="340" alt="Game Menu"><br><sub><b>Game Menu</b> (<code>SUPER+Escape</code>): Back to Game, Advancements, Statistics, Options, Lock, Sleep in Bed (suspend), Respawn (reboot), Save and Quit to Title (log out), Quit Game (shutdown, behind an "Are you sure you want to quit the game?" confirm screen).</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/38-wlogout.webp" width="440" alt="wlogout"><br><sub>The themed <b>wlogout</b> grid (<code>CTRL+ALT+P</code>) with the same Minecraft icons.</sub></td>
+</tr>
+</table>
+<p align="center"><img src="docs/screenshots/18-select-world.webp" width="640" alt="Select World screen"><br><sub><b>Select World</b> (<code>SUPER+W</code>) is the wallpaper picker: thumbnail, name, file and seed per row. <b>Play Selected World</b> applies it, <b>Create New World</b> renders a new procedural world wallpaper in the background (behind a "Generating world..." screen), <b>Random</b> picks one. <code>SUPER+SHIFT+W</code> is the next wallpaper.</sub></p>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/19-multiplayer-network.webp" width="300" alt="Multiplayer network screen"><br><sub><b>Multiplayer</b> (<code>SUPER+N</code>): Wi-Fi networks are servers with signal as ping bars and the security line as the MOTD; wired and VPN connections are LAN worlds; Direct Connection joins a hidden SSID. Network names are blurred here.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/13-advancements.webp" width="440" alt="Advancements"><br><sub><b>Advancements</b> (<code>SUPER+L</code>): a tree of 60 advancements in five tabs, unlocked by real desktop events (first terminal, first brew, windows mined, uptime ...).</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/14-statistics.webp" width="330" alt="Statistics"><br><sub><b>Statistics</b> (<code>SUPER+SHIFT+L</code>): counts of shell and Hyprland events (windows placed and mined, workspaces visited, brews, notifications ...). No keystrokes are recorded.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/23-brewing-dialog.webp" width="400" alt="Brewing stand dialog"><br><sub><b>Brewing stand</b> dialog (<code>SUPER+SHIFT+B</code>): brew and rest times with presets.</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/15-options-day.webp" width="440" alt="Options"><br><sub><b>Options</b> (<code>SUPER+O</code>), Day: widget opacity, difficulty (Peaceful = Do Not Disturb), time of day (Auto/Day/Night), game mode. It edits <code>config.json</code> live.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/16-options-sounds-night.webp" width="440" alt="Music and Sounds"><br><sub>Options &gt; <b>Music &amp; Sounds</b>, Night: master, interface, toasts, blocks and ambient volume sliders.</sub></td>
+</tr>
+</table>
+
+### Game systems
+
+<p align="center"><img src="docs/screenshots/10-chat-adventure-mode.webp" width="760" alt="Chat console log with game-mode changes"><br><sub><b>Chat console</b> (<code>SUPER+SHIFT+T</code>, or <code>SUPER+/</code> with a <code>/</code> typed): <code>/help</code>, <code>/time</code>, <code>/weather</code>, <code>/gamemode</code>, <code>/tp</code>, <code>/give</code>, <code>/locate</code>, <code>/kill</code>, <code>/brew</code>, <code>/title</code>, <code>/advancement</code>, <code>/stats</code>, <code>/f3</code>, <code>/seed</code> ... with Tab completion and history. Here <code>/gamemode</code> changes and the advancements they unlock are logged as chat lines.</sub></p>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/11-gamemode-switcher.webp" width="440" alt="Game mode switcher"><br><sub><b>Game mode switcher</b> (<code>SUPER+F4</code>): survival, creative, adventure (performance mode) and spectator.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/12-spectator-mode.webp" width="440" alt="Spectator mode"><br><sub><b>Spectator</b> (<code>overworld gamemode spectator</code>) is focus mode: HUD and cards hidden, gaps 0, Do Not Disturb on; the chat log stays.</sub></td>
+</tr>
+</table>
+
+### World effects
+
+Real weather (Open-Meteo) or a forced one: `/weather rain|snow|thunder|clear|auto` or `overworld weather ...`. The overlay uses Minecraft's rain and snow textures.
+
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/26-weather-rain.webp" width="440" alt="Rain overlay"><br><sub><b>Rain</b> (Night).</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/27-weather-snow.webp" width="440" alt="Snow overlay"><br><sub><b>Snow</b> (Day).</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/28-weather-thunder.webp" width="440" alt="Thunder flash"><br><sub><b>Thunder</b>: the lightning flash lights the whole screen for a moment.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/46-weather-cycle.webp" width="440" alt="Snow, rain, thunder cycle"><br><sub>Snow, rain and thunder in a loop (animation).</sub></td>
+</tr>
+</table>
+<p align="center"><img src="docs/screenshots/25-f3-debug.webp" width="760" alt="F3 debug screen"><br><sub><b>F3 debug screen</b> (<code>SUPER+F3</code>, with a frame graph on <code>SUPER+SHIFT+F3</code>): live system values in the game&rsquo;s F3 layout (version, fps, "XYZ", biome = the wallpaper, local difficulty, weather, game mode) over the desktop. Parts of the right column are blurred. The day/night cycle that drives Day and Night is automatic by sunrise and sunset, or <code>/time set day|night|auto</code>.</sub></p>
+
+### Interactions
+
+Closing a window with `SUPER+Q` mines it: cracks grow over the window, break particles come out in its own colours, a break sound plays, then it closes.
+Opening one plays a place sound and dust. `Print` takes a screenshot and prints "Saved screenshot as ..." in chat with an item-pickup pop.
+
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/30-mining-day.webp" width="400" alt="Crack stage, Day"><br><sub>Crack overlay on a plain green test window, Day.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/31-mining-night.webp" width="400" alt="Crack stage, Night"><br><sub>The same, Night. The crack texture tiles and scales with the window size; this is a crop of a flat-colour test window, not a real app.</sub></td>
+</tr>
+</table>
+<p align="center"><img src="docs/screenshots/29-death-screen.webp" width="640" alt="You died! screen"><br><sub><b>"You died!" screen</b> at 5% battery while discharging (once per discharge): <b>Respawn</b> dismisses it, <b>Title Screen</b> locks the session. Triggered here with <code>qs -c overworld ipc call interact death</code>.</sub></p>
+
+### Wallpapers and worlds
+
+Wallpapers are voxel worlds rendered locally by `tools/worldgen`, one set per mode, and they include **your own Minecraft saves**: the author's
+`~/.minecraft/saves` ("New World", "SpeedrunHunt" ...) are rendered as spawn-point wallpapers. `overworld world new` renders a new one.
+
+<p align="center"><img src="docs/screenshots/44-wallpapers-sheet.webp" width="900" alt="Wallpaper contact sheet"><br><sub>Contact sheet of Day and Night wallpapers: plains, snowy taiga, desert, cherry grove, beach, mountains, mushroom fields, the author&rsquo;s saves, Nether and End.</sub></p>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/43-your-own-saves.webp" width="330" alt="Worlds from the author's own saves"><br><sub>Worlds rendered from the author&rsquo;s own saves (spawn points, Day and Night, Nether, End).</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/42-panorama-strip.webp" width="520" alt="Panorama strip"><br><sub>The panorama strip that the lock screen and login theme pan across.</sub></td>
+</tr>
+</table>
+
+### Lock and login
+
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/40-lock-screen-simulated.webp" width="440" alt="Simulated lock screen"><br><sub><b>Lock screen</b> (<code>CTRL+ALT+L</code>): the title screen with the OVERWORLD wordmark and a bouncing splash text. <b>This image is a simulation</b> (an ImageMagick composite of the hyprlock layout); hyprlock itself was not run during QA because it would lock the session.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/41-sddm-login-testmode.webp" width="440" alt="SDDM login in test mode"><br><sub><b>Login theme</b> (SDDM, needs a sudo step), Night, captured with <code>sddm-greeter-qt6 --test-mode</code>: a real greeter render, not a login on a real display manager. A name line is blurred.</sub></td>
+</tr>
+</table>
+
+### Apps
+
+Everything you open follows the mode: `apps/apply-mode.sh` switches them all with the theme.
+
+<p align="center"><img src="docs/screenshots/32-kitty-fastfetch.webp" width="640" alt="kitty with fastfetch"><br><sub><b>kitty + fastfetch</b>: Monocraft font, the grass block logo, "Time Played / Items / Dimension" labels.</sub></p>
+<p align="center"><img src="docs/screenshots/33-nvim-statusline.webp" width="640" alt="Neovim status line"><br><sub><b>Neovim</b>: the Lua palette generated from the same tokens (title card and status line, cropped).</sub></p>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/34-gtk3-day.webp" width="330" alt="GTK3 Day"><br><sub><b>GTK3/4</b> widgets, Day.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/35-gtk3-night.webp" width="330" alt="GTK3 Night"><br><sub><b>GTK3/4</b> widgets, Night.</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+<td align="center" valign="top"><img src="docs/screenshots/37-kvantum-day.webp" width="330" alt="Kvantum Day"><br><sub><b>Kvantum / qt6ct</b> (Qt apps), Day.</sub></td>
+<td align="center" valign="top"><img src="docs/screenshots/36-kvantum-night.webp" width="330" alt="Kvantum Night"><br><sub><b>Kvantum / qt6ct</b>, Night, with the purple Minecraft tooltip.</sub></td>
+</tr>
+</table>
+
+rofi, superfile, btop, cava, starship, Zen and swappy are themed too ([docs/APPS.md](docs/APPS.md)).
+
+### Cursor
+
+<p align="center"><img src="docs/screenshots/39-cursors.png" width="440" alt="Overworld cursor theme"><br><sub><b>Overworld cursor theme</b>: 22 original 16x16 pixel shapes (arrow, hand, I-beam, resize, wait clock ...), Xcursor and hyprcursor, on a light and a dark background (a preview sheet, not a desktop capture).</sub></p>
+
+> Screenshots show Minecraft textures, fonts and wallpapers (c) Mojang Studios, used for demonstration only. This repository does not ship Mojang assets.
+> Personal details (Wi-Fi names, track titles and album art, location, a login name line) are blurred.
+
 
 ## A theme system you can switch on and off
 
@@ -69,7 +243,7 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
 | workspace title card | `/title` | `Osd/WorkspaceCard.qml` | fade-in 10 ticks, stay 70, fade-out 20 (the game's defaults; 1 tick = 50 ms) |
 | volume / brightness | Options slider | `Osd/Osd.qml` | "Master Volume: 75%"; brightness labels from "Moody" to "Bright" |
 
-### Screens
+### Screens and their keys
 
 | Desktop thing | Minecraft thing | Key | Source |
 |---|---|---|---|
@@ -113,12 +287,6 @@ See [docs/WORLD.md](docs/WORLD.md).
 - `Print` takes a screenshot and prints "Saved screenshot as ..." in chat with an item-pickup pop.
 - At 5 % battery while discharging a "You died!" screen appears (once per discharge). Respawn dismisses it.
 - Each uptime hour is an XP level with orbs and a sparkle. See [docs/INTERACTIONS.md](docs/INTERACTIONS.md).
-
-### Screenshots
-
-Renders of this theme contain Mojang textures, so they are not committed. After fetching the assets and running the
-theme, look at `qa/screenshots/qa-*.png` locally (Day and Night pairs, produced by the QA pass; the folder is gitignored,
-so a fresh clone has none) or take your own with `SUPER+F2`. The images in `docs/screenshots/*.webp` are Apothecary's, left over from the fork.
 
 ## Requirements and install
 
@@ -266,6 +434,7 @@ docs/         documentation   BRIEF.md  the design contract the project was buil
 This is an unofficial fan project. It is not made by, endorsed by or affiliated with Mojang Studios or Microsoft;
 "Minecraft" is a trademark of Mojang Studios. Textures, sounds, the bitmap font and splash texts from the game are
 (c) Mojang Studios; they are not in this repository and are fetched to your machine for personal desktop theming.
+Screenshots in this README and in `docs/screenshots/` show Minecraft textures, fonts and splash texts (c) Mojang Studios, used for demonstration only; the repository itself does not ship Mojang assets.
 The project never uses the Minecraft logo: its wordmark is OVERWORLD, in our own block lettering
 (`assets/gen/wordmark/`). Fonts and other third-party assets are listed in [assets/CREDITS.md](assets/CREDITS.md).
 
