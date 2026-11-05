@@ -27,6 +27,7 @@ WidgetCard {
     McTicker {
         active: card.visible
         onTicked: {
+            if (card.svc.idle && card.levels.every(v => v === 0) && card.peaks.every(v => v === 0)) return;   // silent: no repaint
             const lv = card.levels.slice(), pk = card.peaks.slice(), hd = card.hold.slice();
             for (let i = 0; i < card.bars; i++) {
                 const target = card.svc.idle ? 0 : Math.min(card.rows, (card.svc.values[i] || 0) / 100 * card.rows * 1.15);

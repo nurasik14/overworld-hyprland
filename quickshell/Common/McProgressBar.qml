@@ -21,6 +21,7 @@ Item {
     property string color: "white"
     property int notches: 0
     property string title: ""
+    property color titleColor: Theme.hudText
     property int level: -1
     property bool animated: kind === "boss"
     readonly property bool isBoss: kind === "boss"
@@ -39,7 +40,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(implicitWidth, root.width)
         text: root.title
-        color: Theme.hudText
+        color: root.titleColor
         elide: Text.ElideRight
     }
     McOutlineText {

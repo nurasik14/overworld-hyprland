@@ -278,11 +278,14 @@ def spicetify(m, name):
          f"notification-error = {s(m['seal'])}", f"misc               = {s(m['accent2'])}"]
     return "\n".join(L)
 
+LUA_KEYWORDS = {"and","break","do","else","elseif","end","false","for","function","goto","if","in","local","nil","not","or","repeat","return","then","true","until","while"}
+
 def nvim(m, name):
     L = [f"-- {HEADER}", f"-- Overworld {name} palette: local p = dofile(...) or require('overworld.palette_{name}')", "return {", f'  name = "overworld_{name}",', f"  is_dark = {'true' if m['is_dark'] else 'false'},"]
     for k, v in m.items():
         if isinstance(v, str) and v.startswith("#"):
-            L.append(f'  {k} = "{"#"+hex6(v)}",')
+            key = f'["{k}"]' if k in LUA_KEYWORDS else k
+            L.append(f'  {key} = "{"#"+hex6(v)}",')
     L.append("  ansi = { " + ", ".join(f'"{c}"' for c in m["ansi"]) + " },")
     L.append("  ink = { " + ", ".join(f'"{c}"' for c in m["ink"]) + " },")
     L.append("  paper = { " + ", ".join(f'"{c}"' for c in m["paper"]) + " },")

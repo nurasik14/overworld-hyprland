@@ -202,7 +202,7 @@ Scope {
                     id: plot
                     y: Theme.px(11)
                     width: parent.width; height: Theme.px(60)
-                    color: "#90505050"
+                    color: "#c8383838"
                     Repeater {
                         model: root.graphColumns
                         Rectangle {
@@ -242,7 +242,7 @@ Scope {
         Rectangle {
             visible: row.text.length > 0
             anchors.fill: parent
-            color: "#90505050"
+            color: "#c8383838"
         }
         McText {
             id: label

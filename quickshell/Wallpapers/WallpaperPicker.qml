@@ -458,7 +458,7 @@ Variants {
                         const w = win.currentRow;
                         if (w && !win.isCurrent(w.path)) {
                             ShellState.run(["sh", "-c",
-                                'rm -f "$1"; f="$2/index.json"; [ -f "$f" ] && out="$(jq --arg r "$3" \'map(select(.file != $r))\' "$f")" && printf "%s\\n" "$out" > "$f"',
+                                'rm -f "$1" "$2/thumbs/$(basename "$1")"; f="$2/index.json"; [ -f "$f" ] && out="$(jq --arg r "$3" \'map(select(.file != $r))\' "$f")" && printf "%s\\n" "$out" > "$f"',
                                 "overworld-delete-world", w.path, win.wallDir, w.rel]);
                             lister.running = true;
                         }

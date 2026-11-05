@@ -94,7 +94,7 @@ WidgetCard {
         McText {
             x: Theme.px(64); y: Theme.px(21)
             width: Theme.px(112)
-            text: card.svc.fmt(card.svc.position) + " / " + card.svc.fmt(card.svc.length)
+            text: card.svc.fmt(card.svc.position) + (card.svc.length > 0 ? " / " + card.svc.fmt(card.svc.length) : "")
             color: Theme.guiText
         }
         Row {
@@ -120,7 +120,7 @@ WidgetCard {
             readonly property bool overflow: line.implicitWidth > width
             property real offset: 0
             McTicker {
-                active: card.visible && bar.overflow && !Theme.reducedMotion
+                active: card.visible && card.svc.playing && bar.overflow && !Theme.reducedMotion
                 onTicked: n => {   // hold 30 ticks, crawl 1 GUI px per 2 ticks, hold, snap back
                     const travel = Math.ceil((line.implicitWidth - bar.width) / Theme.gui);
                     const cycle = 60 + travel * 2;
@@ -132,7 +132,7 @@ WidgetCard {
                 id: line
                 x: bar.overflow ? -bar.offset : (bar.width - implicitWidth) / 2
                 text: card.svc.nowPlaying
-                rainbow: true
+                rainbow: card.svc.playing          // repaints the whole widget layer at 20 Hz: only while there is music
                 wrapMode: Text.NoWrap
             }
         }

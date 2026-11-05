@@ -2,7 +2,7 @@
 
 > **Theme system, switchable.** Overworld Hyprland is a theme system layered on top of the JaKooLit
 > Hyprland dotfiles, not a replacement for them. Turn it on with `overworld on` and off with `overworld off`
-> (the stock desktop returns in about 5 s, no logout); `overworld status` shows which state is active.
+> (what was there before comes back, Apothecary or the stock desktop, no logout); `overworld status` shows which state is active.
 > The SDDM login theme below is installed separately and is not affected by on/off; it has its own `revert`. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
 
 ```

@@ -79,7 +79,7 @@ Variants {
                     width: log.width
                     height: visible ? Math.max(Theme.px(10), txt.implicitHeight) : 0
                     opacity: alpha
-                    Rectangle { anchors.fill: parent; color: "#80000000" }
+                    Rectangle { anchors.fill: parent; color: "#b4000000" }   // the game has 50 %, but these lines cross a card
                     McText {
                         id: txt
                         x: Theme.px(2)
@@ -157,7 +157,7 @@ Variants {
             visible: win.chatOpen
             x: win.g * 2; width: Theme.px(330); height: Theme.px(12)
             anchors.bottom: parent.bottom; anchors.bottomMargin: Theme.px(2)
-            color: "#80000000"
+            color: "#d8000000"      // the HUD's item-name line sits under it
             McText {
                 x: Theme.px(2); y: Theme.px(1)
                 visible: input.text.length === 0

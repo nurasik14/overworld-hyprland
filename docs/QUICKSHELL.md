@@ -2,7 +2,7 @@
 
 > **Theme system, switchable.** Overworld Hyprland is a theme system layered on top of the JaKooLit
 > Hyprland dotfiles, not a replacement for them. Turn it on with `overworld on` and off with `overworld off`
-> (the stock desktop returns in about 5 s, no logout); `overworld status` shows which state is active.
+> (what was there before comes back, Apothecary or the stock desktop, no logout); `overworld status` shows which state is active.
 > The shell described here runs only while the theme is on; `off` stops it and restarts waybar and the notification daemon. How the switch works: [README](../README.md#a-theme-system-you-can-switch-on-and-off).
 
 Owner: qs-core. Config root: `quickshell/` (symlinked to `~/.config/quickshell/overworld`). Entry: `quickshell/shell.qml`.
@@ -86,7 +86,7 @@ Everything visual comes from `qs.Common`. No `qmldir` files: Quickshell register
 | `animations`, `reduced_motion` | true, false | Theme |
 | `particles` | `"all"` (`"decreased"`, `"minimal"`) | fx modules |
 | `weather_effects` | true | fx-world |
-| `daycycle` | `"off"` (`"auto"`, `"day"`, `"night"`) | fx-world |
+| `daycycle` | `"auto"` (`"day"`, `"night"`, `"off"`) | fx-world |
 | `difficulty` | `"normal"` (`"peaceful"` = DND) | NotificationService |
 | `widgets.opacity` | 0.72 | Theme, Widgets |
 | `death_screen` | true | fx-interactions |

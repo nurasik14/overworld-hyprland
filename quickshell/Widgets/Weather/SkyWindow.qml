@@ -109,7 +109,7 @@ Item {
             anchors.fill: parent
             clip: true
             Repeater {
-                model: 2
+                model: parent.visible ? 2 : 0     // hidden items still moving on the tick clock would redraw the whole widget layer at 20 Hz
                 Image {
                     required property int index
                     x: -Theme.px(index * 23)
@@ -125,7 +125,7 @@ Item {
             anchors.fill: parent
             clip: true
             Repeater {
-                model: 2
+                model: parent.visible ? 2 : 0
                 Image {
                     required property int index
                     x: -Theme.px(index * 17) + Math.round(Math.sin((root.tickN + index * 20) / 14) * 3) * Theme.gui

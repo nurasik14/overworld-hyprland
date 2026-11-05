@@ -12,7 +12,7 @@ import Quickshell.Io
  *  Keys with defaults (the Options screen edits these; qs-features owns the screen):
  *    gui_scale 2 (1-4 | "auto") · sound_volume.{master,ui,toasts,blocks,ambient} 100 (0-100) · sounds true
  *    animations true · reduced_motion false · particles "all" ("all"|"decreased"|"minimal") · weather_effects true
- *    daycycle "off" ("auto"|"day"|"night"|"off") · difficulty "normal" ("normal"|"peaceful" = DND) · widgets.opacity 0.72
+ *    daycycle "auto" ("auto"|"day"|"night"|"off") · difficulty "normal" ("normal"|"peaceful" = DND) · widgets.opacity 0.72
  *    death_screen true · hud.bossbar_media "playing" ("playing"|"track"|"off")
  *    notifications.timeout.{low 4000, normal 7000} · workspace_card.{enabled,duration,position,show_untitled}
  *
@@ -33,7 +33,7 @@ Singleton {
         reduced_motion: false,
         particles: "all",
         weather_effects: true,
-        daycycle: "off",
+        daycycle: "auto",
         difficulty: "normal",
         widgets: { opacity: 0.72 },
         death_screen: true,

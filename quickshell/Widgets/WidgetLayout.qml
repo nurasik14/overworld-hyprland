@@ -24,10 +24,10 @@ Item {
     property alias block: block
     property alias quote: quote
     // Slots are stacks in GUI px, so they follow the GUI scale: left column 12 GUI px from the edge, right column flush to
-    // 12 GUI px from the right edge, 3 GUI px of air between cards, first card at 30 GUI px (below the 18 px bar).
+    // 12 GUI px from the right edge, 3 GUI px of air between cards, first card at 8 GUI px (there is no top bar; the column must end above the HUD's chips at the bottom).
     readonly property int edge: Theme.px(12)
     readonly property int gap: Theme.px(6)
-    readonly property int firstY: Theme.px(30)
+    readonly property int firstY: Theme.px(8)
 
     // reading order = stagger order (left column top→bottom, then right column)
     WeatherCard    { id: weather;  index: 0; cardId: "weather";  defaultX: root.edge;                       defaultY: root.firstY }

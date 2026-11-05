@@ -15,14 +15,10 @@ Item {
     property string text: ""
     property real units: 1
     property bool running: true
-    property real phase: 0
-
-    NumberAnimation on phase {
-        from: 0; to: 1
-        duration: 1000
-        loops: Animation.Infinite
-        running: root.running && root.visible && !Theme.reducedMotion
-    }
+    // On the 20 TPS clock, not a NumberAnimation: that ran at the monitor's 165 Hz and redrew the whole desktop-widget layer each frame
+    // (about 18 % of a core at idle).
+    McTicker { id: clock; active: root.running && root.visible && !Theme.reducedMotion }
+    readonly property real phase: (clock.tick % 20 - clock.tick % 2) / 20      // every 2nd tick is enough for a ±3 % pulse, and halves the redraws
 
     readonly property real _pulse: 1.8 - Math.abs(Math.sin(phase * 2 * Math.PI)) * 0.1
     readonly property real _textGui: label.implicitWidth / Theme.gui

@@ -298,8 +298,7 @@ Singleton {
         if (!a.length) { GameUi.open("switcher"); return; }
         const m = a[0].toLowerCase();
         if (!GameMode.valid(m)) { error(GameCore.t("errors.unknown_option", { value: a[0] })); post("§7" + spec.usage); return; }
-        GameMode.set(m);
-        ok(GameCore.t("ok.gamemode", { mode: GameMode.info(m).name.replace(" Mode", "") }));
+        GameMode.set(m);      // the "gamemode" event posts the chat line
     }
     function cmdTp(a, spec) {
         const n = parseInt(a[0]);
@@ -512,8 +511,14 @@ Singleton {
             root.post("§f" + prefix + colour + "[" + adv.title + "]§f" + suffix, "", { title: adv.title, description: adv.description, frame: adv.frame, prefix: prefix, label: "[" + adv.title + "]" });
         }
     }
-    Component.onCompleted: {   // "joined the game" on every shell start, like the game
-        post(GameCore.t("system.join") || "joined the game", "#ffff55");
+    // "joined the game" on every shell start, like the game; chat.json may still be loading at onCompleted
+    property bool _greeted: false
+    function _greet() {
+        if (_greeted || !GameCore.t("system.join").length) return;
+        _greeted = true;
+        post(GameCore.t("system.join"), "#ffff55");
         post(GameCore.t("system.motd"), "#ffffff");
     }
+    Connections { target: GameCore; function onChatTextsChanged() { root._greet(); } }
+    Component.onCompleted: _greet()
 }

@@ -25,14 +25,16 @@ Singleton {
     function emit(name, data) {
         const line = JSON.stringify({ t: Date.now(), name: String(name), data: data || {} });
         writer.queue.push(line);
-        if (!writer.running) writer.next();
+        if (!writer.busy) writer.next();
     }
 
     Process {
         id: writer
         property var queue: []
+        property bool busy: false
         function next() {
-            if (queue.length === 0) return;
+            if (queue.length === 0) { busy = false; return; }
+            busy = true;
             const line = queue.shift();
             command = ["sh", "-c", 'mkdir -p "$1" && printf "%s\\n" "$2" >> "$3"', "sh", root.runtimeDir, line, root.logPath];
             running = true;

@@ -39,7 +39,7 @@ WidgetCard {
                 required property string modelData
                 width: Math.min(row.implicitWidth + Theme.px(2), Theme.px(176) - (index < 4 ? Theme.px(36) : 0)); height: Theme.px(9)
                 required property int index
-                Rectangle { anchors.fill: parent; color: "#90505050" }
+                Rectangle { anchors.fill: parent; color: "#c8383838" }
                 McText {
                     id: row
                     x: Theme.gui; y: -Theme.gui
@@ -77,6 +77,7 @@ WidgetCard {
                 notches: 10
                 value: Math.min(1, modelData.v / 100)
                 title: modelData.k + ": " + modelData.t
+                titleColor: Theme.guiText
             }
         }
     }

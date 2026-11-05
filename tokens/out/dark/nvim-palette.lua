@@ -80,7 +80,7 @@ return {
   lava = "#e8721c",
   nether = "#7b1e1e",
   netherPortal = "#6a1fbf",
-  end = "#dbde9e",
+  ["end"] = "#dbde9e",
   endSky = "#1a0b2e",
   dirt = "#866043",
   stone = "#7f7f7f",

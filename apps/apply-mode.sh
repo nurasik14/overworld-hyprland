@@ -50,7 +50,7 @@ kitty_reload() {
     if [[ "$MODE" == off ]]; then kitty @ --to "unix:$s" set-colors --all --configured --reset >/dev/null 2>&1 || true
     else kitty @ --to "unix:$s" set-colors --all --configured "$TOKENS/$MODE/kitty.conf" >/dev/null 2>&1 || true; fi
   done
-  pkill -USR1 -x kitty 2>/dev/null || true     # reload kitty.conf (picks up the flipped include)
+  pkill -USR1 -x -O 2 kitty 2>/dev/null || true     # reload kitty.conf (picks up the flipped include). -O 2: USR1 kills a kitty still starting up, and that one reads the new config anyway
 }
 live && [[ "$PREV" != "$MODE" || $LINK_ONLY == 0 ]] && kitty_reload || true
 

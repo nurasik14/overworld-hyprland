@@ -52,7 +52,3 @@ docs/KEYBINDS.md), `now_playing` (media/boss-bar formats), `misc`.
 ## quotes.json
 `[{text, attribution, source: "original", lang}]` — short lines for the Quote widget, hyprlock and fastfetch
 (same shape the Apothecary consumers read).
-
-## herbs.json (legacy)
-Apothecary leftover, still read by `quickshell/Widgets/Services/HerbService.qml`; remove once qs-widgets switches
-the card to `blocks-of-the-day.json` (see docs/REQUESTS.md).

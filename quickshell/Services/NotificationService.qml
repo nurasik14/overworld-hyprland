@@ -168,6 +168,6 @@ Singleton {
     }
     function appGlyph(name) {           // fallback seal glyph: first letter of the app name
         const s = (name || "").trim();
-        return s.length ? s[0].toUpperCase() : "报";
+        return s.length ? s[0].toUpperCase() : "?";
     }
 }

@@ -92,6 +92,7 @@ FocusScope {
     }
     McText {
         visible: root.title.length > 0
+        z: 1      // above contentArea: OverlayWindow's dim layer lives there, and it would grey the title out
         anchors.horizontalCenter: parent.horizontalCenter
         y: Theme.px(root.titleY - 1)
         text: root.title

@@ -25,7 +25,7 @@ Variants {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { top: true; right: true }
-        margins { top: Theme.px(2); right: Theme.px(246) }
+        margins { top: Theme.px(2); right: NotificationService.popups.length > 0 ? Theme.px(246) : Theme.px(2) }
         implicitWidth: Theme.px(250)
         implicitHeight: Theme.px(4 * 44)
         color: "transparent"
