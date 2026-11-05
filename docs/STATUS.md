@@ -39,3 +39,12 @@ Agents run as Claude Code print-mode processes through `.orchestrator/run-agent.
 - 08:28 qa-reviewer DONE (opus/high, 132 turns): Overworld ON (Day, survival, daycycle auto), 21 fixes, idle CPU 2.7 % (was 20.8 %), 0 blockers; 3 medium + 11 low open → fix-pass. Incidents: /locate test focused Zen; music paused ~07:56 (cause unproven); 1 direct workspace dispatch; adventure mode for ~1 min.
 - 08:28 fix-pass + docs-writer hit the 5-h limit at turn 1 (reset 11:20). 08:54 user switched to Night, 08:56 shut down; 13:14 reboot, 13:17 `overworld on` (previous-theme now 'stock') — Overworld survived the reboot. 13:25 user said 'continue': relaunching both with a user-present guard (no screenshots/workspace switching).
 - 13:26 docs-writer DONE but INCIDENT: ran install.sh/uninstall.sh --help, which had no help handling → Overworld uninstalled live while the user was at the desk (~13:24–13:28). Orchestrator restored (install.sh + overworld on, Night, previous=stock as before) and added --help to all 4 install/uninstall scripts.
+- 13:35 fix-pass DONE (sonnet, 107 turns, user-present mode: no screenshots): 11/12 items fully fixed; at GUI scale 3 on 1080p the Sign card does not fit (hidden until dragged). Remaining open: user's rofi config.rasi lines 35–36, nvim lualine message, Flat-Remix icon-theme warning, real-input tests, some fallback sprites without Mojang assets.
+
+## Result (13:36)
+- Overworld ON (Night, survival, daycycle auto), previous-theme = stock (set by the user's own `overworld on` at 13:17). Apothecary installed, OFF.
+- Sounds still disabled in config.json (user decides). Inhibitor ended with the 13:14 reboot; backlight restored 08:30.
+- Docs: README.md, docs/GUIDE.md, docs/KEYBINDS.md, docs/GAMEPLAY.md, docs/WORLD.md, docs/INTERACTIONS.md, qa/REPORT.md.
+- Sudo step pending: SDDM title screen (docs/SUDO-STEPS.md).
+
+ALL PHASES COMPLETE
