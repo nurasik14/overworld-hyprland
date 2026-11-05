@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Hyprland · Overworld
+Comment=Switches the desktop to the Overworld theme, then starts Hyprland
+Exec=/usr/local/bin/hypr-theme-session overworld
+TryExec=/usr/local/bin/hypr-theme-session
+Type=Application
+DesktopNames=Hyprland
+Keywords=tiling;wayland;compositor;

@@ -9,7 +9,19 @@
 sudo dnf install -y kvantum papirus-icon-theme google-noto-serif-cjk-fonts
 ```
 
-## SDDM login theme (hyprland-engineer)
+## Login screen with a theme button (sddm-switcher)
+
+The current login screen is still Waguri because no SDDM step has been run yet. This one installs a login screen with a **Theme** button at the top right (or Alt+T). The button switches the look (Waguri, Overworld, Apothecary) and selects the session that logs into the matching desktop theme:
+
+```
+sudo ~/Projects/overworld-hyprland/scripts/install-sddm.sh hyprthemes
+```
+
+You see it at the next logout or reboot. Revert, also from a text console (Ctrl+Alt+F3): `sudo ~/Projects/overworld-hyprland/scripts/install-sddm.sh revert`. It restores `/etc/sddm.conf` exactly and removes what the install added. How it works and what it changes: [LOGIN.md](LOGIN.md).
+
+Use this or the Overworld-only install below, not both: this one already includes the Overworld look.
+
+## SDDM login theme, Overworld only (hyprland-engineer)
 
 The login screen is the Minecraft title screen: a slowly turning panorama, the OVERWORLD wordmark, a splash, the password as a
 Minecraft text field and **Singleplayer** to log in.

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Hyprland · Apothecary
+Comment=Switches the desktop to the Apothecary theme, then starts Hyprland
+Exec=/usr/local/bin/hypr-theme-session apothecary
+TryExec=/usr/local/bin/hypr-theme-session
+Type=Application
+DesktopNames=Hyprland
+Keywords=tiling;wayland;compositor;

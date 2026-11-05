@@ -1,0 +1,14 @@
+; Hyprland themes — SDDM wrapper theme (Qt 6). Install: sudo scripts/install-sddm.sh hyprthemes  (see docs/LOGIN.md)
+
+[SddmGreeterTheme]
+Name=Hyprland themes
+Type=sddm-theme
+Description=Three login looks behind one theme button: picking a look also selects the session that logs into the matching desktop theme.
+Author=overworld-hyprland (sddm-switcher)
+License=MIT for the wrapper; each look under looks/ keeps its own licence (Silent: GPL-3.0-or-later) and is copied from this machine at install time
+Version=1.0
+Theme-Id=hyprthemes
+Theme-API=2.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+QtVersion=6

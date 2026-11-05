@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Hyprland · Stock
+Comment=Switches every theme off, then starts Hyprland with the stock JaKooLit desktop
+Exec=/usr/local/bin/hypr-theme-session stock
+TryExec=/usr/local/bin/hypr-theme-session
+Type=Application
+DesktopNames=Hyprland
+Keywords=tiling;wayland;compositor;

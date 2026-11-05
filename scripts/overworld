@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # overworld — Overworld Hyprland theme CLI (the desktop is a Minecraft world, the shell its HUD).
 #
-#   overworld on | off | status | toggle | light | dark | reload | repair | session-start
+#   overworld on | off | status | toggle | light | dark | reload | repair | session-start | prepare on|off
 #   overworld wallpaper … | world new … | gamemode … | weather … | daycycle … | f3 | chat … | kill …
 #   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | event …
 #   overworld help [verb]
@@ -403,6 +403,40 @@ cmd_off() {
     say "active.conf -> hypr/off.conf, hyprlock.conf restored, overworld shell stopped"
 }
 
+# prepare on|off: what `on` / `off` change on disk and nothing else, for before Hyprland exists (scripts/theme-session runs it at login).
+# No hyprctl, no process is touched; exec-once in on.conf runs session-start when Hyprland comes up. `off` always means "theme off":
+# which theme comes next is the caller's business, so previous-theme is not followed here.
+cmd_prepare() {
+    case "${1:-}" in
+        on)
+            local m; m="$(mode_get)"
+            if ! enabled || apo_enabled; then
+                if apo_enabled; then printf 'apothecary %s\n' "$(apo_mode)" >"$STATE/previous-theme"
+                else printf 'stock\n' >"$STATE/previous-theme"; fi
+                rm -f "$STATE/prev-wallpaper"
+            fi
+            apo_inherit || true
+            touch "$STATE/enabled"
+            ln -sfn "$REPO/hypr/on.conf" "$STATE/active.conf"
+            link_mode_files "$m"
+            if apo_enabled; then
+                rm -f "$APO_STATE/enabled"
+                local r; r="$(apo_repo)"
+                [[ -z "$r" ]] || ln -sfn "$r/hypr/off.conf" "$APO_STATE/active.conf"
+            fi
+            hyprlock_swap_on
+            ;;
+        off)
+            [[ "$(gamemode_get)" == survival || ! -r "$STATE/gamemode" ]] || printf 'survival\n' >"$STATE/gamemode"
+            rm -f "$STATE/enabled"
+            ln -sfn "$REPO/hypr/off.conf" "$STATE/active.conf"
+            hyprlock_swap_off
+            rm -f "$STATE/previous-theme" "$STATE/prev-wallpaper"
+            ;;
+        *) die "usage: overworld prepare on|off" ;;
+    esac
+}
+
 # session_up [now]: stop the stock bar, start the shell, hypridle and wallpaper. Without `now` (login, exec-once in on.conf)
 # it first waits for JaKooLit's startup to bring waybar up, so it stops the real thing and not a race.
 session_up() {
@@ -554,6 +588,26 @@ cmd_repair() {
 }
 
 # ---------------------------------------------------------------------------------------------- game + world verbs
+cmd_advancements() {            # advancements [reset [--yes]]: open the tree, or forget every advancement (asks y/N on a tty)
+    local sub="${1:-open}"
+    case "$sub" in
+        open) qs_need advancements open >/dev/null ;;
+        reset)
+            shift
+            local yes=0 a
+            for a in "$@"; do case "$a" in -y|--yes) yes=1 ;; *) die "advancements reset: unknown option $a (use --yes)" ;; esac; done
+            if (( ! yes )); then
+                [[ -t 0 ]] || die "advancements reset: not a terminal; pass --yes to reset without asking"
+                local ans
+                read -r -p "Reset ALL advancements? This cannot be undone. [y/N] " ans || ans=""
+                [[ "$ans" =~ ^[yY]([eE][sS])?$ ]] || { echo "cancelled"; return 0; }
+            fi
+            qs_need advancements reset
+            echo "advancements reset (uptime-based ones are credited again at the next shell start)"
+            ;;
+        *) die "advancements: unknown verb $sub (overworld help advancements)" ;;
+    esac
+}
 cmd_kill() { exec "$REPO/scripts/interact/kill.sh" "$@"; }   # block-break close; falls back to killactive without a shell
 
 cmd_chat() {
@@ -618,6 +672,7 @@ The theme
   light | dark    switch mode: Day / Night (colours, wallpaper, apps)     toggle  flip it
   reload          hyprctl reload + restart the shell        repair  undo what JaKooLit scripts did to the theme
   session-start   run by Hyprland at login via hypr/on.conf (no-op unless enabled)
+  prepare on|off  only the files of on/off, for before Hyprland runs (the login screen's theme sessions use it)
 
 The world
   wallpaper next | prev | random | current | pick | <path>      per mode, remembered
@@ -630,7 +685,7 @@ Playing
   btop [args]     btop that reopens in a small-font kitty window when the current one has < 30 rows
   kill [address]  mine a window: block-break animation, then it closes (SUPER+Q)
   chat [text]     open the chat console, or say a line / run a /command without opening it
-  advancements | stats | options                                the game screens
+  advancements [reset [--yes]] | stats | options                the game screens
   sound <id>      play a sound id from tokens/sounds.json       screenshot [area|window|screen|swappy]
   ws …            workspace titles + notes, Claude auto-labelling (overworld ws help)
   brew …          the brewing stand timer (overworld brew help)
@@ -662,6 +717,7 @@ EOF
         reload) echo "overworld reload   hyprctl reload + restart the Quickshell shell (if on). A running adventure/spectator mode is kept." ;;
         repair) echo "overworld repair   stops waybar/mako again, restarts the shell, re-applies the wallpaper. For after JaKooLit scripts. SUPER+ALT+R." ;;
         session-start) echo "overworld session-start   run once at login by hypr/on.conf; does nothing unless the theme is enabled." ;;
+        prepare) echo "overworld prepare on|off   what on/off change on disk, with no hyprctl and no process touched. scripts/theme-session runs it at login (docs/LOGIN.md)." ;;
         wallpaper) cat <<'EOF'
 overworld wallpaper                 print the wallpaper for the current mode
 overworld wallpaper next | prev     step through assets/wallpapers/<mode>/ (SUPER+SHIFT+W = next)
@@ -721,6 +777,10 @@ EOF
             ;;
         advancements|stats|options) cat <<'EOF'
 overworld advancements     the advancement tree (SUPER+L)
+overworld advancements reset [--yes]
+                           forget every advancement (asks y/N on a terminal; --yes skips the question).
+                           Statistics are not touched. Also: /advancement reset confirm in the chat, or the
+                           Reset Advancements button on the screen.
 overworld stats            the statistics screen (SUPER+SHIFT+L)
 overworld options          the Options menu, edits ~/.config/overworld/config.json live (SUPER+O)
 EOF
@@ -1056,6 +1116,7 @@ cmd_event() {                   # overworld event <name> ['<json object>']  → 
 case "${1:-help}" in
     on)            cmd_on ;;
     off)           cmd_off ;;
+    prepare)       shift; cmd_prepare "${1:-}" ;;
     status)        cmd_status ;;
     light|dark)    cmd_mode "$1" ;;
     toggle)        if [[ "$(mode_get)" == "light" ]]; then cmd_mode dark; else cmd_mode light; fi ;;
@@ -1070,7 +1131,7 @@ case "${1:-help}" in
     f3)            shift; cmd_f3 "$@" ;;
     kill)          shift; cmd_kill "$@" ;;
     chat)          shift; cmd_chat "$@" ;;
-    advancements)  qs_need advancements open >/dev/null ;;
+    advancements)  shift; cmd_advancements "$@" ;;
     stats)         qs_need stats open >/dev/null ;;
     options)       qs_need options open >/dev/null ;;
     sound)         shift; cmd_sound "$@" ;;

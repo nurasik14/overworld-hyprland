@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# theme-session <overworld|apothecary|stock> — the login half of the theme button on the login screen.
+#
+# Installed as /usr/local/bin/hypr-theme-session and run by the "Hyprland · …" sessions (sessions/*.desktop), as the user, before
+# Hyprland exists. It puts the theme state on disk as `overworld on|off` / `apothecary on|off` would, minus everything that needs a running
+# desktop (no hyprctl, no process is started or stopped); on.conf's exec-once `… session-start` does that part when Hyprland comes up.
+# Then it execs Hyprland. Whatever fails here is logged and Hyprland still starts: this script must never cost you the login.
+# Idempotent: the same theme again changes nothing. A theme whose repo or Hyprland hook is gone falls back to stock.
+#
+# Log: ~/.cache/hypr-theme-session.log
+# HYPR_THEME_SESSION_EXEC replaces the compositor command (the tests use it; default /usr/bin/start-hyprland).
+set -u
+
+SELF="$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "$0")"
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
+HYPR="$CFG/hypr"
+OW_STATE="$CFG/overworld"
+APO_STATE="$CFG/apothecary"
+LOG="${XDG_CACHE_HOME:-$HOME/.cache}/hypr-theme-session.log"
+COMPOSITOR="${HYPR_THEME_SESSION_EXEC:-/usr/bin/start-hyprland}"
+APPS_WAIT_TENTHS=60             # wait this long for the apps to switch before starting Hyprland (only happens when the theme changes)
+
+mkdir -p "$(dirname "$LOG")"
+[[ -f "$LOG" ]] && tail -n 300 "$LOG" >"$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG"
+log() { printf '%s  %s\n' "$(date '+%F %T')" "$*" >>"$LOG"; }
+
+# --- where the themes live ---------------------------------------------------------------------------------------------
+# A repo counts if it has both layer files; the state dir's `repo` link comes first, the CLI's link second.
+repo_of() {                     # repo_of <state dir> <cli name>
+    local r
+    for r in "$(readlink -f "$1/repo" 2>/dev/null)" "$(dirname "$(dirname "$(readlink -f "$HOME/.local/bin/$2" 2>/dev/null)")")"; do
+        # absolute only: with the link gone, dirname of nothing is ".", which would be whatever directory the session started in
+        if [[ "$r" == /* && -r "$r/hypr/on.conf" && -r "$r/hypr/off.conf" ]]; then printf '%s\n' "$r"; return 0; fi
+    done
+    return 1
+}
+hooked() { [[ -e "$HYPR/$1.conf" ]] && grep -qsE "^[[:space:]]*source[[:space:]]*=.*$1\.conf" "$HYPR/hyprland.conf"; }
+
+OW_REPO="$(repo_of "$OW_STATE" overworld)" || OW_REPO=""
+APO_REPO="$(repo_of "$APO_STATE" apothecary)" || APO_REPO=""
+
+# --- Apothecary: the file half of its cmd_on / cmd_off (scripts/apothecary; that repo is not ours to give a new verb) ------
+apo_mode() { local m=""; [[ -r "$APO_STATE/mode" ]] && m="$(tr -d '[:space:]' <"$APO_STATE/mode")"; [[ "$m" == dark ]] && echo dark || echo light; }
+apo_wallpaper() {               # apo_wallpaper <mode>: as wallpaper_for_mode in its CLI
+    local f=""
+    [[ -r "$APO_STATE/wallpaper-$1" ]] && f="$(head -n1 "$APO_STATE/wallpaper-$1")"
+    if [[ -n "$f" && -r "$f" ]]; then printf '%s\n' "$f"; return 0; fi
+    [[ -d "$APO_REPO/assets/wallpapers/$1" ]] && find -L "$APO_REPO/assets/wallpapers/$1" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort | head -n1
+}
+apo_on() {
+    local m out; m="$(apo_mode)"; out="$APO_REPO/tokens/out/$m"
+    touch "$APO_STATE/enabled"
+    ln -sfn "$APO_REPO/hypr/on.conf" "$APO_STATE/active.conf"
+    ln -sfn "$out/hyprland-colors.conf" "$APO_STATE/colors.conf"
+    ln -sfn "$out/hyprlock-vars.conf"   "$APO_STATE/hyprlock-vars.conf"
+    ln -sfn "$out/kitty.conf"           "$APO_STATE/kitty-colors.conf"
+    ln -sfn "$APO_REPO"                 "$APO_STATE/repo"
+    local art="$APO_REPO/assets/art/lock-$m.png" wp
+    if [[ -r "$art" ]]; then ln -sfn "$art" "$APO_STATE/lock.png"
+    else wp="$(apo_wallpaper "$m")"; [[ -n "$wp" ]] && ln -sfn "$wp" "$APO_STATE/lock.png"; fi
+
+    local f="$HYPR/hyprlock.conf" bak="$HYPR/hyprlock.conf.pre-apothecary"
+    if [[ -L "$f" && "$(readlink -f "$f")" == "$APO_REPO/hypr/hyprlock.conf" ]]; then return 0; fi
+    if [[ -e "$f" || -L "$f" ]]; then
+        if [[ ! -e "$bak" ]]; then mv "$f" "$bak"
+        elif cmp -s "$f" "$bak"; then rm -f "$f"
+        else mv "$f" "$bak.$(date +%Y%m%d-%H%M%S)"; fi
+    fi
+    ln -sfn "$APO_REPO/hypr/hyprlock.conf" "$f"
+}
+apo_off() {
+    rm -f "$APO_STATE/enabled"
+    ln -sfn "$APO_REPO/hypr/off.conf" "$APO_STATE/active.conf"
+    local f="$HYPR/hyprlock.conf" bak="$HYPR/hyprlock.conf.pre-apothecary"
+    if [[ -L "$f" && "$(readlink -f "$f")" == "$APO_REPO/hypr/hyprlock.conf" ]]; then rm -f "$f"; fi
+    if [[ ! -e "$f" && -e "$bak" ]]; then mv "$bak" "$f"; fi
+    return 0
+}
+
+# --- a theme whose repo is gone: nothing may keep pointing into it ------------------------------------------------------------
+disable_orphan() {              # disable_orphan <state dir>
+    [[ -d "$1" ]] || return 0
+    rm -f "$1/enabled"
+    if [[ -L "$1/active.conf" && ! -e "$1/active.conf" ]]; then rm -f "$1/active.conf"; : >"$1/active.conf"; fi
+}
+heal_hyprlock() {               # a dangling hyprlock.conf link gets the backup under it, as often as it takes
+    local f="$HYPR/hyprlock.conf" bak
+    while [[ -L "$f" && ! -e "$f" ]]; do
+        rm -f "$f"
+        for bak in "$f.pre-overworld" "$f.pre-apothecary"; do
+            if [[ -e "$bak" || -L "$bak" ]]; then mv "$bak" "$f"; break; fi
+        done
+    done
+}
+
+# --- the switch ------------------------------------------------------------------------------------------------------------
+overworld_cli() { "$OW_REPO/scripts/overworld" prepare "$1" >>"$LOG" 2>&1; }
+overworld_off() {
+    if [[ -n "$OW_REPO" ]]; then overworld_cli off || log "overworld prepare off failed"
+    else disable_orphan "$OW_STATE"; fi
+}
+apothecary_off() {
+    if [[ -n "$APO_REPO" ]]; then apo_off || log "apothecary off failed"
+    else disable_orphan "$APO_STATE"; fi
+}
+
+switch_to() {
+    case "$1" in
+        overworld)  overworld_cli on || { log "overworld prepare on failed"; return 1; } ;;
+        apothecary)
+            # Its prev-wallpaper is the wallpaper `apothecary off` goes back to. Overworld's is the stock one, and `overworld off` deletes it;
+            # without this, session-start could record the wallpaper of the theme we just left.
+            if [[ ! -s "$APO_STATE/prev-wallpaper" && -s "$OW_STATE/prev-wallpaper" ]]; then cp -f "$OW_STATE/prev-wallpaper" "$APO_STATE/prev-wallpaper"; fi
+            overworld_off
+            apo_on || { log "apothecary on failed"; return 1; } ;;
+        stock)      overworld_off; apothecary_off ;;
+    esac
+    # `overworld prepare on` already took Apothecary down when its repo exists; this catches a repo that is gone
+    [[ "$1" != apothecary && -z "$APO_REPO" ]] && disable_orphan "$APO_STATE"
+    heal_hyprlock
+    return 0
+}
+
+# --- the apps (kitty, GTK, Qt, …) follow in the background: theirs is the only slow part, and it needs the session bus, not Hyprland --
+apps_mode() { local m=off; [[ -r "$1/apps-mode" ]] && m="$(tr -d '[:space:]' <"$1/apps-mode")"; echo "${m:-off}"; }
+apps_run() {                    # apps_run <repo> <mode> [flags…]
+    local repo="$1" s="$1/apps/apply-mode.sh"; shift
+    if [[ -x "$s" ]]; then log "apps: $s $*"; "$s" "$@" >>"$LOG" 2>&1 || log "apps: $s $* failed"; fi
+}
+ow_mode() { local m=""; [[ -r "$OW_STATE/mode" ]] && m="$(tr -d '[:space:]' <"$OW_STATE/mode")"; [[ "$m" == dark ]] && echo dark || echo light; }
+
+apps_wanted() {                 # the commands, one per line: <overworld|apothecary> <mode> [flags]. Empty = the apps already match.
+    local ow apo; ow="$(apps_mode "$OW_STATE")"; apo="$(apps_mode "$APO_STATE")"
+    case "$1" in
+        overworld)
+            [[ -n "$APO_REPO" && "$apo" != off ]] && echo "apothecary off"
+            [[ -n "$OW_REPO" && "$ow" != "$(ow_mode)" ]] && echo "overworld $(ow_mode)" ;;
+        apothecary)
+            [[ -n "$OW_REPO" && "$ow" != off ]] && echo "overworld off --no-handback"
+            [[ -n "$APO_REPO" && "$apo" != "$(apo_mode)" ]] && echo "apothecary $(apo_mode)" ;;
+        stock)
+            [[ -n "$OW_REPO" && "$ow" != off ]] && echo "overworld off --no-handback"
+            [[ -n "$APO_REPO" && "$apo" != off ]] && echo "apothecary off" ;;
+    esac
+    return 0
+}
+if [[ "${1:-}" == --apps-job ]]; then       # the background half: $2 = done marker, $3 = target
+    while read -r which args; do
+        [[ -n "$which" ]] || continue
+        # shellcheck disable=SC2086
+        if [[ "$which" == overworld ]]; then apps_run "$OW_REPO" $args; else apps_run "$APO_REPO" $args; fi
+    done < <(apps_wanted "$3")
+    : >"$2"
+    log "apps: done"
+    exit 0
+fi
+
+start_apps() {                  # start_apps <target>
+    [[ -n "$(apps_wanted "$1")" ]] || return 0
+    local done_file; done_file="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/hypr-theme-session.XXXXXX")" || return 0
+    rm -f "$done_file"
+    setsid -f "$SELF" --apps-job "$done_file" "$1" </dev/null >/dev/null 2>&1
+    # Waiting keeps the first windows of the session on the right config and out of the way of the kitty reload in apply-mode.sh.
+    local i
+    for ((i = 0; i < APPS_WAIT_TENTHS; i++)); do [[ -e "$done_file" ]] && break; sleep 0.1; done
+    if [[ -e "$done_file" ]]; then rm -f "$done_file"; else log "apps: still running, starting Hyprland anyway"; fi
+}
+
+# --- main ------------------------------------------------------------------------------------------------------------------
+TARGET="${1:-stock}"
+log "session: $TARGET (overworld repo: ${OW_REPO:-none}, apothecary repo: ${APO_REPO:-none})"
+case "$TARGET" in
+    overworld)  if [[ -z "$OW_REPO" ]] || ! hooked overworld; then log "overworld is not installed: falling back to stock"; TARGET=stock; fi ;;
+    apothecary) if [[ -z "$APO_REPO" ]] || ! hooked apothecary; then log "apothecary is not installed: falling back to stock"; TARGET=stock; fi ;;
+    stock)      ;;
+    *)          log "unknown theme '$TARGET': falling back to stock"; TARGET=stock ;;
+esac
+if ! switch_to "$TARGET"; then
+    log "switch to $TARGET failed: falling back to stock"
+    TARGET=stock
+    switch_to stock || log "switch to stock failed too"
+fi
+start_apps "$TARGET"
+log "state: overworld=$([[ -e "$OW_STATE/enabled" ]] && echo on || echo off) apothecary=$([[ -e "$APO_STATE/enabled" ]] && echo on || echo off), starting $COMPOSITOR"
+
+# The session file's name would otherwise leak into these; scripts that look at them expect what the plain Hyprland session sets.
+export DESKTOP_SESSION=hyprland XDG_SESSION_DESKTOP=Hyprland
+exec "$COMPOSITOR"
