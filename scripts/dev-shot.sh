@@ -8,6 +8,9 @@
 # `layer:<ns>` crops to that layer surface's rect from `hyprctl layers -j`. Default region: full eDP-1.
 # Exit 3 = workspace 77 not empty (someone's window there) → nothing captured.
 set -euo pipefail
+if [[ -e "$(dirname "$(realpath "$0")")/../.orchestrator/user-present" ]]; then
+    echo "dev-shot: the user is at the desk (.orchestrator/user-present) — no workspace switching/screenshots; verify from code + qs logs and list visual checks for the user" >&2; exit 6
+fi
 source "$(dirname "$(realpath "$0")")/dev-env.sh" >/dev/null 2>&1 || true
 out="${1:?usage: dev-shot.sh <out.png> [region|layer:<ns>|full]}"; region="${2:-full}"; keep="${3:-}"
 mkdir -p "$(dirname "$out")"

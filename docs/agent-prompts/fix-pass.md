@@ -30,3 +30,16 @@ docs/agent-reports/fix-pass.md:
     and match it if missing.
 Do NOT touch: the user's ~/.config/rofi/config.rasi (report only), media playback, Zen, sound config
 (`sounds` stays false). End with `overworld status`, full config load clean, and Overworld still ON.
+
+## UPDATE 13:25 — THE USER IS NOW AT THE DESK USING THE DESKTOP (overrides anything above)
+- `scripts/dev-shot.sh` is disabled (exit 6). Do NOT switch workspaces, do NOT run `qs -p` previews (their layers
+  would pop up over the user's work), do NOT open test windows, do NOT run `overworld on/off/light/dark/gamemode`,
+  do NOT change config.json (skip the gui_scale live test — reason it out from the layout code instead, and
+  test layout math with a pure-JS/QML-free check if possible, e.g. node on the extracted function).
+- You may edit repo files. The live `qs -c overworld` hot-reloads QML you save: make each QML edit complete and
+  syntactically valid, then immediately read the shell log (`overworld status` shows it; usually
+  ~/.cache/overworld/qs.log) for errors/warnings from that file and fix at once. Prefer `qmllint` if present.
+- Hypr config edits: `Hyprland --verify-config -c <file>` style checks are fine; `hyprctl reload` is allowed only
+  once at the end, and only if `hyprctl configerrors` would be clean.
+- Instead of screenshots, end your report with a short "please eyeball" checklist for the user (which key/
+  command to press and what they should see).
