@@ -15,7 +15,7 @@ qa/current-desktop.png
 # personal VibeWise learning notes (local only)
 .vibe-wise/
 
-# Minecraft brewing sounds (© Mojang) — scripts/fetch-minecraft-sounds.sh downloads them
+# Minecraft brewing sounds (© Mojang) — the old brew-sound fetch script is gone; scripts/fetch-minecraft-assets.sh --sounds-only fetches all sounds
 assets/sounds/minecraft/
 
 # ---- Overworld: Mojang-derived assets are never committed (scripts/fetch-minecraft-assets.sh recreates them)

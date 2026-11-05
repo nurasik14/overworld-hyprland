@@ -153,7 +153,8 @@ Singleton {
         Theme.playSound(kind === "rest" ? "brew.drink" : "brew.done");
     }
     function notify(title, body, kind) {
-        notifier.command = ["notify-send", "-a", "Overworld", "-i", "brewing_stand", title, body];
+        // notify-send wants a themed icon name or a file: the brewing stand icon (Mojang art, else asset-forge's, else the missing texture)
+        notifier.command = ["notify-send", "-a", "Overworld", "-i", String(Theme.iconUrl("brewing_stand")).replace(/^file:\/\//, ""), title, body];
         notifier.running = true;
         playSound(kind);
     }

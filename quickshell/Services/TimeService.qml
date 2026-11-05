@@ -11,7 +11,8 @@ Singleton {
     id: root
 
     SystemClock { id: clock; precision: SystemClock.Seconds }
-    readonly property date now: clock.date
+    // clock.date is briefly undefined while a hot reload rebuilds the singleton ("Unable to assign [undefined] to QDateTime")
+    readonly property date now: clock.date instanceof Date && !isNaN(clock.date.getTime()) ? clock.date : new Date()
     readonly property string hhmm: Qt.formatDateTime(now, "HH:mm")
     readonly property string dateLabel: Qt.formatDateTime(now, "ddd d MMM")
     readonly property string dateLong: Qt.formatDateTime(now, "dddd d MMMM yyyy")

@@ -55,7 +55,9 @@ All of them go through `scripts/interact/screenshot.sh`: same folder and names a
 |---|---|---|
 | `Print` | Select an area | your `grim \| swappy` bind in UserKeybinds.conf |
 | `SHIFT + Print`, `SUPER + F2` | Everything | was free |
-| `ALT + Print` | The active window | `ScreenShot.sh --active` |
+| `ALT + Print`, `ALT + F6` | The active window | `ScreenShot.sh --active` |
+| `SUPER + F6` / `SUPER + SHIFT + F6` | Everything / select an area (JaKooLit's laptop binds) | `ScreenShot.sh --now` / `--area` |
+| `SUPER + CTRL + F6` / `SUPER + ALT + F6` | Everything after 5 s / 10 s | `ScreenShot.sh --in5` / `--in10` |
 | `SUPER + SHIFT + S` | Select an area and annotate it in swappy | `ScreenShot.sh --swappy` |
 
 Unbound while on, so that nothing bypasses the wrapper: `SUPER + Print`, `SUPER + SHIFT + Print`, `SUPER + CTRL + Print`,

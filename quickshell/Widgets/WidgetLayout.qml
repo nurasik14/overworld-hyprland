@@ -9,6 +9,7 @@ import qs.Widgets.Quote
 import qs.Widgets.BlockOfDay
 import qs.Widgets.BrewTimer
 import qs.Widgets.Cava
+import "layout-plan.js" as Plan
 
 /*  WidgetLayout — the eight cards on their default slots (two columns of stacked cards, see DesktopWidgets).  An Item sized like the
  *  screen; DesktopWidgets puts it in the layer window, the offscreen render harness (preview/render.qml) in a plain window.
@@ -23,19 +24,19 @@ Item {
     property alias cava: cava
     property alias block: block
     property alias quote: quote
-    // Slots are stacks in GUI px, so they follow the GUI scale: left column 12 GUI px from the edge, right column flush to
-    // 12 GUI px from the right edge, 3 GUI px of air between cards, first card at 8 GUI px (there is no top bar; the column must end above the HUD's chips at the bottom).
-    readonly property int edge: Theme.px(12)
-    readonly property int gap: Theme.px(6)
-    readonly property int firstY: Theme.px(8)
+    // Slots come from layout-plan.js (GUI px stacks that follow the GUI scale and the screen): two columns, flush to the
+    // left / right edge; when a stack would run into the HUD chips (GUI scale 3+ at 1080p) the cards are re-dealt over up
+    // to three columns, and a card with no room left gets fits = false (hidden until it is dragged somewhere).
+    readonly property var cards: [weather, calendar, music, sysinfo, brew, cava, block, quote]   // reading order = stagger order
+    readonly property var slots: width > 0 && height > 0 ? Plan.plan(width, height, Theme.gui, cards.map(c => ({ w: c.guiW, h: c.guiH })))
+                                                         : cards.map(c => ({ x: 0, y: 0, fits: true }))
 
-    // reading order = stagger order (left column top→bottom, then right column)
-    WeatherCard    { id: weather;  index: 0; cardId: "weather";  defaultX: root.edge;                       defaultY: root.firstY }
-    CalendarCard   { id: calendar; index: 1; cardId: "calendar"; defaultX: root.width - root.edge - width;  defaultY: root.firstY }
-    MusicCard      { id: music;    index: 2; cardId: "music";    defaultX: root.edge;                       defaultY: weather.defaultY + weather.height + root.gap }
-    SysInfoCard    { id: sysinfo;  index: 3; cardId: "sysinfo";  defaultX: root.width - root.edge - width;  defaultY: calendar.defaultY + calendar.height + root.gap }
-    BrewTimerCard  { id: brew;     index: 4; cardId: "brew";     defaultX: root.edge;                       defaultY: music.defaultY + music.height + root.gap }
-    CavaCard       { id: cava;     index: 5; cardId: "cava";     defaultX: root.width - root.edge - width;  defaultY: sysinfo.defaultY + sysinfo.height + root.gap }
-    BlockOfDayCard { id: block;    index: 6; cardId: "block";    defaultX: root.edge;                       defaultY: brew.defaultY + brew.height + root.gap }
-    QuoteCard      { id: quote;    index: 7; cardId: "quote";    defaultX: root.width - root.edge - width;  defaultY: cava.defaultY + cava.height + root.gap }
+    WeatherCard    { id: weather;  index: 0; cardId: "weather";  defaultX: root.slots[0].x; defaultY: root.slots[0].y; fits: root.slots[0].fits }
+    CalendarCard   { id: calendar; index: 1; cardId: "calendar"; defaultX: root.slots[1].x; defaultY: root.slots[1].y; fits: root.slots[1].fits }
+    MusicCard      { id: music;    index: 2; cardId: "music";    defaultX: root.slots[2].x; defaultY: root.slots[2].y; fits: root.slots[2].fits }
+    SysInfoCard    { id: sysinfo;  index: 3; cardId: "sysinfo";  defaultX: root.slots[3].x; defaultY: root.slots[3].y; fits: root.slots[3].fits }
+    BrewTimerCard  { id: brew;     index: 4; cardId: "brew";     defaultX: root.slots[4].x; defaultY: root.slots[4].y; fits: root.slots[4].fits }
+    CavaCard       { id: cava;     index: 5; cardId: "cava";     defaultX: root.slots[5].x; defaultY: root.slots[5].y; fits: root.slots[5].fits }
+    BlockOfDayCard { id: block;    index: 6; cardId: "block";    defaultX: root.slots[6].x; defaultY: root.slots[6].y; fits: root.slots[6].fits }
+    QuoteCard      { id: quote;    index: 7; cardId: "quote";    defaultX: root.slots[7].x; defaultY: root.slots[7].y; fits: root.slots[7].fits }
 }

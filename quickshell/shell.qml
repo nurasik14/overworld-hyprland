@@ -73,8 +73,9 @@ ShellRoot {
         function close(): void { ShellState.close("wallpapers"); }
         function select(index: int): void { ShellState.open("wallpapers"); ShellState.wallpaperAction("select", index); }
         function apply(): void { ShellState.wallpaperAction("apply", 0); }
-        function next(): void { ShellState.open("wallpapers"); ShellState.wallpaperAction("next", 0); }
-        function prev(): void { ShellState.open("wallpapers"); ShellState.wallpaperAction("prev", 0); }
+        // closed: cycle the wallpaper like `overworld wallpaper next` (the picker stays shut, `open` opens it); open: move the selection
+        function next(): void { if (ShellState.isOpen("wallpapers")) ShellState.wallpaperAction("next", 0); else ShellState.run(["overworld", "wallpaper", "next"]); }
+        function prev(): void { if (ShellState.isOpen("wallpapers")) ShellState.wallpaperAction("prev", 0); else ShellState.run(["overworld", "wallpaper", "prev"]); }
     }
     IpcHandler {
         target: "notifications"

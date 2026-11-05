@@ -9,7 +9,7 @@ import qs.Services
 
 /*  F3Layer — the debug screen. Layer `overworld-f3` (Overlay, click-through), IPC `world f3 on|off|toggle`, `world f3graph on|off|toggle`.
  *
- *  Looks like the game's F3: white text with the hard 1-px drop shadow, every line on a #90505050 grey strip, 9 GUI px per line,
+ *  Looks like the game's F3: white text with the hard 1-px drop shadow, every line on its own grey strip (the game uses #90505050; here #c8383838, darker so the lines stay readable over the widget cards), 9 GUI px per line,
  *  left column from the top-left, right column right-aligned. Costs nothing while hidden. While shown:
  *    scripts/world/f3-sampler.sh   cursor 4x/s, active window + backlight 1x/s (one process, killed on hide)
  *    /proc/meminfo                 once a second

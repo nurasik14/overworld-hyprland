@@ -113,9 +113,11 @@ Singleton {
         }
         const list = order.map(s => bySsid[s]);
         list.sort((a, b) => (b.active - a.active) || (b.signal - a.signal) || a.ssid.localeCompare(b.ssid));
-        root.networks = list;
         root.activeSsid = act;
         root.activeSignal = actSig;
+        // NM's list is a cache: right after opening, before the fresh scan lands, it can hold only the connected AP — keep the old rows
+        if (root.settleLeft > 0 && list.length <= 1 && root.networks.length > list.length) return;
+        root.networks = list;
     }
 
     Process {
@@ -228,6 +230,21 @@ Singleton {
     function rescan() {
         root.scanning = true;
         run(["nmcli", "dev", "wifi", "rescan"], function(ok, msg) { if (ok) root.lastMessage = "Scan complete"; });
+    }
+    // NetworkManager's scan list is a cache: while connected, wpa_supplicant barely scans, so the list shrinks to just the
+    // connected network and the panel showed one row (or 5 of 12) right after opening. Opening the panel therefore asks for a
+    // scan (a read of the air, no connect/disconnect) and re-reads the list while the results land (2.5 s, 5 s, 7.5 s).
+    property int settleLeft: 0
+    function scanOnOpen() {
+        if (!root.wifiEnabled || root.airplane) return;
+        root.settleLeft = 3;
+        settle.restart();
+        run(["nmcli", "dev", "wifi", "rescan"], function(ok, msg) { root.lastMessage = ""; root.lastError = false; });   // "scanning not allowed yet" is not worth an error line
+    }
+    Timer {
+        id: settle
+        interval: 2500; repeat: true
+        onTriggered: { wifiList.running = true; if (--root.settleLeft <= 0) stop(); }
     }
     function setWifi(on) { run(["nmcli", "radio", "wifi", on ? "on" : "off"]); }
     function setAirplane(on) { run(["nmcli", "radio", "all", on ? "off" : "on"]); }

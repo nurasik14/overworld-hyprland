@@ -61,6 +61,7 @@ Singleton {
         command: ["sh", "-c", "mkdir -p \"$HOME/.config/overworld\" && printf '%s\\n' \"$1\" > \"$HOME/.config/overworld/widget-positions.json\"", "overworld-widgets", value]
     }
     function posX(id, d) { const p = root.positions[id]; return p ? p[0] : d }
+    function hasPos(id) { return !!root.positions[id] }
     function posY(id, d) { const p = root.positions[id]; return p ? p[1] : d }
     function savePositions() { posWriter.value = JSON.stringify(root.positions); posWriter.running = true }
     function setPos(id, x, y) {

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# ow-btop — btop that stays usable in a half-height tiled kitty window.
+# btop refuses to draw below 80x24 cells ("Terminal size too small"). Monocraft's line height is 27 px at the theme's
+# 13.5 pt, so a window of half a 1080p screen (540 px) only has 20 rows. Below MIN_ROWS rows this reopens btop in its own
+# kitty window (class `btop`) at 6.75 pt = Monocraft's crisp 9 px size (13.5 px lines → 40 rows in half a screen);
+# in a big window it just runs btop. Anything else (not kitty, already small) runs btop unchanged.
+#   usage: ow-btop [btop args]        env: OW_BTOP_MIN_ROWS (default 30), OW_BTOP_FONT_PT (default 6.75)
+rows=$(tput lines 2>/dev/null || echo 40)
+if [[ -n ${KITTY_WINDOW_ID:-} && -z ${OW_BTOP_SMALL:-} && $rows -lt ${OW_BTOP_MIN_ROWS:-30} ]] && command -v kitty >/dev/null; then
+  exec kitty --class btop --title btop --override "font_size=${OW_BTOP_FONT_PT:-6.75}" -e env OW_BTOP_SMALL=1 btop "$@"
+fi
+exec btop "$@"

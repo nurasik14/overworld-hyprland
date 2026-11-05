@@ -111,7 +111,7 @@ qs -c overworld ipc call network connect "<ssid>"            # saved-profile con
 qs -c overworld ipc call network rescan
 qs -c overworld ipc call power toggle|open|close
 qs -c overworld ipc call wallpapers toggle|open|close
-qs -c overworld ipc call wallpapers select <index> | apply | next | prev
+qs -c overworld ipc call wallpapers select <index> | apply | next | prev   # next/prev: picker closed = cycle the wallpaper (same as `overworld wallpaper next`, does not open it); open = move the selection
 qs -c overworld ipc call notifications toggle|open|close    # chat history
 qs -c overworld ipc call notifications dnd                  # toggle Peaceful
 qs -c overworld ipc call notifications setDnd true|false

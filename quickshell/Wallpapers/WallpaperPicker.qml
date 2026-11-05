@@ -108,8 +108,11 @@ Variants {
         Process {
             id: lister
             command: ["find", win.dir, "-maxdepth", "1", "-type", "f", "(", "-iname", "*.png", "-o", "-iname", "*.jpg", "-o", "-iname", "*.jpeg", "-o", "-iname", "*.webp", ")"]
+            // the mode flipped while a find was still running: its answer is for the old folder, so run it again
+            onExited: if (win.listAgain) { win.listAgain = false; lister.running = true; }
             stdout: StdioCollector {
                 onStreamFinished: {
+                    if (win.listAgain) return;
                     const ls = (text || "").split("\n").map(l => l.trim()).filter(l => l.length);
                     ls.sort();
                     win.files = ls;
@@ -143,7 +146,12 @@ Variants {
                 search.input.forceActiveFocus();
             }
         }
-        onDirChanged: if (shown) lister.running = true
+        property bool listAgain: false
+        onDirChanged: {
+            if (!shown) return;
+            win.files = [];                       // never show the old mode's worlds under the new mode
+            if (lister.running) win.listAgain = true; else lister.running = true;
+        }
 
         function fileName(p) { const i = p.lastIndexOf("/"); return i >= 0 ? p.substring(i + 1) : p; }
         function prettyName(p) {

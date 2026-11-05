@@ -7,7 +7,8 @@ import qs.Widgets.Services
  *    index          stagger slot: fade-in starts 40 ms × index after the layer appears
  *    cardId         saved position key; "" (previews) disables dragging and the saved position
  *    defaultX/Y     the layout slot; double-click the title bar or `widgets layout` returns the card there
- *    shown          follows WidgetsState.visible + the per-card switch
+ *    shown          follows WidgetsState.visible + the per-card switch (+ fits, see below)
+ *    fits           false when the default layout has no room for the card at this GUI scale
  *  Show / hide: opacity fade + a 4 GUI px rise, 250 ms OutQuad, staggered.  Reduced motion → instant.
  *  Drag by the title bar (the top 17 GUI px).  The centre fill is Theme.widgetOpacity (config widgets.opacity);
  *  bevels, text and icons stay opaque.
@@ -20,7 +21,8 @@ McPanel {
     property string cardId: ""
     property real defaultX: 0
     property real defaultY: 0
-    property bool shown: WidgetsState.visible && (cardId === "" || WidgetsState.cardOn(cardId))
+    property bool fits: true      // false = the layout (layout-plan.js) found no free slot on this screen / GUI scale; a dragged card is always shown
+    property bool shown: WidgetsState.visible && (cardId === "" || (WidgetsState.cardOn(cardId) && (fits || WidgetsState.hasPos(cardId))))
 
     // content area (cards lay out in GUI px inside it): the panel minus 7 px margins, 17 px title row = (guiW − 14) × (guiH − 24)
 

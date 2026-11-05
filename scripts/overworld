@@ -521,7 +521,7 @@ gamemode_reapply_later() {      # at session start the shell needs a moment befo
     return 0
 }
 cmd_gamemode() {
-    local want="${1:-toggle}" cur; cur="$(gamemode_get)"
+    local want="${1:-status}" cur; cur="$(gamemode_get)"
     case "$want" in
         on)     want=adventure ;;
         off)    want=survival ;;
@@ -622,11 +622,12 @@ The theme
 The world
   wallpaper next | prev | random | current | pick | <path>      per mode, remembered
   world new [--scene S] [--time T] [--mode M] [--seed N]        render a new world wallpaper
-  gamemode survival | creative | adventure | spectator | switcher | on | off | toggle | status
+  gamemode [status] | survival | creative | adventure | spectator | switcher | on | off | toggle   (bare = print)
   weather clear | rain | thunder | snow | auto                  daycycle auto | day | night | off
   f3 [on | off | toggle | graph]                                the debug screen
 
 Playing
+  btop [args]     btop that reopens in a small-font kitty window when the current one has < 30 rows
   kill [address]  mine a window: block-break animation, then it closes (SUPER+Q)
   chat [text]     open the chat console, or say a line / run a /command without opening it
   advancements | stats | options                                the game screens
@@ -684,7 +685,7 @@ overworld gamemode creative     everything on, hearts and hunger never warn
 overworld gamemode adventure    performance: animations, blur, shadows, gaps off; widgets hidden (SUPER+SHIFT+G toggles)
 overworld gamemode spectator    focus: gaps 0, HUD and widgets hidden, Peaceful (Do Not Disturb); chat still works
 overworld gamemode switcher     the F3+F4 style overlay with four icons (SUPER+F4)
-overworld gamemode status       print the current mode
+overworld gamemode [status]     print the current mode (no argument = status; it never toggles)
 overworld gamemode on | off | toggle   old names: on = adventure, off = survival, toggle flips adventure/survival
 EOF
             ;;
@@ -1062,7 +1063,8 @@ case "${1:-help}" in
     reload)        cmd_reload ;;
     repair)        cmd_repair ;;
     session-start) cmd_session_start ;;
-    gamemode)      shift; cmd_gamemode "${1:-toggle}" ;;
+    gamemode)      shift; cmd_gamemode "${1:-status}" ;;     # no argument = print, never toggle (`toggle` is explicit)
+    btop)          shift; exec "$REPO/scripts/ow-btop" "$@" ;;
     weather)       shift; cmd_weather "$@" ;;
     daycycle)      shift; cmd_daycycle "$@" ;;
     f3)            shift; cmd_f3 "$@" ;;

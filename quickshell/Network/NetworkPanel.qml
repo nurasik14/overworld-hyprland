@@ -52,7 +52,7 @@ Variants {
             NetworkService.polling = shown;
             if (shown) {
                 win.view = "list"; win.selected = 0; win.confirmForget = false;
-                NetworkService.lastMessage = ""; NetworkService.lastError = false; NetworkService.refresh();
+                NetworkService.lastMessage = ""; NetworkService.lastError = false; NetworkService.refresh(); NetworkService.scanOnOpen();
                 list.forceActiveFocus();
             }
         }
