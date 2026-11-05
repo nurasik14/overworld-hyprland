@@ -12,7 +12,10 @@ import qs.Services
  *          progress(id) → {have, need, fraction, text} · tabCounts(tabId) → {done, total} · unlockedCount · total
  *  Write:  feed(name, data)            (called for every bus event; also for the derived events)
  *          grant(spec) / revoke(spec)  spec = id | tab id | "all"   (testing aids, used by /advancement)
+ *          reset()                     forgets everything (screen button, IPC, CLI, /advancement reset confirm): unlocked + progress cleared,
+ *                                      advancements.json rewritten at once, bus `advancement.reset {}`; uptime catch-up is off until the next shell start
  *  Signal: advancementUnlocked(var adv, bool silent)   → toast + chat line; the bus gets `advancement {id}` (silent unlocks: neither)
+ *          wasReset()                  after reset() (the chat prints "[Overworld] Advancements have been reset")
  *  Node positions (GUI px, inside a tab): adv.x, adv.y = depth*dx, row*dy ;  adv.depth, adv.children[]
  *  The state file is only written when something changes (debounced) so a fresh install has none.
  */
@@ -30,6 +33,9 @@ Singleton {
     readonly property int total: defs.length
     readonly property int unlockedCount: { const r = revision; return Object.keys(unlocked).length; }
     signal advancementUnlocked(var adv, bool silent)
+    signal wasReset()
+    property double resetAt: 0
+    property bool catchupBlocked: false      // set by reset(): the uptime catch-up feed must not hand the levels straight back this session
 
     readonly property var tabBackgrounds: ({
         overworld: "gui/advancements/backgrounds/stone", adventure: "gui/advancements/backgrounds/adventure",
@@ -90,6 +96,16 @@ Singleton {
     function persist() {
         store.data = { version: 1, unlocked: root.unlocked, progress: root.counters };
         store.save();
+    }
+    function reset() {
+        const had = Object.keys(unlocked).length;
+        root.catchupBlocked = true; root.resetAt = Date.now();
+        root.unlocked = ({}); root.counters = ({}); root.revision++;
+        store.data = { version: 1, unlocked: {}, progress: {} };
+        store.saveNow();
+        GameEvents.emit("advancement.reset", {});
+        root.wasReset();
+        return had;
     }
 
     // ------------------------------------------------------------ icons
@@ -177,6 +193,9 @@ Singleton {
     // ------------------------------------------------------------ feeding
     function feed(name, data) {
         data = data || {};
+        if (data.catchup === true && catchupBlocked) return;
+        // the "/advancement reset confirm" that caused a reset reaches the bus a moment after the reset (file tail): it must not earn "First Words" on a clean slate
+        if (name === "chat.command" && Date.now() - resetAt < 5000 && /^\/advancement\s+reset/i.test(String(data.cmd || ""))) return;
         const toUnlock = [];
         let dirty = false;
         const prog = Object.assign({}, counters);

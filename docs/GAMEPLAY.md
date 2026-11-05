@@ -11,8 +11,8 @@ All screens are real Minecraft screens (McScreen, the game's sprites, hover = in
 |---|---|---|---|
 | Chat console + chat log | `overworld-chat` (always mapped, click-through while closed) | `ipc call chat open` · `chat command "/"` (prefilled) · `chat toggle` | Enter send · Esc close · ↑/↓ history · Tab / Shift+Tab complete · PgUp/PgDn or wheel scroll |
 | Game mode switcher | `overworld-gamemode` | `ipc call gamemode switcher` | ←/→ or Tab / Shift+Tab move · 1–4 pick · Enter apply · Esc close · click a slot |
-| Advancements | `overworld-advancements` | `ipc call advancements open` | Tab / Shift+Tab or 1–5 change tab · arrows pan · Home recentre · drag or wheel to pan · hover for the box |
-| Statistics | `overworld-stats` | `ipc call stats open` | ←/→ or Tab change tab · ↑/↓ PgUp/PgDn scroll · Enter / Esc close |
+| Advancements | `overworld-advancements` | `ipc call advancements open` | Tab / Shift+Tab or 1–5 change tab · arrows pan · Home recentre · drag or wheel to pan · hover for the box · **Reset Advancements** / Done buttons below the window · Esc closes |
+| Statistics | `overworld-stats` | `ipc call stats open` | ←/→ or Tab change tab · ↑/↓ PgUp/PgDn scroll · Enter / Esc close · **Reset Statistics** / Done buttons |
 | Options | `overworld-options` | `ipc call options open` · `options page video\|sounds\|controls\|access` | Tab between buttons · Enter · ←/→ on sliders · Esc = back one page, then close |
 | Advancement toasts | `overworld-advtoast` (top-right, stacked ≤ 4, click-through) | automatic | — |
 
@@ -22,7 +22,7 @@ Prefix every call with `qs -c overworld`. Full IPC list (never named `show`):
 |---|---|
 | `chat` | `open()` · `command(text)` (opens with `text`, "/" if empty) · `say(text)` (posts a line) · `run(text)` (executes a line without opening) · `log(n)` (last n lines as text) · `close()` · `toggle()` |
 | `gamemode` | `set(mode)` · `get()` · `switcher()` · `cycle()` |
-| `advancements` | `open()` · `close()` · `toggle()` · `grant(spec)` · `revoke(spec)` · `list()` · `tab(id)` · `inspect(id)` (opens the hover box of one advancement) |
+| `advancements` | `open()` · `close()` · `toggle()` · `grant(spec)` · `revoke(spec)` · `list()` · `reset()` (confirm-less, for scripts) · `resetdialog()` (opens the screen with the confirm question) · `tab(id)` · `inspect(id)` (opens the hover box of one advancement) |
 | `stats` | `open()` · `close()` · `toggle()` · `summary()` · `tab(general\|items\|mobs)` |
 | `options` | `open()` · `close()` · `toggle()` · `page(name)` · `get(key)` · `set(key, json)` |
 
@@ -48,7 +48,7 @@ Type `/help` for the list (texts: `quotes/chat.json`). Commands, what each reall
 | `/brew <dur> [task]` · `/brew stop` | `ipc call brew start <sec>s` / `reset`; durations `25m`, `1h30m`, `90s`, `45` (minutes), max 12 h |
 | `/title <1-10> [text]` | `overworld ws N text` (no text = reset) and shows the /title card |
 | `/clear` | clears the chat log and the notification history |
-| `/advancement [open\|list [unlocked\|locked\|tab]\|grant <id\|tab\|all>\|revoke …]` | open the screen / progress / testing aid (ids, tab names, "all", or a unique suffix like `terminal`) |
+| `/advancement [open\|list [unlocked\|locked\|tab]\|grant <id\|tab\|all>\|revoke …\|reset]` | open the screen / progress / testing aid (ids, tab names, "all", or a unique suffix like `terminal`). `/advancement reset` only asks; `/advancement reset confirm` does it |
 | `/stats` · `/options` | open the screens |
 | `/f3 [on\|off]` | `ipc call world f3 <on\|off\|toggle>` |
 | `/reload` | `Quickshell.reload()` |
@@ -104,6 +104,16 @@ Definitions: `quotes/advancements.json` (60 advancements, 5 tabs; vocabulary in 
   chat line. Unlocking is independent of the parent (hidden ones show only once unlocked).
 - **Screen:** tabs above the window with the root icon, tiled tab background, tree with task/goal/challenge frames (obtained = gold), connector
   lines, hover box with description + progress (`3/10`, `4/7 requirements`) or the unlock date, drag/wheel to pan.
+- **Reset:** the **Reset Advancements** button (below the window, next to Done) opens a confirm screen — "Reset all advancements? / This cannot be
+  undone.", buttons **Reset** (red) and **Cancel** (default, Esc = cancel, ←/→/Tab move, Enter activates). Same engine call from
+  `overworld advancements reset [--yes]` (asks y/N on a terminal, refuses without a terminal unless `--yes`), `ipc call advancements reset`
+  (no question) and the chat (`/advancement reset confirm`). A reset clears `unlocked` + `progress`, rewrites `advancements.json` at once
+  (`{"version":1,"unlocked":{},"progress":{}}`), posts `[Overworld] Advancements have been reset` in the chat and emits `advancement.reset {}` on the
+  bus. **Statistics are not touched** (their own **Reset Statistics** button on the Statistics screen, same confirm screen, clears `stats.json`; a
+  reset session counts as game 1). The uptime catch-up that credits "Level N" advancements silently is switched off for the rest of that shell run, so a
+  reset is not undone a minute later; **at the next shell start the catch-up credits the uptime advancements again** (the machine's uptime is still
+  real — reboot to get a truly clean slate). Real events keep counting after a reset, including the time-of-day ones (Night Owl / Early Bird
+  re-unlock within a minute if the reset happens inside their window).
 - **Testing aids:** `/advancement grant|revoke`, `ipc call advancements grant|revoke <id|tab|all>`; the real state starts clean (no file until the
   first event).
 

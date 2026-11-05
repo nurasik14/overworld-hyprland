@@ -23,9 +23,10 @@ Variants {
         onCloseRequested: GameUi.close("stats")
 
         property int tabIndex: 0
+        property bool confirmReset: false
         readonly property var tabNames: ["general", "items", "mobs"]
         readonly property var tabLabels: ["General", "Items", "Mobs"]
-        onShownChanged: if (shown) { list.contentY = 0; }
+        onShownChanged: { if (shown) list.contentY = 0; else confirmReset = false; }
         Connections {
             target: StatsState
             function onTabRequested(name) { const i = win.tabNames.indexOf(String(name).toLowerCase()); if (i >= 0) win.tabIndex = i; }
@@ -85,7 +86,7 @@ Variants {
                 else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_3) { win.tabIndex = event.key - Qt.Key_1; event.accepted = true; }
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { win.closeRequested(); event.accepted = true; }
             }
-            onActiveFocusChanged: if (!activeFocus && win.shown) forceActiveFocus()
+            onActiveFocusChanged: if (!activeFocus && win.shown && !win.confirmReset) forceActiveFocus()
 
             readonly property int listW: Math.min(Theme.px(320), parent.width - Theme.px(40))
 
@@ -173,11 +174,29 @@ Variants {
                     }
                 }
             }
-            McButton {
+            Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom; anchors.bottomMargin: Theme.px(6)
-                text: "Done"
-                onClicked: win.closeRequested()
+                spacing: Theme.px(6)
+                McButton {
+                    text: "Reset Statistics"
+                    width: Theme.px(150)
+                    onClicked: win.confirmReset = true
+                }
+                McButton {
+                    text: "Done"
+                    width: Theme.px(98)
+                    onClicked: win.closeRequested()
+                }
+            }
+
+            AdvancementsConfirm {
+                z: 50
+                shown: win.confirmReset
+                title: "Reset all statistics?"
+                detail: "This cannot be undone."
+                onConfirmed: { win.confirmReset = false; Stats.reset(); parent.forceActiveFocus(); }
+                onCancelled: { win.confirmReset = false; parent.forceActiveFocus(); }
             }
         }
     }

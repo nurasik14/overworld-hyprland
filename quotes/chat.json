@@ -9,8 +9,8 @@
   "commands": [
    {
     "name": "advancement",
-    "usage": "/advancement",
-    "description": "Opens the advancements screen.",
+    "usage": "/advancement [open|list|grant|revoke|reset]",
+    "description": "Opens the advancements screen, lists progress, or resets everything (/advancement reset confirm).",
     "args": []
    },
    {

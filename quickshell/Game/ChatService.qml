@@ -34,8 +34,8 @@ Singleton {
         msg:   { usage: "/msg <text> in <duration>", description: "Reminds you later with a notification, e.g. /msg stretch in 20m. /msg list shows pending ones.",
                  args: [{ name: "text", type: "text" }] },
         options: { usage: "/options", description: "Opens the options screen.", args: [] },
-        advancement: { usage: "/advancement [open|list|grant|revoke] [id|tab|all]", description: "Opens the advancements screen, lists progress, or grants/revokes one (testing aid).",
-                       args: [{ name: "action", type: "choice", choices: ["open", "list", "grant", "revoke"] }, { name: "target", type: "advancement" }] },
+        advancement: { usage: "/advancement [open|list|grant|revoke|reset] [id|tab|all]", description: "Opens the advancements screen, lists progress, grants/revokes one (testing aid), or resets everything (/advancement reset confirm).",
+                       args: [{ name: "action", type: "choice", choices: ["open", "list", "grant", "revoke", "reset"] }, { name: "target", type: "advancement" }] },
         kill:  { usage: "/kill [class]", description: "Mines the focused window, or the first window of that class.", args: [{ name: "class", type: "window" }] },
         seed:  { usage: "/seed [current]", description: "Rolls a new random wallpaper world and shows its seed; /seed current only shows it.", args: [{ name: "which", type: "choice", choices: ["current"] }] },
         clear: { usage: "/clear", description: "Clears the chat and the notification history.", args: [] }
@@ -176,6 +176,7 @@ Singleton {
                                       : (first === "set" && argIndex === 2 ? { type: "choice", choices: ["day", "night", "auto"] } : null);
             else if (spec.name === "advancement" && argIndex === 2) {
                 if (first === "list") a = { type: "choice", choices: ["unlocked", "locked"].concat(Advancements.tabs.map(t => t.id)) };
+                else if (first === "reset") a = { type: "choice", choices: ["confirm"] };
                 else if (first !== "grant" && first !== "revoke") a = null;
             }
             if (a && a.type === "text") a = null;
@@ -406,6 +407,13 @@ Singleton {
             });
             return;
         }
+        if (sub === "reset") {
+            if ((a[1] || "").toLowerCase() !== "confirm") {
+                post("§eThis forgets all " + Advancements.unlockedCount + " of your advancements and cannot be undone.");
+                post("§eTo go ahead, type §f/advancement reset confirm");
+            } else Advancements.reset();
+            return;
+        }
         if (sub !== "grant" && sub !== "revoke") { error(GameCore.t("errors.unknown_option", { value: a[0] })); post("§7" + spec.usage); return; }
         if (a.length < 2) { post("§c" + GameCore.t("errors.expected", { what: "an advancement, tab or 'all'" })); return; }
         const r = sub === "grant" ? Advancements.grant(a[1]) : Advancements.revoke(a[1]);
@@ -500,6 +508,7 @@ Singleton {
     }
     Connections {
         target: Advancements
+        function onWasReset() { root.post("§e[Overworld] Advancements have been reset"); }
         function onAdvancementUnlocked(adv, silent) {
             if (silent) return;
             const key = adv.frame === "challenge" ? "advancement_challenge" : adv.frame === "goal" ? "advancement_goal" : "advancement_task";

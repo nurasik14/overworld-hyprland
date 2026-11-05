@@ -6,7 +6,7 @@ import qs.Services
 /*  AdvancementsScreen — layer `overworld-advancements` (IPC `advancements open`). The game's advancement window: tabs above
  *  (root advancement icon, selected one joins the window), tiled tab background, the tree with task/goal/challenge frames,
  *  connecting lines, hover box with title / description / progress, drag or wheel to pan. Keys: Tab / Shift+Tab or 1–5 switch tab,
- *  arrows pan, Home recentres, Esc closes.
+ *  arrows pan, Home recentres, Esc closes. Below the window: Reset Advancements (→ AdvancementsConfirm) and Done.
  */
 Variants {
     model: Quickshell.screens
@@ -27,6 +27,7 @@ Variants {
         property var hovered: null          // advancement under the pointer
         property real hoverX: 0
         property real hoverY: 0
+        property bool confirmReset: false
 
         function recentre() {
             if (!tab) return;
@@ -53,7 +54,7 @@ Variants {
             if (next !== tabIndex) Theme.playSound("book.page");
             tabIndex = next; hovered = null; recentre();
         }
-        onShownChanged: if (shown) { hovered = null; Qt.callLater(recentre); }
+        onShownChanged: { if (shown) { hovered = null; Qt.callLater(recentre); } else confirmReset = false; }
         onGuiHChanged: Qt.callLater(recentre)
         onGuiWChanged: Qt.callLater(recentre)
         function hover(adv) {      // places the hover box at the node (pointer entered, or IPC `advancements inspect`)
@@ -64,6 +65,7 @@ Variants {
         Connections {
             target: AdvancementsState
             function onTabRequested(id) { const i = Advancements.tabs.findIndex(t => t.id === id); if (i >= 0) win.setTab(i); }
+            function onResetDialogRequested() { GameUi.open("advancements"); Qt.callLater(() => { win.confirmReset = true; }); }
             function onInspectRequested(id) {
                 const a = Advancements.byId[id];
                 if (!a) return;
@@ -234,6 +236,25 @@ Variants {
                     }
                 }
 
+                // bottom bar: Reset Advancements (asks first) + Done
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: parent.height + Theme.px(5)
+                    spacing: Theme.px(6)
+                    McButton {
+                        text: "Reset Advancements"
+                        width: Theme.px(150)
+                        activeFocusOnTab: false
+                        onClicked: win.confirmReset = true
+                    }
+                    McButton {
+                        text: "Done"
+                        width: Theme.px(98)
+                        activeFocusOnTab: false
+                        onClicked: win.closeRequested()
+                    }
+                }
+
                 // hover box (the game's title_box / box_obtained sprites) drawn above everything
                 Item {
                     id: hoverBox
@@ -272,6 +293,15 @@ Variants {
                     }
                     McItemIcon { x: Theme.px(8); y: Theme.px(5); source: Advancements.iconUrl(hoverBox.adv.icon) }
                 }
+            }
+
+            AdvancementsConfirm {
+                z: 50
+                shown: win.confirmReset
+                title: "Reset all advancements?"
+                detail: "This cannot be undone."
+                onConfirmed: { win.confirmReset = false; Advancements.reset(); win.hovered = null; stage.forceActiveFocus(); }
+                onCancelled: { win.confirmReset = false; stage.forceActiveFocus(); }
             }
         }
     }

@@ -68,6 +68,15 @@ Singleton {
     }
     property bool dirty: false
 
+    // forgets every counter (Reset Statistics button); this session counts as the first one again. Advancements are separate.
+    function reset() {
+        totals = ({}); sess = ({}); apps = ({}); workspaces = ({});
+        firstRun = Date.now(); playSeconds = 0; sessionSeconds = 0; sessions = 1; lastWorkspace = 0;
+        lastTick = Date.now();
+        revision++;
+        persist();
+    }
+
     function persist() {
         dirty = false;
         store.data = { version: 1, first: firstRun, sessions: sessions, playSeconds: playSeconds, totals: totals,

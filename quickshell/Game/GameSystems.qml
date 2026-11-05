@@ -6,7 +6,7 @@ import qs.Services
 
 /*  GameSystems — entry of the Game module (shell.qml instantiates it): chat console, game modes, advancements, statistics, options.
  *  Surfaces: overworld-chat · overworld-gamemode · overworld-advancements · overworld-stats · overworld-options · overworld-advtoast.
- *  IPC: chat open|command <text>|say <text>|close|toggle · gamemode set <m>|get|switcher|cycle · advancements open|close|toggle|grant|revoke|list
+ *  IPC: chat open|command <text>|say <text>|close|toggle · gamemode set <m>|get|switcher|cycle · advancements open|close|toggle|grant|revoke|list|reset|resetdialog
  *       stats open|close|toggle|summary · options open|close|toggle|page <name>|get <key>|set <key> <json>
  *  Docs: docs/GAMEPLAY.md.
  */
@@ -49,6 +49,8 @@ Scope {
         function grant(spec: string): string { const r = Advancements.grant(spec); return "granted " + r.changed + " of " + r.matched; }
         function revoke(spec: string): string { const r = Advancements.revoke(spec); return "revoked " + r.changed + " of " + r.matched; }
         function list(): string { return Advancements.unlockedCount + "/" + Advancements.total; }
+        function reset(): string { const n = Advancements.reset(); return "reset " + n + " of " + Advancements.total; }   // confirm-less, for scripts
+        function resetdialog(): void { AdvancementsState.requestResetDialog(); }                                          // opens the screen with the confirm question
         function tab(id: string): void { GameUi.open("advancements"); AdvancementsState.requestTab(id); }
         function inspect(id: string): void { GameUi.open("advancements"); Qt.callLater(() => AdvancementsState.requestInspect(id)); }   // opens the hover box of one advancement
     }
