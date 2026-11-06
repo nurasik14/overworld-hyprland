@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import qs.Common
 import qs.Services
+import qs.Widgets.Services
 import "ChatCommands.js" as Cmd
 
 /*  ChatService — the chat log, the command interpreter, completion, history and reminders.
@@ -38,6 +39,8 @@ Singleton {
                        args: [{ name: "action", type: "choice", choices: ["open", "list", "grant", "revoke", "reset"] }, { name: "target", type: "advancement" }] },
         kill:  { usage: "/kill [class]", description: "Mines the focused window, or the first window of that class.", args: [{ name: "class", type: "window" }] },
         seed:  { usage: "/seed [current]", description: "Rolls a new random wallpaper world and shows its seed; /seed current only shows it.", args: [{ name: "which", type: "choice", choices: ["current"] }] },
+        project: { usage: "/project [add <title>|done <n|title>|undone|remove|undo|list|open]", description: "Your to-do card: /project add Hyprland rice, /project done 2 (number from /project list, or the start of the title), /project remove …, /project undo (5 s). Bare /project opens the add dialog.",
+                   args: [{ name: "action", type: "choice", choices: ["add", "done", "undone", "toggle", "remove", "undo", "list", "edit", "open"] }, { name: "project", type: "project" }] },
         clear: { usage: "/clear", description: "Clears the chat and the notification history.", args: [] }
     })
     readonly property var commandSpecs: {
@@ -181,6 +184,13 @@ Singleton {
             }
             if (a && a.type === "text") a = null;
             items = candidatesFor(a, w, argIndex);
+            if (spec.name === "project" && argIndex >= 2) {            // titles contain spaces: complete the whole rest of the line
+                const act = first === "rm" || first === "delete" ? "remove" : first;
+                const pool = act === "done" ? ProjectsService.inProgress : act === "undone" ? ProjectsService.built
+                           : (act === "remove" || act === "toggle" || act === "edit") ? ProjectsService.ordered : [];
+                const typed = Cmd.restAfter(body, 2);
+                return { start: text.length - typed.length, prefix: typed, items: Cmd.filterCandidates(pool.map(i => i.title), typed) };
+            }
         }
         return { start: start, prefix: prefix, items: Cmd.filterCandidates(items, prefix) };
     }
@@ -254,6 +264,7 @@ Singleton {
         case "say": return say(rest);
         case "me": if (!rest.length) { error(GameCore.t("errors.empty_message")); return; } post("§f* " + GameCore.player + " " + rest); return;
         case "msg": return cmdMsg(rest, spec);
+        case "project": return cmdProject(a, rest, spec);
         }
     }
     Timer { id: reloadTimer; interval: 600; onTriggered: { if (GameCore.dryRun) root.system("[dry-run] Quickshell.reload()"); else Quickshell.reload(false); } }
@@ -366,6 +377,43 @@ Singleton {
         GameCore.ipc("brew", "start", [sec + "s"]);
         const task = Cmd.restAfter(rest, 1);
         ok(GameCore.t("ok.brew_start", { task: task.length ? task : "a potion", duration: Cmd.durationLabel(sec) }));
+    }
+    // /project add <title> · done|undone|toggle|remove|edit <n|title> · undo · list · open   (the list is Widgets/Services/ProjectsService)
+    function cmdProject(a, rest, spec) {
+        const P = ProjectsService;
+        const sub = (a[0] || "open").toLowerCase();
+        const arg = Cmd.restAfter(rest, 1);
+        const T = GameCore.t;
+        if (sub === "open") { GameUi.closeAll(); P.openDialog(""); return; }
+        if (sub === "add") {
+            if (!P.add(arg, "", false)) { usageError(spec); return; }
+            ok(T("ok.project_add", { title: P.clean(arg) }));
+            return;
+        }
+        if (sub === "list") {
+            if (P.count === 0) { system(T("ok.project_none")); return; }
+            post("§2" + T("ok.project_list_head", { progress: P.inProgress.length, built: P.built.length }));
+            P.ordered.forEach(it => post((it.status === "built" ? "§a" : "§f") + " " + P.numberOf(it) + ". [" + (it.status === "built" ? "x" : " ") + "] " + it.title,
+                                         "", it.note ? { title: it.title, description: it.note, frame: "task", prefix: "", label: it.title } : null));
+            return;
+        }
+        if (sub === "undo") {
+            if (P.undoRemove()) ok(T("ok.project_undo")); else error("Nothing to undo");
+            return;
+        }
+        const verbs = { done: "done", built: "done", check: "done", undone: "undone", uncheck: "undone", toggle: "toggle",
+                        remove: "remove", rm: "remove", delete: "remove", edit: "edit" };
+        const verb = verbs[sub];
+        if (!verb) { usageError(spec); return; }
+        const r = P.find(arg);
+        if (r.error) { error(r.error); return; }
+        const it = r.item;
+        if (verb === "edit") { GameUi.closeAll(); P.openDialog(it.id); return; }
+        if (verb === "remove") { P.remove(it.id); ok(T("ok.project_remove", { title: it.title })); return; }
+        const wantBuilt = verb === "done" ? true : verb === "undone" ? false : it.status !== "built";
+        if ((it.status === "built") === wantBuilt) { system("[" + it.title + "] is already " + (wantBuilt ? "built" : "in progress")); return; }
+        P.setBuilt(it.id, wantBuilt);
+        if (!wantBuilt) ok(T("ok.project_undone", { title: it.title }));      // building one says its own line (project.built below)
     }
     function cmdTitle(a, body, spec) {
         const n = parseInt(a[0]);
@@ -504,6 +552,17 @@ Singleton {
             if (NotificationService.dnd === root.dndSeen) return;
             root.dndSeen = NotificationService.dnd;
             root.post(GameCore.t(NotificationService.dnd ? "system.peaceful_on" : "system.peaceful_off"));
+        }
+    }
+    Connections {
+        target: ProjectsService
+        function onProjectBuilt(item) {              // from the file diff: a click on the card, /project, the CLI, a text editor
+            const text = GameCore.t("system.project_built", { title: "\u0001" });
+            const mark = text.indexOf("[\u0001]");
+            const i = mark >= 0 ? mark : text.indexOf("\u0001");
+            if (i < 0) return;
+            const prefix = text.slice(0, i), suffix = mark >= 0 ? text.slice(i + 3) : text.slice(i + 1);
+            root.post("§f" + prefix + "§a[" + item.title + "]§f" + suffix, "", { title: item.title, description: item.note || "Project built", frame: "task", prefix: prefix, label: "[" + item.title + "]" });
         }
     }
     Connections {

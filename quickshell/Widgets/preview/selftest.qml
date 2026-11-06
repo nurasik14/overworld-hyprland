@@ -29,7 +29,7 @@ ShellRoot {
         check("setCard off", !WidgetsState.cardOn("cava"));
         WidgetsState.setCard("cava", true);
         check("setCard on", WidgetsState.cardOn("cava"));
-        check("cardList has 8 cards", WidgetsState.cardList.length === 8);
+        check("cardList has 9 cards", WidgetsState.cardList.length === 9);
         check("opacity from config/theme", Math.abs(WidgetsState.cardOpacity - Theme.widgetOpacity) < 1e-6, WidgetsState.cardOpacity);
     }
     // ---- 2. BrewTimer: lengths, finish → events + sounds + notification, rest 0, sessions

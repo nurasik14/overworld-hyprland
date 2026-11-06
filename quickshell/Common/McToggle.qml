@@ -18,8 +18,12 @@ McButton {
     signal toggled(bool checked)
 
     text: (label.length ? label + ": " : "") + (checked ? onText : offText)
+    // Emit first: a toggle bound to a store (`checked: Options.get(…)`) updates through its binding, and assigning `checked`
+    // here would break that binding for good (the button then shows a stale value and the next click writes the wrong one).
+    // Only a toggle nothing updated (standalone, or an async service) flips itself.
     onClicked: {
-        checked = !checked;
-        toggled(checked);
+        const want = !checked;
+        toggled(want);
+        if (checked !== want) checked = want;
     }
 }

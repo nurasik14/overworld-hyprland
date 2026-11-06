@@ -12,7 +12,7 @@ import qs.Common
  *    cardOpacity  card fill alpha = Theme.widgetOpacity (config.json → {"widgets":{"opacity":0.72}}), clamped 0.2–1
  *    dragging  true while a card is dragged (the layer then takes input everywhere so a fast drag can't escape)
  *  IPC:  qs -c overworld ipc call widgets toggle | show | hide | demo on|off | status | layout (reset positions)
- *        | menu | card <id> (toggle one: weather music calendar sysinfo cava quote block brew; `herb` is an alias of
+ *        | menu | card <id> (toggle one: weather music calendar sysinfo cava quote block brew projects; `herb` is an alias of
  *        `block`) | cards (list)
  */
 Singleton {
@@ -86,7 +86,8 @@ Singleton {
         { id: "cava",     cjk: "N", item: "note_block",     name: "Note block" },
         { id: "quote",    cjk: "S", item: "oak_sign",       name: "Sign" },
         { id: "block",    cjk: "B", item: "item_frame",     name: "Block of the day" },
-        { id: "brew",     cjk: "P", item: "brewing_stand",  name: "Brewing stand" }
+        { id: "brew",     cjk: "P", item: "brewing_stand",  name: "Brewing stand" },
+        { id: "projects", cjk: "R", item: "writable_book",  name: "Projects" }
     ]
     property var hiddenCards: []
     property bool dragging: false

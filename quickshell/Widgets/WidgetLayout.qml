@@ -9,9 +9,10 @@ import qs.Widgets.Quote
 import qs.Widgets.BlockOfDay
 import qs.Widgets.BrewTimer
 import qs.Widgets.Cava
+import qs.Widgets.Projects
 import "layout-plan.js" as Plan
 
-/*  WidgetLayout — the eight cards on their default slots (two columns of stacked cards, see DesktopWidgets).  An Item sized like the
+/*  WidgetLayout — the nine cards on their default slots (two columns of stacked cards + an overflow column for Projects, see DesktopWidgets).  An Item sized like the
  *  screen; DesktopWidgets puts it in the layer window, the offscreen render harness (preview/render.qml) in a plain window.
  */
 Item {
@@ -24,11 +25,13 @@ Item {
     property alias cava: cava
     property alias block: block
     property alias quote: quote
+    property alias projects: projects
     // Slots come from layout-plan.js (GUI px stacks that follow the GUI scale and the screen): two columns, flush to the
     // left / right edge; when a stack would run into the HUD chips (GUI scale 3+ at 1080p) the cards are re-dealt over up
-    // to three columns, and a card with no room left gets fits = false (hidden until it is dragged somewhere).
-    readonly property var cards: [weather, calendar, music, sysinfo, brew, cava, block, quote]   // reading order = stagger order
-    readonly property var slots: width > 0 && height > 0 ? Plan.plan(width, height, Theme.gui, cards.map(c => ({ w: c.guiW, h: c.guiH })))
+    // to three columns, and a card with no room left gets fits = false (hidden until it is dragged somewhere).  The first 8 cards
+    // form those stacks; Projects (the 9th) goes in an overflow column next to the right stack (below the boss bars).
+    readonly property var cards: [weather, calendar, music, sysinfo, brew, cava, block, quote, projects]   // reading order = stagger order
+    readonly property var slots: width > 0 && height > 0 ? Plan.plan(width, height, Theme.gui, cards.map(c => ({ w: c.guiW, h: c.guiH })), 8)
                                                          : cards.map(c => ({ x: 0, y: 0, fits: true }))
 
     WeatherCard    { id: weather;  index: 0; cardId: "weather";  defaultX: root.slots[0].x; defaultY: root.slots[0].y; fits: root.slots[0].fits }
@@ -39,4 +42,5 @@ Item {
     CavaCard       { id: cava;     index: 5; cardId: "cava";     defaultX: root.slots[5].x; defaultY: root.slots[5].y; fits: root.slots[5].fits }
     BlockOfDayCard { id: block;    index: 6; cardId: "block";    defaultX: root.slots[6].x; defaultY: root.slots[6].y; fits: root.slots[6].fits }
     QuoteCard      { id: quote;    index: 7; cardId: "quote";    defaultX: root.slots[7].x; defaultY: root.slots[7].y; fits: root.slots[7].fits }
+    ProjectsCard   { id: projects; index: 8; cardId: "projects"; defaultX: root.slots[8].x; defaultY: root.slots[8].y; fits: root.slots[8].fits }
 }

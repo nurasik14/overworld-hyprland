@@ -6,7 +6,8 @@
 set -euo pipefail
 f="${1:?file}"; key="${2:?key}"; val="${3:?json value}"
 command -v jq >/dev/null || { echo "set-config: jq is required" >&2; exit 1; }
-printf '%s' "$val" | jq -e . >/dev/null 2>&1 || { echo "set-config: value is not JSON: $val" >&2; exit 1; }
+# `jq .`, not `jq -e .`: -e exits 1 on a valid `false`/`null`, which silently broke every OFF toggle in the Options screen
+printf '%s' "$val" | jq . >/dev/null 2>&1 || { echo "set-config: value is not JSON: $val" >&2; exit 1; }
 mkdir -p "$(dirname "$f")"
 (
     flock 9

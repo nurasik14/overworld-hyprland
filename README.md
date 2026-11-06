@@ -42,7 +42,7 @@ Quickshell 0.3), taken during the QA pass, with a few personal details blurred. 
 
 The bar is Minecraft's in-game HUD, pinned to the bottom centre: workspaces are hotbar slots (the item is the busiest app,
 the stack count is the window count), the battery is hearts, free RAM is hunger, CPU headroom is air bubbles, uptime is the
-XP level and bar. A boss bar appears at the top while a brew runs or media plays. Eight see-through cards sit on the wallpaper.
+XP level and bar. A boss bar appears at the top while a brew runs or media plays. Nine see-through cards sit on the wallpaper.
 <table>
 <tr>
 <td align="center" valign="top"><img src="docs/screenshots/02-desktop-day.webp" width="440" alt="Full desktop, Day"><br><sub><b>Day</b>: hotbar, hearts, hunger, air, XP level 31, the eight widget cards (Weather, Jukebox, Brewing Stand, Block of the Day, Clock and Calendar, System, Note Block, Sign), chat line and the workspace /title card.</sub></td>
@@ -270,8 +270,10 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
 - **Advancements and statistics**: 60 advancements in five tabs (`quotes/advancements.json`), unlocked by real desktop events
   (first terminal, first brew, 100 windows mined, 3 hours of uptime, Wi-Fi connected ...). Statistics are counts of shell and
   Hyprland events only, no keystrokes.
-- **Desktop widgets** (`SUPER+G`): eight cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
-  (media), Brewing Stand, Block of the Day, Clock and Calendar, System (F3 style), Note Block (cava), Sign (quote).
+- **Desktop widgets** (`SUPER+G`): nine cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
+  (media), Brewing Stand, Block of the Day, Clock and Calendar, System (F3 style), Note Block (cava), Sign (quote), and
+  **Projects** (a Book-and-Quill to-do list of what you have built and what is in progress: tick, add, remove with undo;
+  `SUPER+SHIFT+P`, chat `/project`, `overworld projects`).
   Opacity is `widgets.opacity` (default 0.72). See [docs/WIDGETS.md](docs/WIDGETS.md).
 
 ### World effects (`quickshell/World/`)
@@ -341,6 +343,7 @@ Active only while the theme is on (`hypr/keybinds.conf`). The full table, with w
 | `SUPER+F1` / `SUPER+F2` | hide the HUD / screenshot of everything |
 | `SUPER+F3` / `SUPER+SHIFT+F3` / `SUPER+F4` | F3 debug screen / with frame graph / gamemode switcher |
 | `SUPER+G` / `SUPER+B` / `SUPER+SHIFT+B` | desktop widgets / brew start-pause / brew dialog |
+| `SUPER+SHIFT+P` | add a project (Projects card dialog) |
 | `SUPER+E` | superfile |
 | `SUPER+SHIFT+G` / `SUPER+ALT+R` | adventure (performance) mode / repair |
 | `SUPER+SHIFT+Space` | float or tile the window (`SUPER+Space` is the launcher) |
@@ -372,11 +375,12 @@ Active only while the theme is on (`hypr/keybinds.conf`). The full table, with w
 | `overworld sound <id>` | play an id from `tokens/sounds.json` (honours `sounds` and volumes; `OW_SOUND_DRYRUN=1` prints instead) |
 | `overworld ws ...` | workspace titles and notes, Claude auto-labelling (`overworld help ws`) |
 | `overworld brew ...` | brew timer (`brew set 50 10`, `brew start`, `brew toggle`, `brew rest 0`; `overworld help brew`) |
+| `overworld projects ...` | the Projects card (`projects`, `add <title>`, `done <n>`, `undone <n>`, `rm <n>`, `open`; `overworld help projects`) |
 | `overworld event <name> ['<json>']` | post to the event bus (`$XDG_RUNTIME_DIR/overworld/events.jsonl`) |
 
 Other tools: `scripts/ow-sound --list` (all sound ids), `scripts/fetch-minecraft-assets.sh [--build] [--sounds-only]
 [--force] [--download] [--version V]`. The shell's own commands go through `qs -c overworld ipc call <target> <function>`;
-the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew widgets chat
+the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects widgets chat
 advancements stats options gamemode world interact` (see [docs/QUICKSHELL.md](docs/QUICKSHELL.md)).
 
 ## config.json keys

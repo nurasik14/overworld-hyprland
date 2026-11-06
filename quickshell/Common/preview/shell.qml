@@ -485,6 +485,9 @@ ShellRoot {
         McButton { id: tBtnOff; soundId: ""; enabled: false; property int hits: 0; onClicked: hits++ }
         McToggle { id: tTog; soundId: ""; label: "X" }
         McCheckbox { id: tChk; soundId: "" }
+        property bool storeVal: true      // a store the bound toggle/checkbox write through (like Options / WidgetsState)
+        McToggle { id: tTogB; soundId: ""; label: "B"; checked: selftestHost.storeVal; onToggled: c => selftestHost.storeVal = c }
+        McCheckbox { id: tChkB; soundId: ""; checked: selftestHost.storeVal; onToggled: c => selftestHost.storeVal = c }
         McSlider { id: tSl; soundId: ""; label: "V"; value: 0.5; stepSize: 0.25; property real seen: -1; onMoved: v => seen = v }
         McTextField { id: tTf; text: "abc" }
         McSlider { id: tDrag; soundId: ""; height: 20 }
@@ -506,6 +509,9 @@ ShellRoot {
                 tBtnOff.activate(); t.check("disabled button ignores activate", tBtnOff.hits === 0);
                 tTog.activate(); t.check("toggle flips and prints ON", tTog.checked && tTog.text === "X: ON");
                 tChk.toggle(); t.check("checkbox toggles", tChk.checked);
+                tTogB.activate(); t.check("bound toggle writes false", t.storeVal === false && !tTogB.checked);
+                t.storeVal = true; t.check("bound toggle still follows its store after a click", tTogB.checked && tChkB.checked);
+                tChkB.toggle(); t.storeVal = true; t.check("bound checkbox still follows its store after a click", tChkB.checked);
                 tSl._nudge(1); t.check("slider step + moved", tSl.value === 0.75 && tSl.seen === 0.75 && tSl.text === "V: 75%");
                 t.check("§ parser escapes markup", tTxt.text.indexOf("&lt;b&gt;") >= 0 && tTxt.text.indexOf("#55ff55") >= 0);
                 t.check("tex resolves mojang", Theme.tex("gui/sprites/hud/heart/full").indexOf("/assets/mc/textures/") >= 0);

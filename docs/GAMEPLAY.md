@@ -50,12 +50,13 @@ Type `/help` for the list (texts: `quotes/chat.json`). Commands, what each reall
 | `/clear` | clears the chat log and the notification history |
 | `/advancement [open\|list [unlocked\|locked\|tab]\|grant <id\|tab\|all>\|revoke …\|reset]` | open the screen / progress / testing aid (ids, tab names, "all", or a unique suffix like `terminal`). `/advancement reset` only asks; `/advancement reset confirm` does it |
 | `/stats` · `/options` | open the screens |
+| `/project add <title>` · `done <n\|title>` · `undone …` · `toggle …` · `remove …` · `undo` · `list` · `edit <n\|title>` · bare `/project` | the Projects card's to-do list (`Widgets/Services/ProjectsService`, file `projects.json`). `<n\|title>` = the number `/project list` shows (in progress first, then built, newest first) or the start of a title (any part if unique; ambiguous → an error naming the count). `done` builds it (the chat then says `Nurasik built [Title]!`, see the event table); `remove` has a 5 s `/project undo`; bare `/project` and `edit` open the dialog. Tab completes the action, then the whole title (done → in-progress titles, undone → built ones, remove/toggle/edit → all) |
 | `/f3 [on\|off]` | `ipc call world f3 <on\|off\|toggle>` |
 | `/reload` | `Quickshell.reload()` |
 | `/say <text>` · plain text · `/me <text>` | `<Nurasik> text` / `* Nurasik text` |
 | `/msg <text> in <duration>` · `/msg list` | a **real reminder**: kept in `reminders.json`, survives a shell restart; at the time it posts `[Reminder] text` and sends a desktop notification (`notify-send -a Overworld`) |
 
-Completion (Tab): command names, sub-commands, `1-10` workspaces, desktop-entry names (slugged) plus running window classes, advancement ids,
+Completion (Tab): command names, sub-commands, project titles, `1-10` workspaces, desktop-entry names (slugged) plus running window classes, advancement ids,
 durations. A list of candidates shows above the input while typing; Tab completes a unique match (adds a space), extends to the common
 prefix, then cycles; Shift+Tab goes backwards. History: Up/Down, last 100 lines in `chat-history.json`.
 
@@ -67,6 +68,7 @@ the wheel scrolls. Lines come from commands and from events:
 | (shell start) | `Nurasik joined the game` + the MOTD |
 | `advancement` unlock | `Nurasik has made the advancement [Title]` (goal: "has reached the goal", challenge: "has completed the challenge", purple); hover the green bracket with the console open → the advancement tooltip |
 | `screenshot {path}` | `Saved screenshot as <file>` |
+| `project.built {id, title}` | `Nurasik built [Title]!` (green bracket, hover = the note). Emitted by `ProjectsService` from the file diff, so a click on the card, `/project`, `overworld projects done` and a text editor all produce it once. `project.add` / `project.remove {id, title}` go on the bus too (no chat line; nothing consumes them yet) |
 | `xp.levelup {level}` | `Nurasik reached experience level N` |
 | `brew.done`, `rest.done`, `mode`, `wallpaper.set {path}`, `world.created {path}`, `net.connect {ssid}`, `gamemode`, `window.kill` (not synthetic), `battery` (low ≤ 20 %, charging / unplugged), DND changes ("Difficulty set to Peaceful") | the matching line from `chat.json → system` |
 
@@ -241,6 +243,7 @@ first, in yellow). Esc / Done go back one page, then close.
 | `~/.config/overworld/stats.json` | `{version, first, sessions, playSeconds, totals{}, apps{cls:{opened,mined}}, workspaces{}}` |
 | `~/.config/overworld/chat-history.json` | last 100 typed lines |
 | `~/.config/overworld/reminders.json` | pending `/msg` reminders `[{due, text}]` |
+| `~/.config/overworld/projects.json` | the Projects card: `{items: [{id, title, note?, status: progress\|built, created, built_at?}]}`; `OW_PROJECTS=<file>` redirects it (tests) |
 | `~/.config/overworld/config.json` | Options (see §6) |
 | `$XDG_RUNTIME_DIR/overworld/events.jsonl` | the bus |
 | `$XDG_RUNTIME_DIR/overworld/gamemode-widgets` | widgets state remembered while in adventure/spectator |

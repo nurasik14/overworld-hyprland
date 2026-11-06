@@ -32,8 +32,9 @@ Item {
     function toggle() {
         if (!enabled) return;
         if (soundId.length) Theme.playSound(soundId);
-        checked = !checked;
-        toggled(checked);
+        const want = !checked;      // emit first, flip only if no binding did (see McToggle: assigning breaks `checked: store…`)
+        toggled(want);
+        if (checked !== want) checked = want;
     }
 
     McSprite {

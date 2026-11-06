@@ -241,6 +241,13 @@
   "empty_message": "Cannot send an empty message"
  },
  "ok": {
+  "project_add": "Added project [{title}]",
+  "project_done": "Marked [{title}] as built",
+  "project_undone": "[{title}] is back in progress",
+  "project_remove": "Removed project [{title}]. /project undo brings it back for 5 seconds",
+  "project_undo": "Restored the removed project",
+  "project_list_head": "Projects: {progress} in progress, {built} built",
+  "project_none": "No projects yet. /project add <name> starts one",
   "time_day": "Set the time to Day",
   "time_night": "Set the time to Night",
   "time_auto": "The day/night cycle now follows the sun",
@@ -267,6 +274,7 @@
   "reload_warn": "Note: the shell may flicker while reloading."
  },
  "system": {
+  "project_built": "{player} built [{title}]!",
   "join": "{player} joined the game",
   "leave": "{player} left the game",
   "saved_screenshot": "Saved screenshot as {file}",
