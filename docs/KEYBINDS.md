@@ -26,7 +26,7 @@ Active only while the theme is on; `hypr/keybinds.conf` is sourced from `hypr/on
 | `SUPER + SHIFT + I` | Peaceful (do not disturb) | `$qs notifications dnd` | `togglesplit` (moved) |
 | `SUPER + B` | Brewing stand: start/pause | `$qs brew toggle` | default browser (moved) |
 | `SUPER + SHIFT + B` | Brewing stand: set brew and rest time | `$qs brew open` | `RainbowBorders-low-cpu.sh` |
-| `SUPER + SHIFT + P` | Projects card: add a project (the dialog; type, Enter) | `$qs projects open` | free key (SUPER+P is JaKooLit's pseudotile) |
+| `SUPER + SHIFT + P` | Projects card: add a project (the dialog; type, Enter) | `$qs projects open` | free key (SUPER+P is JaKooLit's pseudotile); `unbind`ed first so `hypr/off.conf`'s stock-desktop bind (`hypr-projects menu --if-stock`, a rofi menu) does not also fire. While both themes are off the same key opens that menu |
 | `SUPER + E` | superfile | `kitty --class spf -e spf` | `LaunchFileManager.sh` |
 
 ## The game

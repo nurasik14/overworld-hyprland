@@ -243,7 +243,7 @@ first, in yellow). Esc / Done go back one page, then close.
 | `~/.config/overworld/stats.json` | `{version, first, sessions, playSeconds, totals{}, apps{cls:{opened,mined}}, workspaces{}}` |
 | `~/.config/overworld/chat-history.json` | last 100 typed lines |
 | `~/.config/overworld/reminders.json` | pending `/msg` reminders `[{due, text}]` |
-| `~/.config/overworld/projects.json` | the Projects card: `{items: [{id, title, note?, status: progress\|built, created, built_at?}]}`; `OW_PROJECTS=<file>` redirects it (tests) |
+| `~/.local/share/hypr-projects/projects.json` | the Projects card (shared with Apothecary + the stock desktop): `{items: [{id, title, note?, status: progress\|built, created, built_at?}]}`; `HYPR_PROJECTS_FILE=<file>` redirects it (tests) |
 | `~/.config/overworld/config.json` | Options (see §6) |
 | `$XDG_RUNTIME_DIR/overworld/events.jsonl` | the bus |
 | `$XDG_RUNTIME_DIR/overworld/gamemode-widgets` | widgets state remembered while in adventure/spectator |

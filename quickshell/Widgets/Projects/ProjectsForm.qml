@@ -110,8 +110,8 @@ Item {
             soundId: ""
             Keys.onPressed: e => { if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) { titleField.input.forceActiveFocus(); e.accepted = true; } }
         }
-        Row {   // reorder (editing only): moves the project inside its own section
-            visible: form.editing
+        Row {   // reorder (editing, in-progress projects only: built ones are ordered by when they were built): moves it inside its section
+            visible: form.editing && form.editItem.status !== "built"
             x: Theme.px(100); y: Theme.px(60)
             spacing: Theme.px(2)
             McButton {

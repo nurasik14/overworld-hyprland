@@ -63,6 +63,9 @@ link "$REPO/quickshell" "$CFG/quickshell/overworld"
 mkdir -p "$BIN"
 link "$REPO/scripts/overworld" "$BIN/overworld"
 chmod +x "$REPO/scripts/overworld"
+# the Projects list CLI (+ rofi menu on SUPER+SHIFT+P while no theme is on); the same script ships with Apothecary, the data is shared
+link "$REPO/scripts/hypr-projects" "$BIN/hypr-projects"
+chmod +x "$REPO/scripts/hypr-projects"
 case ":$PATH:" in *":$BIN:"*) ;; *) say "note: $BIN is not in PATH for this shell (Hyprland uses the full path)";; esac
 
 # d) state dir (defaults only if missing — never clobber the user's choices)

@@ -28,7 +28,7 @@ quickshell/Widgets/
     WidgetsState.qml    visible (persisted), demo, positions, per-card switches, cardOpacity, IpcHandler "widgets"
     WeatherService.qml + weather-fetch.py    MusicService.qml (MPRIS)    SysInfoService.qml + sysinfo.py
     QuoteService.qml    BlockOfDayService.qml    BrewTimer.qml (IpcHandler "brew")    CavaService.qml    duration.js
-    ProjectsService.qml (IpcHandler "projects") + projects-write.sh + projects.jq    the to-do list and the one script that writes it
+    ProjectsService.qml (IpcHandler "projects") + projects-write.sh (shim → scripts/hypr-projects, which owns the rules)    the to-do list
   assets/weather/*.png  gen_weather_icons.py    original 16×16 pixel icons (sun moon partly_day partly_night cloud fog rain snow sleet thunder)
   shaders/blackkey.frag(.qsb)    rebuild: /usr/lib64/qt6/bin/qsb --qt6 -o shaders/blackkey.frag.qsb shaders/blackkey.frag
   preview/  shell.qml (the layer) · render.qml (offscreen) · skies.qml (all sky conditions) · selftest.qml · shot.sh
@@ -129,11 +129,14 @@ with the quill icon and "Click +, or type /project add <name>"); nothing is ever
   dialog, because the widget layer itself never takes focus): Title (autofocus), optional Note, "Already built" checkbox, **Add** (Enter) /
   Cancel (Esc or a click outside). Editing adds Up / Down (reorder inside the section). The dialog sits in `DesktopWidgets.qml`
   (`DesktopWidgets` is a `Scope` now: the dialog + the per-screen layer `Variants`), and closes when any other overlay opens.
-- **Data**: `~/.config/overworld/projects.json` `{"items": [{"id", "title", "note"?, "status": "progress"|"built", "created": ISO-UTC,
-  "built_at"?}]}`; created by the first add. `OW_PROJECTS=<file>` redirects it for tests. `ProjectsService` reads it with a watching
+- **Data**: `~/.local/share/hypr-projects/projects.json` `{"items": [{"id", "title", "note"?, "status": "progress"|"built", "created": ISO-UTC,
+  "built_at"?}]}` — **one list shared with Apothecary and the stock desktop** (a tick here shows in the other theme after a switch);
+  created by the first add; the old `~/.config/overworld/projects.json` was migrated once (kept as `projects.json.bak`).
+  `HYPR_PROJECTS_FILE=<file>` (or the older `OW_PROJECTS`) redirects it for tests. `ProjectsService` reads it with a watching
   `FileView` (an external edit shows at once; an unreadable or half-written file keeps the list on screen and is retried). **Every
-  write is `projects-write.sh <file> <op>`** — `jq -f projects.jq` under `flock`, written **in place** (`cat tmp > file`, never `mv`, the
-  inode is watched) — and it is the same script the CLI runs, so the card, the chat and `overworld projects` cannot disagree or lose each
+  write is `scripts/hypr-projects raw <op>`** (via the shim `projects-write.sh <file> <op>`) — the jq rules are embedded in that
+  script, under `flock`, written **in place** (`cat tmp > file`, never `mv`, the inode is watched) — and it is the same script
+  `overworld projects` and `hypr-projects` run, so the card, the chat, the CLI and Apothecary's card cannot disagree or lose each
   other's writes (tested: 4 CLI + 2 service writers at once, nothing lost). A file that is not valid JSON is never overwritten.
 - **Numbering** everywhere (chat `/project list`, `overworld projects list`, IPC `list`): in progress in file order, then built newest first
   (`built_at`, ties → later file entry first). `<n|title>` accepts that number, the id, or a title (exact, then prefix, then contains; more
@@ -143,7 +146,7 @@ with the quill icon and "Click +, or type /project add <name>"); nothing is ever
 - **Ways in**: the card · `SUPER+SHIFT+P` (add dialog) · chat `/project add|done|undone|toggle|remove|undo|list|edit` with Tab completion of titles
   · CLI `overworld projects [list|add <title> [--note t] [--built]|done <n>|undone <n>|toggle|rm <n>|clear [--yes]|open|edit <n>]`
   (works without the shell; `open`/`edit` need it) · IPC `qs -c overworld ipc call projects open | add <title> | toggle|done|undone|rm|remove|edit <n|title> | undo | list | status`.
-- **Tests** (all offscreen, temp `OW_PROJECTS`, private `OW_EVENTS_DIR`): `preview/projects-test.qml` (service: add / toggle / rename / reorder / remove /
+- **Tests** (`bash tests/hypr-projects.test.sh`: 98 checks of the standalone CLI incl. the rofi menu logic; the rest all offscreen, temp `OW_PROJECTS`, private `OW_EVENTS_DIR`): `preview/projects-test.qml` (service: add / toggle / rename / reorder / remove /
   undo / clearBuilt / external edit / concurrent writers / invalid file, 44 checks), `preview/projects-chat-test.qml` (chat: 26 checks),
   `preview/projects-render.qml` (`OW_RENDER_WHAT=card|undo|dialog|edit|act`, `OW_RENDER_PIN=<row>` draws a hovered row, `OW_RENDER_TIP=1` its
   tooltip, `OW_RENDER_FOLD=1`, `OW_RENDER_ALL=1`), `node tests/widgets-layout.test.js` (9 cards, overflow column, boss-bar clearance).
@@ -168,7 +171,7 @@ qs -c overworld ipc call brew start 50m | startWith 50m 10m | toggle | pause | r
 |---|---|
 | `~/.config/overworld/widgets-visible` | `true` / `false`, read at startup, written by reveal/hide/toggle |
 | `~/.config/overworld/widgets-hidden.json` | list of switched-off card ids |
-| `~/.config/overworld/projects.json` | the Projects card's list (see *Projects*); `projects.json.lock` is the flock file next to it |
+| `~/.local/share/hypr-projects/projects.json` | the Projects card's list, shared with Apothecary and the stock desktop (see *Projects*); `projects.json.lock` is the flock file next to it |
 | `~/.config/overworld/widget-positions.json` | `{cardId: [x, y]}` for dragged cards |
 | `~/.config/overworld/config.json` | `widgets.opacity`, `weather.{lat,lon,name}`, `brew.{work,break}`, `sounds`, `reduced_motion`, `gui_scale` |
 | `~/.cache/overworld/weather.json` | last good forecast + location (Open-Meteo JSON, `stale: true` when served from cache) |
@@ -211,3 +214,9 @@ plus the design system's `OW_MODE`, `OW_GUI`, `OW_REDUCED_MOTION`.
 
 Known harmless log lines: `quickshell.dbus.properties … playerctld … NoActivePlayer` (Quickshell's Mpris probing the playerctld
 bus) and `kf.iconthemes: Icon theme … not found` (Qt platform theme).
+
+### Projects on the stock desktop and in Apothecary
+The same list is the **Projects** card of Apothecary (工程, with a vermilion seal 成 on built items) and, with both themes off, the rofi menu
+`hypr-projects menu` on `SUPER+SHIFT+P` (bound in `hypr/off.conf`; `--if-stock` makes it a no-op while a theme is on). `hypr-projects`
+(`scripts/hypr-projects`, linked to `~/.local/bin` by install.sh) is the CLI that owns every write; `overworld projects …` delegates to it.
+

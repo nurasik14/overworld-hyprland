@@ -52,6 +52,13 @@ unlink_ours "$HYPR/hyprlock.conf"          # in case `off` was not reachable
 # 4. symlinks
 unlink_ours "$CFG/quickshell/overworld"
 unlink_ours "$BIN/overworld"
+unlink_ours "$BIN/hypr-projects"
+# hypr-projects is shared with Apothecary (its off.conf binds it): hand the link over instead of leaving it dangling.  The list itself
+# (~/.local/share/hypr-projects/projects.json) is the user's data and is never removed.
+if [[ ! -e "$BIN/hypr-projects" ]]; then
+    other="$(readlink -f "$BIN/apothecary" 2>/dev/null || true)"
+    [[ -n "$other" && -x "$(dirname "$other")/hypr-projects" ]] && ln -sfn "$(dirname "$other")/hypr-projects" "$BIN/hypr-projects"
+fi
 
 # 5. state dir
 if (( PURGE )); then

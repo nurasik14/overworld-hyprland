@@ -5,11 +5,13 @@ import Quickshell.Io
 import qs.Services
 
 /*  ProjectsService — the to-do list behind the Projects card (Widgets/Projects/): what is built, what is in progress.
- *    File       ~/.config/overworld/projects.json (env OW_PROJECTS overrides it: tests)
+ *    File       ~/.local/share/hypr-projects/projects.json, ONE list shared with Apothecary and the stock desktop (`hypr-projects`);
+ *               env HYPR_PROJECTS_FILE or OW_PROJECTS overrides it (tests).  The old ~/.config/overworld/projects.json is migrated
+ *               by scripts/hypr-projects on first use (kept as projects.json.bak)
  *               {"items": [{"id", "title", "note"?, "status": "progress"|"built", "created": ISO, "built_at"?: ISO}]}
  *               Created by the first add (an empty list is never invented); the user's own projects only.
  *    Reading    FileView with watchChanges, so `overworld projects …` and hand edits show up at once.
- *    Writing    every change is a read-modify-write run by projects-write.sh (rules in projects.jq) under flock and IN PLACE
+ *    Writing    every change is a read-modify-write run by projects-write.sh -> scripts/hypr-projects (the rules) under flock and IN PLACE
  *               (`cat tmp > file`, never mv), the same code `overworld projects` uses, so the card, the chat and the CLI cannot
  *               disagree or lose each other's writes.  The list on screen is whatever the file says: no optimistic copy.
  *    items / inProgress / built / ordered     file order · unchecked (file order) · checked, newest first · both, numbered like
@@ -25,7 +27,8 @@ import qs.Services
  */
 Singleton {
     id: root
-    readonly property string path: Quickshell.env("OW_PROJECTS") || (Quickshell.env("HOME") + "/.config/overworld/projects.json")
+    readonly property string path: Quickshell.env("OW_PROJECTS") || Quickshell.env("HYPR_PROJECTS_FILE")
+        || ((Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share")) + "/hypr-projects/projects.json")
     readonly property string script: Qt.resolvedUrl("projects-write.sh").toString().replace(/^file:\/\//, "")
 
     property var items: []
@@ -61,6 +64,11 @@ Singleton {
     property int rereads: 0
     // a missing file is not watched until it exists: look again for a while after our own writes (apply() finds it)
     Timer { id: afterWrite; interval: 250; onTriggered: file.reload() }
+    // an old ~/.config/overworld/projects.json is moved over once (scripts/hypr-projects migrate), then the list is read again
+    Process { id: migrator; command: ["bash", root.script, root.path, "migrate"]; onExited: file.reload() }
+    Component.onCompleted: migrator.running = true
+    // the other theme / the CLI may create the shared file while this shell runs: a missing or empty list is polled slowly
+    Timer { interval: 4000; repeat: true; running: !root.loaded || root.count === 0; onTriggered: file.reload() }
 
     function apply(t) {
         let list = null;
@@ -81,10 +89,14 @@ Singleton {
         }
         root.rereads = 0;
         const old = root.items, first = !root.loaded;
+        const key = JSON.stringify(list);
+        if (!first && key === root.lastKey) return;        // same list (our own write coming back, the slow poll): keep the rows and their hover
+        root.lastKey = key;
         root.items = list;
         root.loaded = true;
         if (!first) root.diff(old, list);
     }
+    property string lastKey: ""
     function diff(oldList, newList) {
         const before = {}, now = {};
         oldList.forEach(i => { before[i.id] = i; });
@@ -145,9 +157,11 @@ Singleton {
 
     // ---- undo of remove / clearBuilt
     property var undo: null
-    function rememberRemoved(entries) {
+    function rememberRemoved(entries) {                      // removes within the 5 s window pile up: Undo brings back all, last first
         if (entries.length === 0) return;
-        root.undo = { title: entries.length === 1 ? entries[0].item.title : "", count: entries.length, entries: entries };
+        const batches = (root.undo ? root.undo.batches : []).concat([entries]);
+        const count = batches.reduce((n, b) => n + b.length, 0);
+        root.undo = { title: count === 1 ? entries[0].item.title : "", count: count, batches: batches, entries: entries };
         undoTimer.restart();
     }
     Timer { id: undoTimer; interval: 5000; onTriggered: root.undo = null }
@@ -171,7 +185,7 @@ Singleton {
         if (!u) return false;
         root.undo = null;
         undoTimer.stop();
-        u.entries.slice().sort((a, b) => a.index - b.index).forEach(e => run(["insert", JSON.stringify(e.item), String(e.index)]));
+        u.batches.slice().reverse().forEach(b => b.slice().sort((a, c) => a.index - c.index).forEach(e => run(["insert", JSON.stringify(e.item), String(e.index)])));
         return true;
     }
 

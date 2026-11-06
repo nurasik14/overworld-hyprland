@@ -1108,11 +1108,11 @@ cmd_brew() {
 }
 
 # ---------------------------------------------------------------------------------------------- projects (to-do card)
-# ~/.config/overworld/projects.json {"items": [{"id","title","note"?,"status":"progress"|"built","created","built_at"?}]} — read live by
-# the Projects card (quickshell/Widgets/Projects).  Every write goes through quickshell/Widgets/Services/projects-write.sh (the rules are
-# in projects.jq): flock + in-place, the same code the card and the chat use.  Numbers are the ones `list` prints (in progress, then built).
-PROJ_WRITE="$REPO/quickshell/Widgets/Services/projects-write.sh"
-PROJ_FILE="${OW_PROJECTS:-$STATE/projects.json}"
+# The list is shared by every theme and the stock desktop: ~/.local/share/hypr-projects/projects.json, owned by scripts/hypr-projects
+# (flock + in-place writes, numbering, title matching).  `overworld projects …` is that CLI plus the two verbs that need the shell
+# (open / edit).  The Projects card (quickshell/Widgets/Projects) watches the file, so CLI edits show up live.
+HYPR_PROJECTS="$REPO/scripts/hypr-projects"
+[[ -n "${OW_PROJECTS:-}" ]] && export HYPR_PROJECTS_FILE="$OW_PROJECTS"          # tests
 
 cmd_projects_help() {
     cat <<'EOF'
@@ -1125,64 +1125,27 @@ overworld projects — the Projects card: what you have built, what is in progre
   projects undone <n|title>           back to in progress
   projects toggle <n|title>           flip it
   projects rm <n|title>               remove it (no undo from here; the card and the chat have one for 5 s)
+  projects rename <n|title> <new…>    new title
   projects clear [--yes]              remove every built project (asks y/N on a terminal)
   projects open                       open the add dialog in the shell (also the + on the card)
   projects edit <n|title>             open the edit dialog (title, note, built, order)
 
 <n|title> is the number from `projects list`, or the start of a title (any part of it if that is unique).
-Chat: /project add <title> · done · undone · remove · undo · list.   File: ~/.config/overworld/projects.json
+Chat: /project add <title> · done · undone · remove · undo · list.
+The list is shared with Apothecary and the stock desktop: ~/.local/share/hypr-projects/projects.json, also `hypr-projects` (and its rofi menu).
 Examples:
   overworld projects add "Hyprland rice" --note "waybar part left"
   overworld projects done 2
   overworld projects rm todo
 EOF
 }
-proj_run() { bash "$PROJ_WRITE" "$PROJ_FILE" "$@"; }
-proj_id() {                     # proj_id <n|title> -> id on stdout (the writer already explains failures)
-    [[ -n "${1:-}" ]] || die "which project? give its number or the start of its title (overworld projects list)"
-    proj_run resolve "$1"
-}
-proj_title() { proj_run list | awk -F'\t' -v id="$1" '$3 == id { print $4; exit }'; }
 cmd_projects() {
-    have jq || die "jq is required for 'overworld projects'"
+    [[ -x "$HYPR_PROJECTS" ]] || die "scripts/hypr-projects is missing"
     local sub="${1:-list}"; shift || true
     case "$sub" in
-        list|ls)
-            local rows; rows="$(proj_run list)" || exit 1
-            if [[ -z "$rows" ]]; then say "no projects yet — overworld projects add \"My project\""; return 0; fi
-            local n_prog n_built
-            n_prog="$(awk -F'\t' '$2 != "built"' <<<"$rows" | wc -l)"; n_built="$(awk -F'\t' '$2 == "built"' <<<"$rows" | wc -l)"
-            if (( n_prog > 0 )); then echo "In progress ($n_prog)"; awk -F'\t' '$2 != "built" { printf "  %2d. [ ] %s%s\n", $1, $4, ($5 != "" ? "   (" $5 ")" : "") }' <<<"$rows"; fi
-            if (( n_built > 0 )); then echo "Built ($n_built)"; awk -F'\t' '$2 == "built" { printf "  %2d. [x] %s%s\n", $1, $4, ($5 != "" ? "   (" $5 ")" : "") }' <<<"$rows"; fi ;;
-        add)
-            local title="" note="" st=progress
-            while (( $# )); do
-                case "$1" in
-                    --note|-n) [[ -n "${2:-}" ]] || die "projects add: --note needs a text"; note="$2"; shift ;;
-                    --built|--done) st=built ;;
-                    *) title="${title:+$title }$1" ;;
-                esac
-                shift
-            done
-            [[ -n "${title//[[:space:]]/}" ]] || die "usage: overworld projects add <title…> [--note <text>] [--built]"
-            proj_run add "$title" "$note" "$st" >/dev/null || exit 1
-            say "added: $title" ;;
-        done|built|check)    local id; id="$(proj_id "${*:-}")" || exit $?; proj_run set "$id" built || exit 1; say "built: $(proj_title "$id")" ;;
-        undone|undo|uncheck) local id; id="$(proj_id "${*:-}")" || exit $?; proj_run set "$id" progress || exit 1; say "back in progress: $(proj_title "$id")" ;;
-        toggle)              local id t; id="$(proj_id "${*:-}")" || exit $?; t="$(proj_title "$id")"; proj_run toggle "$id" || exit 1; say "toggled: $t" ;;
-        rm|remove|del|delete) local id t; id="$(proj_id "${*:-}")" || exit $?; t="$(proj_title "$id")"; proj_run remove "$id" || exit 1; say "removed: $t" ;;
-        clear)
-            local yes=0 a
-            for a in "$@"; do case "$a" in -y|--yes) yes=1 ;; *) die "projects clear: unknown option $a (use --yes)" ;; esac; done
-            local n; n="$(proj_run list | awk -F'\t' '$2 == "built"' | wc -l)"
-            (( n > 0 )) || { say "no built projects"; return 0; }
-            if (( ! yes )); then
-                [[ -t 0 ]] || die "projects clear: not a terminal; pass --yes to remove the $n built projects without asking"
-                local ans
-                read -r -p "Remove all $n built projects? [y/N] " ans || ans=""
-                [[ "$ans" =~ ^[yY]([eE][sS])?$ ]] || { echo "cancelled"; return 0; }
-            fi
-            proj_run clearbuilt || exit 1; say "removed $n built projects" ;;
+        list|ls|add|done|built|check|undone|uncheck|toggle|rm|remove|del|delete|rename|clear)
+            exec "$HYPR_PROJECTS" "$sub" "$@" ;;
+        undo)     exec "$HYPR_PROJECTS" undone "$@" ;;
         open|new) qs_need projects open >/dev/null ;;
         edit)     [[ -n "${1:-}" ]] || die "usage: overworld projects edit <n|title>"; qs_need projects edit "$*" >/dev/null ;;
         help|-h|--help) cmd_projects_help ;;

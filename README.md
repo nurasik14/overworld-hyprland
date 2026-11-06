@@ -273,7 +273,8 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
 - **Desktop widgets** (`SUPER+G`): nine cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
   (media), Brewing Stand, Block of the Day, Clock and Calendar, System (F3 style), Note Block (cava), Sign (quote), and
   **Projects** (a Book-and-Quill to-do list of what you have built and what is in progress: tick, add, remove with undo;
-  `SUPER+SHIFT+P`, chat `/project`, `overworld projects`).
+  `SUPER+SHIFT+P`, chat `/project`, `overworld projects`; the list is shared with Apothecary and the stock desktop, `hypr-projects`,
+  with a rofi menu on `SUPER+SHIFT+P` while no theme is on).
   Opacity is `widgets.opacity` (default 0.72). See [docs/WIDGETS.md](docs/WIDGETS.md).
 
 ### World effects (`quickshell/World/`)
