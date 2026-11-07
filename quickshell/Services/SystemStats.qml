@@ -30,6 +30,10 @@ Singleton {
     readonly property bool charging: fake ? !!fake.charging
         : batteryPresent && (dev.state === UPowerDeviceState.Charging || dev.state === UPowerDeviceState.FullyCharged || dev.state === UPowerDeviceState.PendingCharge)
     readonly property bool fullyCharged: charging && batteryPct >= 0.995
+    // Only an explicit "Discharging" counts as draining. UPower reports Unknown/Empty for a moment at boot and on some
+    // firmware (charge thresholds, dock power); treating "not charging" as draining would trigger low-health effects falsely.
+    readonly property bool discharging: fake ? (fake.battery !== undefined && !fake.charging)
+        : batteryPresent && dev.state === UPowerDeviceState.Discharging
     readonly property real timeToEmpty: fake || !batteryPresent ? 0 : dev.timeToEmpty
     readonly property real timeToFull: fake || !batteryPresent ? 0 : dev.timeToFull
     readonly property int percent: Math.round(batteryPct * 100)
@@ -55,7 +59,11 @@ Singleton {
     property real memTotalMb: 0
     property real memAvailableMb: 0
     property real swapUsed: fake && fake.swap !== undefined ? fake.swap : 0
-    readonly property bool swapHeavy: swapUsed > 0.5
+    // Memory pressure, not swap fill: Fedora's zram swap is routinely half full on a healthy system. Use the kernel's PSI
+    // (/proc/pressure/memory "some avg10", % of time tasks stalled on memory) when available, else low RAM AND heavy swap.
+    property real memPressure: -1          // -1 = PSI unavailable
+    readonly property bool swapHeavy: fake && fake.swap !== undefined ? fake.swap > 0.5
+        : memPressure >= 0 ? memPressure > 10 : (memFree < 0.15 && swapUsed > 0.5)
     property real cpuLoad: fake && fake.cpu !== undefined ? fake.cpu : 0
     property real uptimeHours: fake && fake.uptime !== undefined ? fake.uptime : 0
     readonly property int level: Math.floor(uptimeHours)
@@ -73,6 +81,13 @@ Singleton {
         _knownLevel = level;
     }
 
+    FileView {
+        id: psi
+        path: "/proc/pressure/memory"
+        printErrors: false
+        onLoaded: { const m = text().match(/^some avg10=([0-9.]+)/m); root.memPressure = m ? parseFloat(m[1]) : -1; }
+        onLoadFailed: root.memPressure = -1
+    }
     FileView {
         id: meminfo
         path: "/proc/meminfo"
@@ -97,10 +112,13 @@ Singleton {
     }
     function parseMem(t) {
         if (fake) return;
-        const total = _kb(t, "MemTotal"), avail = _kb(t, "MemAvailable");
+        const total = _kb(t, "MemTotal");
+        // MemAvailable is missing on old kernels and some containers: approximate it like `free` did before 3.14
+        const avail = /^MemAvailable:/m.test(t) ? _kb(t, "MemAvailable")
+            : _kb(t, "MemFree") + _kb(t, "Buffers") + _kb(t, "Cached") + _kb(t, "SReclaimable") - _kb(t, "Shmem");
         const swapTotal = _kb(t, "SwapTotal"), swapFree = _kb(t, "SwapFree");
         if (total > 0) {
-            root.memFree = avail / total;
+            root.memFree = Math.max(0, Math.min(1, avail / total));
             root.memTotalMb = total / 1024;
             root.memAvailableMb = avail / 1024;
         }
@@ -124,7 +142,7 @@ Singleton {
         root.uptimeHours = s / 3600;
         if (_knownLevel < 0) _knownLevel = level;      // the hours already up when the shell started are not level-ups
     }
-    function refresh() { meminfo.reload(); stat.reload(); uptime.reload(); }
+    function refresh() { meminfo.reload(); psi.reload(); stat.reload(); uptime.reload(); }
     Timer { interval: 2000; repeat: true; running: !root.fake; triggeredOnStart: true; onTriggered: root.refresh() }
     Component.onCompleted: if (fake) _knownLevel = level
 }

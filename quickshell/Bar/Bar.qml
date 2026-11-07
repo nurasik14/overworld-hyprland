@@ -112,7 +112,7 @@ Variants {
                 value: Math.round(SystemStats.batteryPct * 20) / 2
                 regen: SystemStats.charging && !SystemStats.fullyCharged
                 hardcore: hud.warnings && SystemStats.batteryPct <= 0.05
-                jiggle: hud.warnings && !SystemStats.charging && SystemStats.batteryPct < 0.2
+                jiggle: hud.warnings && SystemStats.discharging && SystemStats.batteryPct < 0.2
                 blinking: SystemStats.batteryFlash
             }
             HungerRow {

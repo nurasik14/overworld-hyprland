@@ -28,6 +28,7 @@ Scope {
 
     readonly property bool present: SystemStats.batteryPresent
     readonly property bool charging: SystemStats.charging
+    readonly property bool discharging: SystemStats.discharging
     readonly property int percent: SystemStats.percent
     readonly property bool creative: ConfigService.isCreative
     readonly property bool deathEnabled: ConfigService.get("death_screen", true) !== false
@@ -74,10 +75,13 @@ Scope {
     function evaluate() {
         if (!flagsLoaded || !present) return;
         if (charging) {
+            confirm.stop(); confirm.ok = false;
             if (hurtDone || deathDone) { hurtDone = false; deathDone = false; _saveFlags(); }
             return;
         }
-        if (creative) return;
+        if (creative || !discharging) return;      // Unknown/Empty/NotCharging states never count as dying
+        if (percent <= 15 && !confirm.running && !confirm.ok) { confirm.start(); return; }   // must hold for 20 s
+        if (!confirm.ok) return;
         const pct = percent;
         const dying = pct <= 5 && deathEnabled && !deathDone;
         if (pct <= 15 && !hurtDone) {
@@ -93,7 +97,15 @@ Scope {
             show();
         }
     }
-    onPercentChanged: evaluate()
+    // a low reading must survive 20 s of discharging before hurt/death fire (UPower glitches at boot/resume read 0 %)
+    Timer {
+        id: confirm
+        property bool ok: false
+        interval: 20000
+        onTriggered: { ok = root.discharging && root.percent <= 15; root.evaluate(); }
+    }
+    onPercentChanged: { if (percent > 15) confirm.ok = false; evaluate(); }
+    onDischargingChanged: evaluate()
     onChargingChanged: evaluate()
     onPresentChanged: evaluate()
     onCreativeChanged: evaluate()

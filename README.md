@@ -28,9 +28,41 @@ A day/night cycle can switch them by itself at local sunrise and sunset (`daycyc
 > **New to this?** Read [docs/GUIDE.md](docs/GUIDE.md): it explains how the pieces fit together, traces one key press
 > through the real files, and shows how to add a chat command, an advancement, a widget card or a sound.
 
-Contents: [showcase](#showcase) - [theme system](#a-theme-system-you-can-switch-on-and-off) - [tour](#feature-tour) -
+Contents: [tested setup](#tested-setup-read-this-before-installing) - [showcase](#showcase) - [theme system](#a-theme-system-you-can-switch-on-and-off) - [tour](#feature-tour) -
 [install](#requirements-and-install) - [first run](#first-run) - [keybinds](#keybind-cheat-sheet) - [CLI](#cli-reference) -
 [config](#configjson-keys) - [repo layout](#layout-of-the-repo) - [docs](#docs) - [credits](#credits-and-licence)
+
+## Tested setup (read this before installing)
+
+Built and tested on **one machine**: Fedora 44, Hyprland 0.56.2, Quickshell 0.3.2 (Qt 6.11), PipeWire, NetworkManager,
+UPower, SDDM (Qt 6 greeter), on top of the [JaKooLit Fedora-Hyprland](https://github.com/JaKooLit/Fedora-Hyprland)
+dotfiles, single 1920×1080 monitor at scale 1, a laptop with one battery. Other setups are untested. What is most
+likely to need changes elsewhere:
+
+| part | why it may break | where to look |
+|---|---|---|
+| **SDDM login theme** | needs `sddm-greeter-qt6` and edits `/etc/sddm.conf` (+ `restorecon` for SELinux, a no-op without it); Qt 5 SDDM on older distros can't load it | `scripts/install-sddm.sh`, `docs/LOGIN.md` |
+| **Kvantum / qt6ct / GTK** | theme and package names and `~/.config` paths differ between distros; GNOME-based setups ignore Kvantum | `apps/kvantum`, `apps/gtk`, `apps/apply-mode.sh` |
+| **Wallpaper daemon** | uses `awww` (JaKooLit's swww fork); plain `swww` needs the command renamed | `scripts/overworld` (`awww_*`) |
+| **Base dotfiles** | keybind overrides, `unbind`s and the waybar/mako handover assume JaKooLit's file layout | `hypr/keybinds.conf`, `hypr/on.conf`, `scripts/overworld` |
+| **Notifications** | expects mako (or swaync) as the stock daemon to stop and restore | `scripts/overworld` (`notif_*`) |
+| **Brightness** | picks the backlight whose `device/status` is `connected`; hybrid-GPU laptops may need `acpi_backlight=native` | `scripts/backlight-dev.sh`, `docs/SUDO-STEPS.md` |
+| **Multi-monitor / HiDPI** | HUD, widgets and overlays are created per screen but only tested on one 1080p screen; GUI scale 3 at 1080p hides 2 widget cards | `quickshell/Widgets/layout-plan.js` |
+| **Zen / spicetify** | the Zen flatpak profile path and the spicetify CLI are assumed | `apps/zen`, `apps/spicetify` |
+
+**If your battery or RAM readouts differ.** Hearts read UPower's display device; hunger reads `/proc/meminfo`.
+- **No battery or no UPower daemon** (desktop PC, minimal install): the hearts row hides itself and the low-battery
+  "You died!" screen never fires. Nothing else depends on it.
+- **Odd battery states** (charge-limit firmware sitting at 80 % "not charging", UPower reading 0 % for a moment at boot
+  or resume, docks): only an explicit *Discharging* state counts as losing health, and a reading at or below 15 % must
+  hold for 20 s before the hurt blink or the death screen fires, so a glitch can't kill you at boot. At a charge
+  limit the hearts simply never show full.
+- **Several batteries**: UPower's combined display device is used, so the hearts show the total.
+- **RAM**: hunger = `MemAvailable / MemTotal`; kernels or containers without `MemAvailable` fall back to
+  `MemFree + Buffers + Cached + SReclaimable - Shmem`. The hunger *shake* follows memory pressure from
+  `/proc/pressure/memory` (PSI), not swap fill, because Fedora's zram swap is often half full on a healthy system;
+  without PSI it shakes only when RAM is under 15 % free *and* swap is over half used.
+- To silence all of it: creative mode (`/gamemode creative`) or `"death_screen": false` in `config.json`.
 
 ## Showcase
 

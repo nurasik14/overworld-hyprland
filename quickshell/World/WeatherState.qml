@@ -46,7 +46,7 @@ Singleton {
 
     // ------------------------------------------------------------ pauses
     property bool fullscreen: false
-    readonly property bool onBattery: SystemStats.batteryPresent && !SystemStats.charging
+    readonly property bool onBattery: SystemStats.discharging
     readonly property string pauseReason: {
         if (!ConfigService.weatherEffects) return "weather_effects is off";
         if (ConfigService.gamemode === "adventure" || ConfigService.gamemode === "spectator") return "game mode " + ConfigService.gamemode;
