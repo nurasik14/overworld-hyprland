@@ -8,6 +8,11 @@ The Quickshell shell is the game&rsquo;s HUD and menus; windows are mined when y
 <p align="center"><img src="docs/screenshots/01-hero-day-night.webp" alt="The same desktop in Day (left) and Night (right)" width="900"><br>
 <sub>One desktop, two modes: <b>Day</b> on the left, <b>Night</b> on the right.</sub></p>
 
+<p align="center"><img src="docs/screenshots/00-mining.webp" alt="Closing a window mines it: crack stages, then the block breaks" width="720"><br>
+<sub><b>Close a window and you mine it.</b> <code>SUPER+Q</code> cracks it through the ten destroy stages, plays the block's break sound,
+bursts it into fragments coloured from the window's own pixels, then closes it. Real recording (slowed to 0.6×), Night mode.
+<a href="docs/screenshots/00-mining.mp4">MP4</a></sub></p>
+
 A Minecraft-inspired theme for a real Hyprland desktop. The desktop is a Minecraft world and the Quickshell shell
 is its HUD and menus: a hotbar for workspaces, hearts for the battery, a creative inventory for the launcher, toasts
 for notifications, a chat console that runs `/` commands, advancements for desktop events. Every surface copies the
