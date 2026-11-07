@@ -1,0 +1,380 @@
+#!/usr/bin/env bash
+# hypr-notes — the pad of sticky notes shared by every theme (Overworld, Apothecary) and the stock desktop: raw, stray thoughts.
+#
+#   hypr-notes [list] [--json]            numbered sheets, the same numbers as the card's page counter; * marks the current one
+#   hypr-notes add <text…>                pin a new sheet (`-` reads the text from stdin: echo x | hypr-notes add -)
+#   hypr-notes show [n]                   print a sheet (default: the current one)
+#   hypr-notes rm <n>                     tear a sheet off
+#   hypr-notes edit [n]                   open a sheet in $VISUAL / $EDITOR and write it back (emptied = dropped; no sheets yet = a new one)
+#   hypr-notes clear [--yes]              tear off every sheet
+#   hypr-notes menu [--if-stock]          rofi: + New note…, sheets by first line (Enter shows it), ✕ Remove…; --if-stock = only when no theme is on
+#   hypr-notes path | help
+#   hypr-notes raw <op> …                 what the QML services call (see `help raw`)
+#
+# Data: ~/.local/share/hypr-notes/notes.json (env HYPR_NOTES_FILE or -f <file> overrides it), schema
+#   {"sheets": [{"id","text","created":ISO,"updated":ISO,"color"?}], "current": <id>}
+# Every write is a read-modify-write under flock, IN PLACE (`cat tmp > file`, never mv: the shells watch the inode), and a file that is
+# not valid JSON, or not one object with a "sheets" array, is never overwritten: the text of a refused add/put/insert is appended to
+# <file>.rescue instead, so it is not lost.  A write that changes nothing does not touch the file.  Reads take the lock shared.
+# One copy of this script lives in each theme repo (identical); ~/.local/bin/hypr-notes links to one of them.
+set -uo pipefail
+
+MAX_CHARS=4000
+FILE="${HYPR_NOTES_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/hypr-notes/notes.json}"
+if [[ "${1:-}" == "-f" || "${1:-}" == "--file" ]]; then FILE="${2:?hypr-notes: -f needs a file}"; shift 2; fi
+
+say()  { printf '  %s\n' "$*"; }
+warn() { printf 'hypr-notes: %s\n' "$*" >&2; }
+die()  { warn "$1"; exit "${2:-1}"; }
+command -v jq >/dev/null 2>&1 || die "jq is required"
+
+# ------------------------------------------------------------------------------------------------ the rules (jq)
+# --arg op id text now newid      --argjson at item max
+read -r -d '' JQ_PROG <<'JQ'
+def is_sheet: type == "object" and (.id | type) == "string" and (.text | type) == "string";
+def pos($id): map(if is_sheet then .id == $id else false end) | index(true);
+
+if length != 1 then error("not one document") else .[0] end
+| if type != "object" or (.sheets | type) != "array" then error("not a notes file") else . end
+| if $op == "add" then
+    ([.sheets[] | select(is_sheet) | .id]) as $ids
+    | (if ($ids | index($newid)) == null then $newid else $newid + "-" + ($ids | length | tostring) end) as $nid
+    | .sheets += [{ id: $nid, text: $text[0:$max], created: $now, updated: $now }]
+    | .current = $nid
+  elif $op == "put" then
+    (.sheets | pos($id)) as $i
+    | if $i == null then .sheets += [{ id: $id, text: $text[0:$max], created: $now, updated: $now }]
+      elif .sheets[$i].text == $text[0:$max] then .
+      else .sheets[$i].text = $text[0:$max] | .sheets[$i].updated = $now end
+    | .current = $id
+  elif $op == "current" then
+    if (.sheets | pos($id)) == null then . else .current = $id end
+  elif $op == "remove" then
+    (.sheets | pos($id)) as $i
+    | if $i == null then .
+      else (.current == $id) as $was
+        | .sheets |= del(.[$i])
+        | [.sheets[] | select(is_sheet)] as $left
+        | if ($left | length) == 0 then del(.current)
+          elif $was then
+            ([.sheets[$i:][] | select(is_sheet)][0] // $left[-1]).id as $c | .current = $c
+          else . end
+      end
+  elif $op == "insert" then
+    if ($item | is_sheet) | not then error("not a sheet")
+    elif (.sheets | pos($item.id)) != null then .current = $item.id
+    else .sheets |= (.[0:$at] + [$item] + .[$at:]) | .current = $item.id end
+  elif $op == "clear" then
+    .sheets = [] | del(.current)
+  elif $op == "read" then
+    [.sheets[] | select(is_sheet)] as $s
+    | .current as $c
+    | (($s | map(.id == $c) | index(true)) // (($s | length) - 1)) as $k
+    | $s | to_entries | map(.value + { n: (.key + 1), current: (.key == $k) })
+  else error("unknown op " + $op) end
+JQ
+
+ID=""; TEXT=""; AT=0; ITEM=null
+NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+NEWID="$(printf '%x%04x' "$(date +%s)" $((RANDOM % 65536)))"
+run_jq() {                      # run_jq <op> <file>
+    jq -s "${JQ_FLAGS:--c}" --arg op "$1" --arg id "$ID" --arg text "$TEXT" --arg now "$NOW" --arg newid "$NEWID" \
+       --argjson at "$AT" --argjson item "$ITEM" --argjson max "$MAX_CHARS" "$JQ_PROG" "$2"
+}
+
+# ------------------------------------------------------------------------------------------------ reading
+blank_file() {                  # missing, empty or whitespace only (a file grep cannot read is none of those: it gets refused later)
+    [[ -e "$FILE" ]] || return 0
+    LC_ALL=C grep -aq '[^[:space:]]' "$FILE" 2>/dev/null        # -a + C: binary junk is not "blank"
+    [[ $? -eq 1 ]]
+}
+sheets_json() {                 # every sheet + n, current, as a JSON array; status 1 if the file cannot be read as notes
+    [[ -e "$FILE" ]] || { echo '[]'; return 0; }
+    (
+        flock -s 9                  # a write truncates first: never read in the middle of one
+        if blank_file; then echo '[]'; exit 0; fi
+        run_jq read "$FILE" 2>/dev/null || { warn "$FILE is not a valid notes file"; exit 1; }
+    ) 9>>"$FILE.lock"
+}
+# jq helpers for one row: the first line that has something on it, and a relative age
+read -r -d '' JQ_ROW <<'JQ'
+def firstline: (.text | split("\n") | map(gsub("[\t\r]"; " ")) | map(select(test("\\S"))) | .[0] // "(empty)");
+def short($n): if length > $n then .[0:$n - 1] + "…" else . end;
+def ago: (try (.updated | fromdateiso8601) catch null) as $t
+    | if $t == null then "" else (now - $t) as $d
+        | if $d < 60 then "just now"
+          elif $d < 3600 then "\($d / 60 | floor) min ago"
+          elif $d < 86400 then "\($d / 3600 | floor) h ago"
+          elif $d < 172800 then "yesterday"
+          else "\($d / 86400 | floor) days ago" end
+      end;
+JQ
+tsv_rows() {                    # n<TAB>current(0|1)<TAB>id<TAB>first line<TAB>age
+    local o; o="$(sheets_json)" || return 1
+    jq -r "$JQ_ROW"' .[] | [.n, (if .current then 1 else 0 end), .id, firstline, ago] | map(tostring) | join("\t")' <<<"$o"
+}
+resolve() {                     # resolve [<n|id>] -> id (default: the current sheet); status 3 = no such sheet
+    local q="${1:-}" o res
+    o="$(sheets_json)" || return 1
+    res="$(jq -r --arg q "$q" '
+        if $q == "" then ([.[] | select(.current)][0].id // "!none")
+        elif ($q | test("^[0-9]+$")) then ([.[] | select(.n == ($q | tonumber))][0].id // "!none")
+        else ([.[] | select(.id == $q)][0].id // "!none") end' <<<"$o")"
+    [[ -n "$res" ]] || die "could not read $FILE" 1
+    if [[ "$res" == "!none" ]]; then
+        if [[ -z "$q" ]]; then die "no notes yet" 3; fi
+        die "no sheet '$q' (hypr-notes list)" 3
+    fi
+    echo "$res"
+}
+text_of() { sheets_json | jq -r --arg id "$1" '[.[] | select(.id == $id)][0].text // ""'; }
+first_of() { tsv_rows | awk -F'\t' -v id="$1" '$3 == id { print $4; exit }'; }
+
+# ------------------------------------------------------------------------------------------------ writing
+rescue() {                      # the text of a refused write goes next to the file, never into the void
+    local text="$TEXT"
+    [[ "$ITEM" != null ]] && text="$(jq -r '.text? // ""' <<<"$ITEM" 2>/dev/null)"
+    [[ -n "${text//[[:space:]]/}" ]] || return 0
+    printf -- '--- %s (could not be written to %s)\n%s\n' "$NOW" "$FILE" "$text" >>"$FILE.rescue" && warn "your text was kept in $FILE.rescue"
+}
+warn_cap() {                    # warn_cap <text>: say so when the rule will cut it
+    (( ${#1} > MAX_CHARS )) || return 0
+    local n; n="$(jq -rn --arg t "$1" '$t | length')"
+    (( n > MAX_CHARS )) && warn "a sheet holds $MAX_CHARS characters: the rest was cut"
+    return 0
+}
+write_op() {                    # write_op <op> [args…]  — see `help raw`
+    local op="$1"; shift
+    case "$op" in
+        add) TEXT="${1:-}"; [[ -n "${TEXT//[[:space:]]/}" ]] || die "empty note" 2 ;;
+        put) ID="${1:-}"; TEXT="${2:-}"; [[ -n "$ID" ]] || die "put: no id" 2 ;;
+        current|remove) ID="${1:-}"; [[ -n "$ID" ]] || die "$op: no id" 2 ;;
+        insert) ITEM="${1:-null}"; AT="${2:-0}" ;;
+        clear) ;;
+        *) die "unknown op '$op'" 2 ;;
+    esac
+    mkdir -p "$(dirname "$FILE")"
+    local tmp; tmp="$(mktemp)" || return 1
+    (
+        flock 9
+        if blank_file; then
+            printf '{"sheets":[]}\n' >"$tmp.new"
+            JQ_FLAGS=-M run_jq "$op" "$tmp.new" >"$tmp"; rc=$?; rm -f "$tmp.new"
+            (( rc == 0 )) && [[ -s "$tmp" ]] || { warn "could not update $FILE"; exit 1; }
+        else
+            JQ_FLAGS=-M run_jq "$op" "$FILE" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]] \
+                || { warn "could not update $FILE (not a valid notes file; left as it is)"; rescue; exit 1; }
+        fi
+        cmp -s "$tmp" "$FILE" || cat "$tmp" >"$FILE"
+    ) 9>>"$FILE.lock"
+    local rc=$?
+    rm -f "$tmp"
+    return $rc
+}
+
+# ------------------------------------------------------------------------------------------------ verbs
+cmd_list() {
+    local json=0 a
+    for a in "$@"; do case "$a" in --json|-j) json=1 ;; *) die "list: unknown option $a" 2 ;; esac; done
+    if (( json )); then sheets_json; return; fi
+    local rows; rows="$(tsv_rows)" || return 1
+    if [[ -z "$rows" ]]; then say "no notes yet — hypr-notes add \"a stray thought\""; return 0; fi
+    awk -F'\t' '{ line = $4; if (length(line) > 64) line = substr(line, 1, 63) "…"; printf "  %2d%s %-64s  %s\n", $1, ($2 == 1 ? "*" : " "), line, $5 }' <<<"$rows"
+}
+cmd_add() {
+    (( $# )) || die "usage: hypr-notes add <text…>  (or - to read stdin)" 2
+    local text
+    if [[ "$1" == "-" && $# -eq 1 ]]; then
+        text="$(head -c 64000 | tr -d '\0')"                   # $(…) also drops the trailing newlines
+    else
+        text="$*"
+    fi
+    text="${text:0:$((MAX_CHARS * 4))}"                        # the jq rule cuts to MAX_CHARS characters; this only keeps argv small
+    [[ -n "${text//[[:space:]]/}" ]] || die "empty note: nothing pinned" 2
+    warn_cap "$text"
+    write_op add "$text" || return 1
+    say "pinned: $(tsv_rows | awk -F'\t' '$2 == 1 { print $4; exit }')"
+}
+cmd_show() {
+    local id; id="$(resolve "${1:-}")" || return $?
+    text_of "$id"
+}
+cmd_rm() {
+    [[ -n "${1:-}" ]] || die "usage: hypr-notes rm <n>   (the number from hypr-notes list)" 2
+    local id t; id="$(resolve "$1")" || return $?
+    t="$(first_of "$id")"
+    write_op remove "$id" || return 1
+    say "torn off: $t"
+}
+cmd_edit() {
+    local id="" before="" tmp editor rows
+    rows="$(tsv_rows)" || return 1                             # an unreadable file: refuse before any typing happens
+    if [[ -n "${1:-}" ]]; then id="$(resolve "$1")" || return $?
+    elif [[ -n "$rows" ]]; then id="$(resolve "")" || return $?; fi
+    [[ -n "$id" ]] && before="$(text_of "$id")"
+    tmp="$(mktemp --suffix=.txt)" || return 1
+    printf '%s\n' "$before" >"$tmp"
+    editor="${VISUAL:-${EDITOR:-}}"
+    if [[ -z "$editor" ]]; then
+        if command -v nano >/dev/null 2>&1; then editor=nano; else editor=vi; fi
+    fi
+    local -a cmd; read -r -a cmd <<<"$editor"
+    if ! "${cmd[@]}" "$tmp"; then rm -f "$tmp"; die "$editor failed: nothing changed"; fi
+    local after; after="$(cat "$tmp")"
+    after="${after:0:$((MAX_CHARS * 4))}"
+    if [[ "$after" == "$before" ]]; then rm -f "$tmp"; say "unchanged"; return 0; fi
+    if [[ -z "${after//[[:space:]]/}" ]]; then                 # emptied: an empty sheet is dropped, like in the card's editor
+        rm -f "$tmp"
+        [[ -n "$id" ]] && { write_op remove "$id" || return 1; say "emptied: sheet dropped"; }
+        return 0
+    fi
+    warn_cap "$after"
+    local rc=0
+    if [[ -n "$id" ]]; then write_op put "$id" "$after" || rc=1
+    else write_op add "$after" || rc=1; fi
+    if (( rc )); then warn "your edit is still in $tmp"; return 1; fi
+    rm -f "$tmp"
+    if [[ -n "$id" ]]; then say "saved"; else say "pinned"; fi
+}
+cmd_clear() {
+    local yes=0 a
+    for a in "$@"; do case "$a" in -y|--yes) yes=1 ;; *) die "clear: unknown option $a (use --yes)" 2 ;; esac; done
+    local rows n; rows="$(tsv_rows)" || return 1
+    n="$(grep -c . <<<"$rows")"
+    (( n > 0 )) || { say "no notes"; return 0; }
+    if (( ! yes )); then
+        [[ -t 0 ]] || die "clear: not a terminal; pass --yes to tear off all $n sheets without asking"
+        local ans; read -r -p "Tear off all $n sheets? [y/N] " ans || ans=""
+        [[ "$ans" =~ ^[yY]([eE][sS])?$ ]] || { echo "cancelled"; return 0; }
+    fi
+    write_op clear || return 1
+    say "tore off $n sheets"
+}
+
+# ------------------------------------------------------------------------------------------------ rofi menu
+# The loop is plain functions so tests can drive it without a window: HYPR_NOTES_ROFI replaces the `rofi` command (it gets the same
+# arguments, the rows on stdin, and answers like rofi: the chosen index with -format i, or the typed text; exit 1 = Esc).
+ROFI="${HYPR_NOTES_ROFI:-rofi}"
+rofi_pick() {                   # rofi_pick <prompt> <selected-row> <mesg>  < rows   → prints the index, status 1 on Esc
+    "$ROFI" -dmenu -i -no-custom -format i -p "$1" -selected-row "${2:-0}" -mesg "$3" -l 14
+}
+rofi_ask() {                    # rofi_ask <prompt> <mesg> → the typed text; status 1 on Esc
+    "$ROFI" -dmenu -i -format s -p "$1" -mesg "$2" -l 0 </dev/null
+}
+pango_escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }      # rofi's -mesg is Pango markup
+menu_rows() {                   # the main menu lines; row 0 is always "+ New note…"
+    local rows="$1"
+    echo "+ New note…"
+    awk -F'\t' '{ line = $4; if (length(line) > 70) line = substr(line, 1, 69) "…"; printf "%d. %s\n", $1, line }' <<<"$rows" | sed '/^0\. $/d'
+    [[ -n "$rows" ]] && echo "✕ Remove…"
+    return 0
+}
+menu_show() {                   # one sheet as the menu's message: Esc or "← Back" returns, "✕ Tear off" removes it
+    local id="$1" text out
+    text="$(text_of "$id" | head -c 1600 | pango_escape)"
+    out="$(printf '← Back\n✕ Tear off this note\n' | rofi_pick "Note" 0 "$text")" || return 0
+    [[ "$out" == "1" ]] && write_op remove "$id"
+    return 0
+}
+menu_run() {
+    local sel=0 out idx rows n
+    while true; do
+        rows="$(tsv_rows)" || return 1
+        n="$(grep -c . <<<"$rows")"; [[ -z "$rows" ]] && n=0
+        out="$(menu_rows "$rows" | rofi_pick "Notes" "$sel" "Enter shows a note · Esc closes")" || return 0     # Esc
+        [[ "$out" =~ ^[0-9]+$ ]] || return 0
+        idx="$out"
+        if (( idx == 0 )); then
+            local text; text="$(rofi_ask "New note" "Type a thought, Enter pins it · Esc cancels")" || { sel=0; continue; }
+            if [[ -n "${text//[[:space:]]/}" ]]; then write_op add "$text"; sel=$((n + 1)); else sel=0; fi
+        elif (( idx <= n )); then
+            menu_show "$(awk -F'\t' -v n="$idx" '$1 == n { print $3 }' <<<"$rows")"; sel="$idx"
+        else
+            menu_remove; sel=0
+        fi
+    done
+}
+menu_remove() {                 # "✕ Remove…": pick one to tear off, loops until Esc
+    local rows out id
+    while true; do
+        rows="$(tsv_rows)" || return 1
+        [[ -n "$rows" ]] || return 0
+        out="$(awk -F'\t' '{ printf "✕ %s\n", $4 }' <<<"$rows" | rofi_pick "Remove" 0 "Enter tears the note off for good · Esc goes back")" || return 0
+        [[ "$out" =~ ^[0-9]+$ ]] || return 0
+        id="$(awk -F'\t' -v n="$((out + 1))" '$1 == n { print $3 }' <<<"$rows")"
+        [[ -n "$id" ]] && write_op remove "$id"
+    done
+}
+theme_on() {                    # a theme shell owns the desktop (and has its own editor on this key)
+    local cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
+    [[ -e "$cfg/overworld/enabled" || -e "$cfg/apothecary/enabled" ]]
+}
+cmd_menu() {
+    local stock=0 a
+    for a in "$@"; do case "$a" in --if-stock) stock=1 ;; *) die "menu: unknown option $a" 2 ;; esac; done
+    if (( stock )) && theme_on; then return 0; fi
+    if [[ -z "${HYPR_NOTES_ROFI:-}" ]] && ! command -v rofi >/dev/null 2>&1; then
+        command -v notify-send >/dev/null 2>&1 && notify-send -a Notes "Notes" "rofi is not installed"
+        die "rofi is not installed"
+    fi
+    # one menu at a time: the same key is bound in both themes' off.conf, and key repeat would stack windows
+    local lock="${XDG_RUNTIME_DIR:-/tmp}/hypr-notes-menu.lock"
+    exec 8>"$lock"
+    flock -n 8 || return 0
+    menu_run
+}
+
+# ------------------------------------------------------------------------------------------------ help
+cmd_help() {
+    case "${1:-}" in
+    raw) cat <<'EOF'
+hypr-notes [-f file] raw <op> …   (low level; what NotesService.qml calls. Prints nothing unless noted)
+  add <text>                 a new sheet, becomes current
+  put <id> <text>            write that sheet (created if the id is new), becomes current
+  current <id>               flip to it
+  remove <id>                the next sheet (else the last) becomes current if it was current
+  insert <json-sheet> <index>  (undo of a remove) becomes current
+  clear
+  read                       → every sheet as a JSON array with n and current added, no write
+EOF
+    ;;
+    *) cat <<'EOF'
+hypr-notes — a pad of sticky notes for raw, stray thoughts, shared by Overworld, Apothecary and the stock desktop
+
+  hypr-notes [list] [--json]    numbered sheets, the same numbers as the card's page counter; * = the current one
+  hypr-notes add <text…>        pin a new sheet; `-` reads stdin (echo "buy milk" | hypr-notes add -)
+  hypr-notes show [n]           print a sheet (default: the current one)
+  hypr-notes rm <n>             tear a sheet off
+  hypr-notes edit [n]           open it in $VISUAL / $EDITOR, write it back (emptied = dropped; no sheets yet = a new one)
+  hypr-notes clear [--yes]      tear off every sheet
+  hypr-notes menu               rofi: "+ New note…" asks for a line, Enter on a sheet shows it, "✕ Remove…" tears one off; loops until Esc.
+                                SUPER+ALT+N on the stock desktop.  --if-stock: do nothing while a theme is on
+  hypr-notes path               where the pad lives
+  hypr-notes help raw           the low-level ops used by the shell widgets
+
+Plain text, multi-line, up to 4000 characters a sheet.  File: ~/.local/share/hypr-notes/notes.json (HYPR_NOTES_FILE or -f overrides).
+Themes watch it: edits show up live.
+EOF
+    ;;
+    esac
+}
+
+verb="${1:-list}"; shift || true
+case "$verb" in
+    list|ls)               cmd_list "$@" ;;
+    add)                   cmd_add "$@" ;;
+    show|cat)              cmd_show "$@" ;;
+    rm|remove|del|delete)  cmd_rm "$@" ;;
+    edit)                  cmd_edit "$@" ;;
+    clear)                 cmd_clear "$@" ;;
+    menu)                  cmd_menu "$@" ;;
+    path)                  echo "$FILE" ;;
+    raw)
+        op="${1:-}"; shift || true
+        case "$op" in
+            read) sheets_json ;;
+            *) write_op "$op" "$@" ;;
+        esac ;;
+    help|-h|--help)        cmd_help "$@" ;;
+    *)                     warn "unknown command: $verb"; cmd_help >&2; exit 2 ;;
+esac

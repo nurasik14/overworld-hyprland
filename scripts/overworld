@@ -3,7 +3,7 @@
 #
 #   overworld on | off | status | toggle | light | dark | reload | repair | session-start | prepare on|off
 #   overworld wallpaper … | world new … | gamemode … | weather … | daycycle … | f3 | chat … | kill …
-#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | projects … | event …
+#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | projects … | notes … | event …
 #   overworld help [verb]
 #
 # Installed as ~/.local/bin/overworld -> <repo>/scripts/overworld by scripts/install.sh.
@@ -179,7 +179,7 @@ hyprlock_swap_off() {
 # --- processes ------------------------------------------------------------------------------------------
 qs_running() { pgrep -f -x "$QS_CMD" >/dev/null 2>&1; }
 qs_start()   { qs_running && return 0; setsid -f bash -c "exec $QS_CMD >>'$QS_LOG' 2>&1" </dev/null || true; }
-qs_stop()    { pkill -f -x "$QS_CMD" >/dev/null 2>&1 || true; }
+qs_stop()    { qs_ipc notes flush >/dev/null 2>&1 || true; pkill -f -x "$QS_CMD" >/dev/null 2>&1 || true; }   # flush: a signal gives the Notes editor no chance to save
 qs_wait_gone() {                # qs_wait_gone <exact command line>: max 2 s, so the next shell gets the notification bus name
     for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -f -x "$1" >/dev/null 2>&1 || return 0; sleep 0.2; done
     return 0
@@ -690,6 +690,7 @@ Playing
   ws …            workspace titles + notes, Claude auto-labelling (overworld ws help)
   brew …          the brewing stand timer (overworld brew help)
   projects …      the Projects card: your built / in-progress to-do list (overworld projects help)
+  notes …         the Notes card: sticky notes for raw, stray thoughts (overworld notes help)
   event <name> ['<json>']                                       post to the game event bus
 
   help <verb>     details for one verb, e.g. overworld help gamemode
@@ -802,6 +803,7 @@ EOF
         ws|workspace) cmd_ws_help ;;
         brew) cmd_brew_help ;;
         projects|project) cmd_projects_help ;;
+        notes|note) cmd_notes_help ;;
         event) cat <<'EOF'
 overworld event <name> ['<json object>']   appends to $XDG_RUNTIME_DIR/overworld/events.jsonl (the GameEvents bus).
 EOF
@@ -1153,6 +1155,46 @@ cmd_projects() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- notes (sticky-note card)
+# The pad is shared by every theme and the stock desktop: ~/.local/share/hypr-notes/notes.json, owned by scripts/hypr-notes.  `overworld notes …`
+# is that CLI plus the verbs that need the shell (open / new / next / prev / undo).  The Notes card (quickshell/Widgets/Notes) watches the file.
+HYPR_NOTES="$REPO/scripts/hypr-notes"
+
+cmd_notes_help() {
+    cat <<'EOF'
+overworld notes — the Notes card: a pad of sticky notes for raw, stray thoughts (no shell needed, except open / new / next / prev / undo)
+
+  notes | notes list [--json]   numbered sheets, the same numbers as the card's page counter; * = the current one
+  notes add <text…>             pin a new sheet; `-` reads stdin (echo "buy milk" | overworld notes add -)
+  notes show [n]                print a sheet (default: the current one)
+  notes rm <n>                  tear a sheet off (no undo from here; the card has one for 5 s)
+  notes edit [n]                open it in $VISUAL / $EDITOR, write it back (emptied = dropped)
+  notes clear [--yes]           tear off every sheet (asks y/N on a terminal)
+  notes open                    write on the current sheet in the shell (a click on the card)
+  notes new                     a blank sheet in the shell (SUPER+ALT+N, the + on the card)
+  notes next | prev             flip the card
+  notes undo                    bring back what was just torn off (5 s)
+
+The pad is shared with Apothecary and the stock desktop: ~/.local/share/hypr-notes/notes.json, also `hypr-notes` (and its rofi menu).
+Examples:
+  overworld notes add "ask about the lab deadline"
+  overworld notes rm 2
+EOF
+}
+cmd_notes() {
+    [[ -x "$HYPR_NOTES" ]] || die "scripts/hypr-notes is missing"
+    local sub="${1:-list}"; shift || true
+    case "$sub" in
+        list|ls|add|show|cat|rm|remove|del|delete|edit|clear|menu|path)
+            exec "$HYPR_NOTES" "$sub" "$@" ;;
+        open)     qs_need notes open >/dev/null ;;
+        new)      qs_need notes newSheet >/dev/null ;;
+        next|prev|undo) local answer; answer="$(qs_need notes "$sub")" || exit 1; say "$answer" ;;
+        help|-h|--help) cmd_notes_help ;;
+        *) warn "unknown: notes $sub"; cmd_notes_help >&2; exit 1 ;;
+    esac
+}
+
 cmd_event() {                   # overworld event <name> ['<json object>']  → GameEvents bus (BRIEF §4.4)
     local name="${1:-}" data="${2:-{\}}" dir="${XDG_RUNTIME_DIR:-/tmp}/overworld"
     [[ -n "$name" ]] || die "usage: overworld event <name> ['<json>']"
@@ -1188,6 +1230,7 @@ case "${1:-help}" in
     ws|workspace)  shift; cmd_ws "$@" ;;
     brew)          shift; cmd_brew "$@" ;;
     projects|project) shift; cmd_projects "$@" ;;
+    notes|note) shift; cmd_notes "$@" ;;
     event)         shift; cmd_event "$@" ;;
     help|-h|--help) shift || true; cmd_help "${1:-}" ;;
     *)             warn "unknown command: $1"; cmd_help >&2; exit 2 ;;

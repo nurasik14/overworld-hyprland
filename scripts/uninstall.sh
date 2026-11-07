@@ -59,6 +59,12 @@ if [[ ! -e "$BIN/hypr-projects" ]]; then
     other="$(readlink -f "$BIN/apothecary" 2>/dev/null || true)"
     [[ -n "$other" && -x "$(dirname "$other")/hypr-projects" ]] && ln -sfn "$(dirname "$other")/hypr-projects" "$BIN/hypr-projects"
 fi
+# hypr-notes likewise; the notes (~/.local/share/hypr-notes/notes.json) are the user's data and are never removed.
+unlink_ours "$BIN/hypr-notes"
+if [[ ! -e "$BIN/hypr-notes" ]]; then
+    other="$(readlink -f "$BIN/apothecary" 2>/dev/null || true)"
+    [[ -n "$other" && -x "$(dirname "$other")/hypr-notes" ]] && ln -sfn "$(dirname "$other")/hypr-notes" "$BIN/hypr-notes"
+fi
 
 # 5. state dir
 if (( PURGE )); then

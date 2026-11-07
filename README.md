@@ -270,11 +270,13 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
 - **Advancements and statistics**: 60 advancements in five tabs (`quotes/advancements.json`), unlocked by real desktop events
   (first terminal, first brew, 100 windows mined, 3 hours of uptime, Wi-Fi connected ...). Statistics are counts of shell and
   Hyprland events only, no keystrokes.
-- **Desktop widgets** (`SUPER+G`): nine cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
+- **Desktop widgets** (`SUPER+G`): ten cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
   (media), Brewing Stand, Block of the Day, Clock and Calendar, System (F3 style), Note Block (cava), Sign (quote), and
   **Projects** (a Book-and-Quill to-do list of what you have built and what is in progress: tick, add, remove with undo;
   `SUPER+SHIFT+P`, chat `/project`, `overworld projects`; the list is shared with Apothecary and the stock desktop, `hypr-projects`,
-  with a rofi menu on `SUPER+SHIFT+P` while no theme is on).
+  with a rofi menu on `SUPER+SHIFT+P` while no theme is on), and **Notes** (a pad of Paper sticky notes for raw, stray thoughts: click the
+  sheet and type on it, it saves itself; flip, tear off with undo; `SUPER+ALT+N`, chat `/note <text>`, `hypr-notes`, shared the same way, with a
+  rofi menu on `SUPER+ALT+N` while no theme is on).
   Opacity is `widgets.opacity` (default 0.72). See [docs/WIDGETS.md](docs/WIDGETS.md).
 
 ### World effects (`quickshell/World/`)
@@ -377,11 +379,12 @@ Active only while the theme is on (`hypr/keybinds.conf`). The full table, with w
 | `overworld ws ...` | workspace titles and notes, Claude auto-labelling (`overworld help ws`) |
 | `overworld brew ...` | brew timer (`brew set 50 10`, `brew start`, `brew toggle`, `brew rest 0`; `overworld help brew`) |
 | `overworld projects ...` | the Projects card (`projects`, `add <title>`, `done <n>`, `undone <n>`, `rm <n>`, `open`; `overworld help projects`) |
+| `overworld notes ...` | the Notes card (`notes`, `add <text>`, `add -` for stdin, `show [n]`, `rm <n>`, `edit [n]`, `open`, `new`; `overworld help notes`; also plain `hypr-notes`) |
 | `overworld event <name> ['<json>']` | post to the event bus (`$XDG_RUNTIME_DIR/overworld/events.jsonl`) |
 
 Other tools: `scripts/ow-sound --list` (all sound ids), `scripts/fetch-minecraft-assets.sh [--build] [--sounds-only]
 [--force] [--download] [--version V]`. The shell's own commands go through `qs -c overworld ipc call <target> <function>`;
-the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects widgets chat
+the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects notes widgets chat
 advancements stats options gamemode world interact` (see [docs/QUICKSHELL.md](docs/QUICKSHELL.md)).
 
 ## config.json keys

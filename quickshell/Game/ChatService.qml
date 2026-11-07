@@ -41,6 +41,8 @@ Singleton {
         seed:  { usage: "/seed [current]", description: "Rolls a new random wallpaper world and shows its seed; /seed current only shows it.", args: [{ name: "which", type: "choice", choices: ["current"] }] },
         project: { usage: "/project [add <title>|done <n|title>|undone|remove|undo|list|open]", description: "Your to-do card: /project add Hyprland rice, /project done 2 (number from /project list, or the start of the title), /project remove …, /project undo (5 s). Bare /project opens the add dialog.",
                    args: [{ name: "action", type: "choice", choices: ["add", "done", "undone", "toggle", "remove", "undo", "list", "edit", "open"] }, { name: "project", type: "project" }] },
+        note: { usage: "/note [<text>|list]", description: "Sticky notes: /note <text> pins a sheet to the Notes card, /note list shows them. Bare /note opens the sheet to write on.",
+                args: [{ name: "text", type: "choice", choices: ["list"] }] },
         clear: { usage: "/clear", description: "Clears the chat and the notification history.", args: [] }
     })
     readonly property var commandSpecs: {
@@ -265,6 +267,7 @@ Singleton {
         case "me": if (!rest.length) { error(GameCore.t("errors.empty_message")); return; } post("§f* " + GameCore.player + " " + rest); return;
         case "msg": return cmdMsg(rest, spec);
         case "project": return cmdProject(a, rest, spec);
+        case "note": return cmdNote(rest);
         }
     }
     Timer { id: reloadTimer; interval: 600; onTriggered: { if (GameCore.dryRun) root.system("[dry-run] Quickshell.reload()"); else Quickshell.reload(false); } }
@@ -414,6 +417,21 @@ Singleton {
         if ((it.status === "built") === wantBuilt) { system("[" + it.title + "] is already " + (wantBuilt ? "built" : "in progress")); return; }
         P.setBuilt(it.id, wantBuilt);
         if (!wantBuilt) ok(T("ok.project_undone", { title: it.title }));      // building one says its own line (project.built below)
+    }
+    // /note <text> pins a sheet · /note list · bare /note opens the editor   (the pad is Widgets/Services/NotesService)
+    function cmdNote(rest) {
+        const N = NotesService;
+        if (!rest.length) { GameUi.closeAll(); N.openEditor("current"); return; }
+        if (rest.toLowerCase() === "list") {
+            if (N.count === 0) { system(GameCore.t("ok.note_none")); return; }
+            post("§2" + GameCore.t("ok.note_list_head", { count: N.count }));
+            N.sheets.forEach((s, k) => {
+                const line = N.firstLine(s.text);
+                post("§f " + (k + 1) + (s.id === N.currentId ? "* " : ". ") + line, "", s.text.trim() !== line ? { title: line, description: s.text, frame: "task", prefix: "", label: line } : null);
+            });
+            return;
+        }
+        if (N.add(rest)) ok(GameCore.t("ok.note_pinned"));
     }
     function cmdTitle(a, body, spec) {
         const n = parseInt(a[0]);

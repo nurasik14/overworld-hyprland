@@ -1,6 +1,6 @@
 # Desktop widgets (`quickshell/Widgets/`) — qs-widgets
 
-The desktop widget layer: nine **Minecraft objects** on the wallpaper (layer `bottom`, namespace `overworld-widgets`,
+The desktop widget layer: ten **Minecraft objects** on the wallpaper (layer `bottom`, namespace `overworld-widgets`,
 click-through where empty). Every card is a `WidgetCard` = `Common/McPanel` (the real GUI panel with the dark-grey title,
 centre filled at `Theme.widgetOpacity`, config `widgets.opacity`, default 0.72) + show/hide fade + drag handle. Everything is authored
 in GUI px (`Theme.px`, default 2 × at 1920×1080) with the design system's text (`McText`), buttons, slots, progress bars and
@@ -15,7 +15,7 @@ How the theme switch works: [README](../README.md#a-theme-system-you-can-switch-
 quickshell/Widgets/
   DesktopWidgets.qml     Variants{Quickshell.screens} → PanelWindow per screen, WlrLayer.Bottom, anchors all edges,
                          exclusionMode Ignore, transparent, mask = union of the visible cards (+ full-screen while dragging)
-  WidgetLayout.qml       the nine cards on their slots (an Item: also used by the offscreen render harness)
+  WidgetLayout.qml       the ten cards on their slots (an Item: also used by the offscreen render harness)
   WidgetCard.qml         McPanel + fade/rise 250 ms OutQuad (stagger 40 ms × index) + title-bar drag + double-click reset
   BlockPatch.qml         a square cut out of a block texture, 1 texel = 1 GUI px (weather columns, note-block cells)
   KeyedSprite.qml        sprite drawn additively in the game (sun / moon): black → transparent (shaders/blackkey.frag.qsb)
@@ -23,16 +23,19 @@ quickshell/Widgets/
   SysInfo/  SysInfoCard.qml                       Cava/   CavaCard.qml         Quote/     QuoteCard.qml
   BlockOfDay/  BlockOfDayCard.qml                 BrewTimer/  BrewTimerCard.qml
   Projects/  ProjectsCard.qml ProjectRow.qml ProjectBox.qml PixelGlyph.qml   ProjectsForm.qml ProjectsDialog.qml (the to-do card + its add/edit screen)
+  Notes/  NotesCard.qml PaperSheet.qml PaperCrumbs.qml   NotesForm.qml NotesEditor.qml NotesPlace.js (the sticky-note card + the sheet you type on)
   Services/  (pragma Singleton, auto-registered, no qmldir)
     WidgetsConfig.qml   config.json view: sounds, reduced_motion, brew.{work,break}; stateDir / cacheDir / scriptDir   (was ApoConfig)
     WidgetsState.qml    visible (persisted), demo, positions, per-card switches, cardOpacity, IpcHandler "widgets"
     WeatherService.qml + weather-fetch.py    MusicService.qml (MPRIS)    SysInfoService.qml + sysinfo.py
     QuoteService.qml    BlockOfDayService.qml    BrewTimer.qml (IpcHandler "brew")    CavaService.qml    duration.js
     ProjectsService.qml (IpcHandler "projects") + projects-write.sh (shim → scripts/hypr-projects, which owns the rules)    the to-do list
+    NotesService.qml (IpcHandler "notes") + notes-write.sh (shim → scripts/hypr-notes, which owns the rules)    the sticky notes
   assets/weather/*.png  gen_weather_icons.py    original 16×16 pixel icons (sun moon partly_day partly_night cloud fog rain snow sleet thunder)
   shaders/blackkey.frag(.qsb)    rebuild: /usr/lib64/qt6/bin/qsb --qt6 -o shaders/blackkey.frag.qsb shaders/blackkey.frag
   preview/  shell.qml (the layer) · render.qml (offscreen) · skies.qml (all sky conditions) · selftest.qml · shot.sh
             projects-test.qml · projects-chat-test.qml · projects-render.qml (Projects: logic, chat, offscreen renders)
+            notes-test.qml · notes-chat-test.qml · notes-render.qml (Notes: logic, chat, offscreen renders + real key / mouse events)
 ```
 
 | card | default slot (x y, px) | size (GUI px) | what it is |
@@ -46,13 +49,14 @@ quickshell/Widgets/
 | **Note Block** | `w−404` 692 | 190×82 | cava equaliser built from note blocks / redstone lamps |
 | **Sign** | `w−404` 868 | 190×78 | oak sign (`quotes/quotes.json`) + pulsing splash |
 | **Projects** | `w−784` 80 | 190×150 | Book-and-Quill to-do list: In Progress / Built ✔, add · tick · remove with undo (see *Projects* below) |
+| **Notes** | `w−784` 392 | 190×130 | a pad of Paper sheets for raw thoughts: click to write, flip, tear off with undo (see *Notes* below) |
 
 `WidgetLayout` builds the slots as stacks in GUI px (left column 12 GUI px from the left edge, right column flush to 12 GUI px from
 the right edge, first card at 30 GUI px, 6 GUI px between cards), so they follow the GUI scale (`gui_scale`) and the screen width; the
 pixel numbers above are for 1920×1080 at GUI scale 2, where every card is 380 px wide. The left column ends at y 1052, the right at y
 1024: the HUD area at the bottom centre stays free. Verified renders at GUI 2 and GUI 1 (`OW_GUI=1`).
 
-The two stacks are full, so the ninth card, **Projects**, is not part of them: `layout-plan.js` puts every card past the first 8 into an *overflow column* next to the right stack (then next to the left one), scanning down past the cards already there; a column that passes under the top centre starts 40 GUI px down (the boss bars), one that passes over the bottom centre ends above the hotbar. No room means `fits = false` like the others (GUI scale 3 at 1080p: the Sign and Projects have none; scale 1-2: 9 of 9).
+The two stacks are full, so the ninth and tenth cards, **Projects** and **Notes**, are not part of them: `layout-plan.js` puts every card past the first 8 into an *overflow column* next to the right stack (then next to the left one), scanning down past the cards already there; a column that passes under the top centre starts 40 GUI px down (the boss bars), one that passes over the bottom centre ends above the hotbar. No room means `fits = false` like the others (GUI scale 3 at 1080p: the Sign, Projects and Notes have none; scale 1-2: 10 of 10).
 
 ## Cards
 
@@ -151,6 +155,22 @@ with the quill icon and "Click +, or type /project add <name>"); nothing is ever
   `preview/projects-render.qml` (`OW_RENDER_WHAT=card|undo|dialog|edit|act`, `OW_RENDER_PIN=<row>` draws a hovered row, `OW_RENDER_TIP=1` its
   tooltip, `OW_RENDER_FOLD=1`, `OW_RENDER_ALL=1`), `node tests/widgets-layout.test.js` (9 cards, overflow column, boss-bar clearance).
 
+## Notes (sticky notes) — `Notes/`, `Services/NotesService.qml`
+
+A pad of **Paper** sheets for dumping raw, stray thoughts: no titles, no structure, no checkboxes (those are the Projects card's job). Open, type, it is saved. Starts empty ("Click to scribble a thought…"); it never invents notes.
+
+- **Card** (190×130 GUI px, same panel, title-bar drag, hide/show and stagger as the others). `PaperSheet` draws one sheet in GUI pixels from the paper item's palette, warmed a little towards cream: a perforated top edge, a folded corner, a red pin, faint fibres (the same for a given sheet), up to two sheets of the pad peeking out behind it; Night dims it as if by moonlight. The paper's alpha follows `widgets.opacity` with a floor of 0.9 so the ink stays readable. Text is the Minecraft font in dark ink with no shadow, wrapped; a long note fades out in four chunky steps (the same text in strips of falling opacity). Footer: `◀ 2/5 ▶`, the age ("3 min ago", follows `updated`), `+`. The **mouse wheel** anywhere on the card flips (120 units a notch; touchpad steps add up). There is no wrap-around: the arrows grey out on the first and last sheet.
+- **Tear-off**: hover the sheet, **✕** removes it with no question, paper crumbs fall (stepped at 20 per second, none with `reduced_motion` or particles `minimal`, half with `decreased`) and the card offers "Tore off … [Undo]" for 5 s (also IPC `notes undo`, `overworld notes undo`). Tear-offs inside those 5 s pile up; Undo restores all of them at their places.
+- **Editor** (`NotesEditor.qml` + `NotesForm.qml`, layer namespace `overworld-notes`, keyboard Exclusive, because the widget layer never takes focus): a click on the sheet opens **the same sheet, slightly larger (216×150 GUI px), exactly over the card** (`NotesPlace.js`: centred on the paper, kept on screen, on the GUI grid; the card publishes where its paper is through `NotesService.cardRects`; card hidden or without a slot = the middle of the screen). A light dim (alpha under Hyprland's `ignore_alpha 0.35`, so no blur) keeps the desk in view. "Page 2 of 5" in the corner like the book screen, a blinking `_` at the end of the text (a thin bar inside it), Done underneath.
+  - **Enter** = new line · **Esc / Ctrl+Enter / a click outside / Done** = save and close · **Ctrl+N** = new sheet · **Ctrl+PgUp / PgDn** = flip. Ctrl+N/A/C/V/X/Z also work on a Cyrillic layout (physical key).
+  - **Autosave**: 700 ms after the last keystroke, and on every flip and close. A blank draft is never written; **an empty sheet is dropped on close or on flipping away**. A sheet that had text and was emptied gets the 5 s Undo with its last saved text. Up to 4000 characters a sheet (the count shows in the last 200; when full, what was just typed or pasted is refused, the end of the note stays). A shell reload or `overworld reload|off|repair` mid-typing writes the draft and the queue on its way out (detached).
+  - If the sheet changes under the editor: with nothing typed since the last save the editor shows the new text; with typing, the typing wins; torn off elsewhere, the editor moves on to the current sheet and does not bring it back.
+- **Data**: `~/.local/share/hypr-notes/notes.json` `{"sheets": [{"id", "text", "created": ISO-UTC, "updated": ISO-UTC, "color"?}], "current": id}` — **one pad shared with Apothecary and the stock desktop**; created by the first note. `HYPR_NOTES_FILE=<file>` redirects it for tests. Reading is a watching `FileView`; a missing file cannot be watched, so while the pad is missing or empty it is polled every 4 s (the very first note from the CLI can take that long to appear, later ones under 0.1 s). **Every write is `scripts/hypr-notes raw <op>`** under `flock`, in place (`cat tmp > file`, never `mv`); a write that changes nothing does not touch the file; a file that is not valid JSON, or not one object with a `sheets` array, is never overwritten: the text of a refused write is appended to `notes.json.rescue` instead, one notification says so, and an open draft stays unsaved so the next save retries. CLI reads take the lock shared, so they never see a half-written file. The flip is the one thing shown before it is written (`currentId`; written 400 ms later so the wheel does not write per notch).
+- **Numbering** everywhere (page counter, `hypr-notes list`, `/note list`, IPC `list`): file order, oldest first; a new sheet goes last and becomes current. `current` missing or stale = the last sheet.
+- **Ways in**: the card · `SUPER+ALT+N` (a blank sheet) · chat `/note <text>` ("Note pinned."), bare `/note` (the editor), `/note list` · CLI `hypr-notes` and `overworld notes [list|add <text>|add -|show [n]|rm <n>|edit [n]|clear [--yes]|open|new|next|prev|undo]` (`open new next prev undo` need the shell; the rest do not) · IPC `qs -c overworld ipc call notes open | newSheet | add <text> | next | prev | remove | undo | list | status | flush`. (`new` is a reserved word in QML, so the IPC function is `newSheet`; `overworld notes new` maps to it.)
+- **Sounds**: `book.page` on a flip and a tear-off (from the card and the editor, not from IPC), `ui.click` on buttons. No game events: a note's text has no business on the event bus.
+- **Tests** (all offscreen, temp file): `bash tests/hypr-notes.test.sh` (the CLI: every verb, stdin, numbering, cap, concurrent writers, invalid files, `$EDITOR`, the rofi menu with a scripted stand-in), `preview/notes-test.qml` (service), `preview/notes-chat-test.qml` (chat), `preview/notes-render.qml` (`OW_RENDER_WHAT=card|undo|edit`, `OW_RENDER_PIN=1` draws the ✕, `OW_RENDER_NEW=1`, `OW_RENDER_LATE=<ms>`; `act` sends real key and mouse events to its own offscreen window through QtTest's `TestEvent`), `bash tests/notes-quit.test.sh` (typing and the write queue survive a quit, a reload, and IPC flush + SIGTERM), `node tests/widgets-layout.test.js` (10 cards, overflow column, where the editor lands).
+
 ## IPC
 
 ```
@@ -159,7 +179,7 @@ qs -c overworld ipc call widgets toggle | reveal | hide      # persisted in ~/.c
 qs -c overworld ipc call widgets demo on|off                 # mocked track on the Jukebox when no player exists
 qs -c overworld ipc call widgets status                      # "visible (demo)"
 qs -c overworld ipc call widgets layout                      # every card back on its slot
-qs -c overworld ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|block|brew|projects>    # toggle one (`herb` = alias of block)
+qs -c overworld ipc call widgets card <weather|music|calendar|sysinfo|cava|quote|block|brew|projects|notes>    # toggle one (`herb` = alias of block)
 qs -c overworld ipc call widgets cards | menu
 qs -c overworld ipc call brew start 50m | startWith 50m 10m | toggle | pause | reset | add 5m | open | sound brew|rest | status | settings
 # CLI: overworld brew help   (`-p <preview dir>` instead of `-c overworld` for the preview instance)
@@ -172,6 +192,7 @@ qs -c overworld ipc call brew start 50m | startWith 50m 10m | toggle | pause | r
 | `~/.config/overworld/widgets-visible` | `true` / `false`, read at startup, written by reveal/hide/toggle |
 | `~/.config/overworld/widgets-hidden.json` | list of switched-off card ids |
 | `~/.local/share/hypr-projects/projects.json` | the Projects card's list, shared with Apothecary and the stock desktop (see *Projects*); `projects.json.lock` is the flock file next to it |
+| `~/.local/share/hypr-notes/notes.json` | the Notes card's sheets, shared with Apothecary and the stock desktop (see *Notes*); `notes.json.lock` is the flock file next to it, `notes.json.rescue` (only after a refused write) holds text that could not be saved |
 | `~/.config/overworld/widget-positions.json` | `{cardId: [x, y]}` for dragged cards |
 | `~/.config/overworld/config.json` | `widgets.opacity`, `weather.{lat,lon,name}`, `brew.{work,break}`, `sounds`, `reduced_motion`, `gui_scale` |
 | `~/.cache/overworld/weather.json` | last good forecast + location (Open-Meteo JSON, `stale: true` when served from cache) |
@@ -220,3 +241,5 @@ The same list is the **Projects** card of Apothecary (工程, with a vermilion s
 `hypr-projects menu` on `SUPER+SHIFT+P` (bound in `hypr/off.conf`; `--if-stock` makes it a no-op while a theme is on). `hypr-projects`
 (`scripts/hypr-projects`, linked to `~/.local/bin` by install.sh) is the CLI that owns every write; `overworld projects …` delegates to it.
 
+### Notes on the stock desktop
+With both themes off, `SUPER+ALT+N` opens `hypr-notes menu` (rofi; bound in `hypr/off.conf`; `--if-stock` makes it a no-op while a theme is on): "+ New note…" asks for a line, Enter on a sheet shows it (with "✕ Tear off this note"), "✕ Remove…" tears one off, Esc closes. `hypr-notes` (`scripts/hypr-notes`, linked to `~/.local/bin` by install.sh) is the CLI that owns every write; `overworld notes …` delegates to it.

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Notes: sticky notes for raw, stray thoughts (sticky-notes)
+- A tenth desk card, **Notes**: a pad of Paper sheets with a pin, a perforated top and a folded corner. Click the sheet and you type on it: the same sheet opens right over the card on a layer that takes the keyboard (`overworld-notes`), saved 700 ms after the last key and on close, empty sheets dropped. Page counter, flip with the arrows or the wheel, `+`, tear off with crumbs and a 5 s Undo.
+- `SUPER+ALT+N` (a blank sheet), chat `/note <text>` / `/note` / `/note list`, IPC target `notes`, `overworld notes …`.
+- `hypr-notes`: a standalone CLI that owns the shared pad `~/.local/share/hypr-notes/notes.json` (`list`, `add`, `add -` for stdin, `show`, `rm`, `edit` in `$EDITOR`, `clear`, a rofi `menu` on `SUPER+ALT+N` while no theme is on).
+
 ## 1.0.0 - 2026-11-05
 
 First release. Overworld Hyprland is a fork of the Apothecary Hyprland theme (commit 26a8391), renamed and rebuilt as a Minecraft-inspired

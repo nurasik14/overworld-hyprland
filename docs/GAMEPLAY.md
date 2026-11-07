@@ -51,6 +51,7 @@ Type `/help` for the list (texts: `quotes/chat.json`). Commands, what each reall
 | `/advancement [open\|list [unlocked\|locked\|tab]\|grant <id\|tab\|all>\|revoke …\|reset]` | open the screen / progress / testing aid (ids, tab names, "all", or a unique suffix like `terminal`). `/advancement reset` only asks; `/advancement reset confirm` does it |
 | `/stats` · `/options` | open the screens |
 | `/project add <title>` · `done <n\|title>` · `undone …` · `toggle …` · `remove …` · `undo` · `list` · `edit <n\|title>` · bare `/project` | the Projects card's to-do list (`Widgets/Services/ProjectsService`, file `projects.json`). `<n\|title>` = the number `/project list` shows (in progress first, then built, newest first) or the start of a title (any part if unique; ambiguous → an error naming the count). `done` builds it (the chat then says `Nurasik built [Title]!`, see the event table); `remove` has a 5 s `/project undo`; bare `/project` and `edit` open the dialog. Tab completes the action, then the whole title (done → in-progress titles, undone → built ones, remove/toggle/edit → all) |
+| `/note <text>` · `/note list` · bare `/note` | the Notes card's sticky notes (`Widgets/Services/NotesService`, file `notes.json`). `/note <text>` pins a sheet ("Note pinned."), `/note list` lists them with the same numbers as the card's page counter (`*` = the current one; hover a multi-line one for all of it), bare `/note` opens the sheet to write on. Only exactly `list` lists: `/note list of things` is a note. Like every command, the line also lands in the chat history file and the `chat.command` event |
 | `/f3 [on\|off]` | `ipc call world f3 <on\|off\|toggle>` |
 | `/reload` | `Quickshell.reload()` |
 | `/say <text>` · plain text · `/me <text>` | `<Nurasik> text` / `* Nurasik text` |
@@ -244,6 +245,7 @@ first, in yellow). Esc / Done go back one page, then close.
 | `~/.config/overworld/chat-history.json` | last 100 typed lines |
 | `~/.config/overworld/reminders.json` | pending `/msg` reminders `[{due, text}]` |
 | `~/.local/share/hypr-projects/projects.json` | the Projects card (shared with Apothecary + the stock desktop): `{items: [{id, title, note?, status: progress\|built, created, built_at?}]}`; `HYPR_PROJECTS_FILE=<file>` redirects it (tests) |
+| `~/.local/share/hypr-notes/notes.json` | the Notes card (shared with Apothecary + the stock desktop): `{sheets: [{id, text, created, updated, color?}], current}`; `HYPR_NOTES_FILE=<file>` redirects it (tests) |
 | `~/.config/overworld/config.json` | Options (see §6) |
 | `$XDG_RUNTIME_DIR/overworld/events.jsonl` | the bus |
 | `$XDG_RUNTIME_DIR/overworld/gamemode-widgets` | widgets state remembered while in adventure/spectator |

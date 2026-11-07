@@ -4,14 +4,15 @@ import Quickshell.Wayland
 import qs.Common
 import qs.Widgets.Services
 import qs.Widgets.Projects
+import qs.Widgets.Notes
 
-/*  DesktopWidgets — the desktop widget layer: nine Minecraft objects on the wallpaper (one PanelWindow per screen,
+/*  DesktopWidgets — the desktop widget layer: ten Minecraft objects on the wallpaper (one PanelWindow per screen,
  *  layer `bottom`, namespace overworld-widgets).
  *
  *  Layout (WidgetLayout; numbers for 1920 × 1080 at GUI scale 2 — the bar is 0–36, the bottom-centre ~110 px stay free for the HUD):
  *    left column,  x 24:        Weather 60 · Jukebox 372 · Brewing stand 596 · Block of the day 776   (ends at y 1052)
  *    right column, flush right: Clock & Calendar 60 · System (F3) 384 · Note block 692 · Sign 868  (ends at y 1024)
- *    next to the right column:  Projects (x w−784, y 80: below the boss bars, see layout-plan.js)
+ *    next to the right column:  Projects (x w−784, y 80: below the boss bars, see layout-plan.js), Notes below it
  *  The slots are stacks in GUI px, so they follow the GUI scale and the screen width.
  *  Click-through: `mask` = union of the visible card rectangles, so the desktop receives everything else.
  *  Visibility: WidgetsState.visible (IPC `widgets toggle|reveal|hide`) and the per-card switches; each card staggers 40 ms.
@@ -24,6 +25,7 @@ Scope {
     readonly property bool widgetsVisible: WidgetsState.visible   // kept for shell.qml compatibility
 
     ProjectsDialog {}      // the add / edit screen of the Projects card (namespace overworld-projects, takes the keyboard)
+    NotesEditor {}         // the sheet you type on, over the Notes card (namespace overworld-notes, takes the keyboard)
 
     Variants {
         model: Quickshell.screens
@@ -44,7 +46,7 @@ Scope {
 
             // while a card is dragged the whole layer takes input, so a fast flick can't outrun the card's region
             Item { id: dragCatcher; anchors.fill: parent }
-            WidgetLayout { id: layout; anchors.fill: parent }
+            WidgetLayout { id: layout; anchors.fill: parent; screenName: win.modelData.name }
             mask: Region {
                 Region { item: WidgetsState.dragging ? dragCatcher : null }
                 Region { item: win.shown && layout.weather.shown ? layout.weather : null }
@@ -56,6 +58,7 @@ Scope {
                 Region { item: win.shown && layout.brew.shown ? layout.brew : null }
                 Region { item: win.shown && layout.cava.shown ? layout.cava : null }
                 Region { item: win.shown && layout.projects.shown ? layout.projects : null }
+                Region { item: win.shown && layout.notes.shown ? layout.notes : null }
             }
         }
     }

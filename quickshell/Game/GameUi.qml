@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import qs.Services
+import qs.Widgets.Services
 
 /*  GameUi — which Game screen is open. One screen at a time; opening one closes the launcher/network/… modals (ShellState).
  *    screens: advancements · stats · options · switcher        (the chat has its own flag: chatOpen + chatPrefill)
@@ -25,6 +26,10 @@ Singleton {
         target: ShellState
         function onAnyOpenChanged() { if (ShellState.anyOpen) root.closeAll(); }
     }
+    Connections {       // so does the Notes editor; both grab the keyboard
+        target: NotesService
+        function onEditorOpenChanged() { if (NotesService.editorOpen) root.closeAll(); }
+    }
 
     function isOpen(name) { return root[name + "Open"] === true; }
     function closeScreens() { for (let i = 0; i < names.length; i++) root[names[i] + "Open"] = false; }
@@ -33,6 +38,7 @@ Singleton {
         if (names.indexOf(name) < 0) return;
         if (isOpen(name)) return;
         ShellState.closeAll();
+        NotesService.closeEditor();
         chatOpen = false;
         closeScreens();
         root[name + "Open"] = true;
@@ -41,6 +47,7 @@ Singleton {
     function toggle(name) { isOpen(name) ? close(name) : open(name); }
     function openChat(prefill) {
         ShellState.closeAll();
+        NotesService.closeEditor();
         closeScreens();
         chatPrefill = prefill || "";
         chatOpen = true;
