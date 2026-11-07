@@ -2,6 +2,18 @@
 
 <h1 align="center">Overworld Hyprland</h1>
 
+<p align="center">
+  <a href="https://github.com/nurasik14/overworld-hyprland/stargazers"><img src="https://img.shields.io/github/stars/nurasik14/overworld-hyprland?style=for-the-badge&logo=github&color=5D8A3A&labelColor=373737" alt="Stars"></a>
+  <a href="https://github.com/nurasik14/overworld-hyprland/commits/main"><img src="https://img.shields.io/github/last-commit/nurasik14/overworld-hyprland?style=for-the-badge&color=8B8B8B&labelColor=373737" alt="Last commit"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/nurasik14/overworld-hyprland?style=for-the-badge&color=FFAA00&labelColor=373737" alt="MIT licence"></a>
+  <br>
+  <a href="https://hyprland.org"><img src="https://img.shields.io/badge/Hyprland-0.56-58E1FF?style=for-the-badge&logo=hyprland&logoColor=white&labelColor=373737" alt="Hyprland 0.56"></a>
+  <a href="https://quickshell.org"><img src="https://img.shields.io/badge/Quickshell-0.3.2-55FF55?style=for-the-badge&logo=qt&logoColor=white&labelColor=373737" alt="Quickshell 0.3.2"></a>
+  <a href="#tested-setup-read-this-before-installing"><img src="https://img.shields.io/badge/tested%20on-Fedora%2044-51A2DA?style=for-the-badge&logo=fedora&logoColor=white&labelColor=373737" alt="Tested on Fedora 44"></a>
+  <img src="https://img.shields.io/badge/Wayland-only-FFB000?style=for-the-badge&logo=wayland&logoColor=white&labelColor=373737" alt="Wayland">
+  <img src="https://img.shields.io/badge/Minecraft-inspired-62B47A?style=for-the-badge&logo=minecraft&logoColor=white&labelColor=373737" alt="Minecraft-inspired">
+</p>
+
 <p align="center"><b>Your Hyprland desktop, as a Minecraft world.</b><br>
 The Quickshell shell is the game&rsquo;s HUD and menus; windows are mined when you close them and placed when you open them.</p>
 
