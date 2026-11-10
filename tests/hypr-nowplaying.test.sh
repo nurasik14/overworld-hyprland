@@ -336,7 +336,9 @@ if [[ "${NP_REAL:-0}" == 1 ]]; then
     if [[ -s "$F" ]]; then
         P="$(ffprobe -v error -show_entries stream=codec_type,codec_name,height -of json "$F")"
         echo "  ffprobe: $(jq -c '[.streams[] | {codec_type, codec_name, height}]' <<<"$P")  $(du -h "$F" | cut -f1)"
-        check "video only (no audio stream)" '[[ "$(jq "[.streams[] | select(.codec_type==\"audio\")] | length" <<<"$P")" == 0 ]]'
+        # behind a VPN the bot-wall fallback clients often only give progressive format 18 (it has audio): harmless,
+        # VideoMirror has no audio output at all
+        check "has a video stream"       '[[ "$(jq "[.streams[] | select(.codec_type==\"video\")] | length" <<<"$P")" -ge 1 ]]'
         check "<= 480p"                  '[[ "$(jq "[.streams[] | select(.codec_type==\"video\") | .height] | max" <<<"$P")" -le 480 ]]'
         check "decodes (ffmpeg -f null)" 'ffmpeg -v error -nostdin -i "$F" -f null - 2>&1 | wc -l | grep -qx 0'
         [[ -n "${NP_KEEP:-}" ]] && cp "$F" "$NP_KEEP" && echo "  kept a copy in $NP_KEEP"

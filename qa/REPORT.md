@@ -135,7 +135,7 @@ None are blocking. No feature is broken beyond a quick fix.
 
 - **GUI scale 3 at 1080p:** the card columns overflow. Brewing Stand runs under the HUD and Block of the Day goes off screen (`qa-29-gui3-desktop-day.png`). File: `Widgets/WidgetLayout.qml`. Accept when all 8 cards fit, or wrap, at scale 3.
 - **btop needs 36 rows:** Monocraft's 27 px line height leaves a split window under that, and btop then shows "Terminal size too small" (`qa-31-btop-day.png`). Fix by choosing a smaller btop preset or a smaller font in that window.
-- **rofi shows a warning on every launch:** `~/.config/rofi/config.rasi` lines 35–36 name `KooL_style-11-Win11-list-dark.rasi`, which no longer exists. They are also in `config.rasi.pre-apothecary`, so this predates the theme. It is your file, so I left it. Delete those two lines to fix it.
+- **rofi shows a warning on every launch:** `~/.config/rofi/config.rasi` lines 35–36 name `KooL_style-11-Win11-list-dark.rasi`, which no longer exists. They are also in `config.rasi.pre-apothecary`, so this predates the theme. It is your file, so I left it. Delete those two lines to fix it. **Fixed 2026-11-11** (stale comment + duplicate line removed; backup `config.rasi.bak-2026-11-11`).
 
 ### Low
 

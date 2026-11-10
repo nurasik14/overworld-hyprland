@@ -48,3 +48,14 @@ Agents run as Claude Code print-mode processes through `.orchestrator/run-agent.
 - Sudo step pending: SDDM title screen (docs/SUDO-STEPS.md).
 
 ALL PHASES COMPLETE
+
+## Leftovers closed (2026-11-11)
+- SDDM: done by the user on 2026-11-05 14:43 (`install-sddm.sh hyprthemes`; /etc/sddm.conf Current=hyprthemes, newer than the
+  last sddm commit). No sudo step is pending.
+- Sounds: on (`"sounds": true` in ~/.config/overworld/config.json, set by the user).
+- rofi: ~/.config/rofi/config.rasi lost the dead `KooL_style-11-Win11-list-dark` comment and the duplicated `KooL_style-5`
+  line (backup config.rasi.bak-2026-11-11; `rofi -dump-theme` byte-identical before/after, no warning).
+- Now Playing PiP showed no YouTube video (TikTok fine): yt-dlp hit YouTube's "Sign in to confirm you're not a bot" wall from
+  the ProtonVPN IP. hypr-nowplaying now passes a JS runtime (`--js-runtimes node`/deno/bun) and tries the client chains in
+  YTDLP_CLIENTS (default,tv,mweb, then tv,mweb,web_embedded). Real fetches behind the VPN: 3/3 ready (were 0/3). Same file in
+  apothecary-hyprland (byte-identical); fake test suite 119/119 in both.

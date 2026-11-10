@@ -36,7 +36,8 @@
 # PiP is on, so with the PiP off nobody answers and the tab goes quiet. The state file carries the last command as "action":
 # {id, tab, key, action, status queued|sent|done|failed|expired|refused, error, t}.
 #
-# Only YouTube is fetched by the daemon (yt-dlp, video-only, <= 480p, avc1 first, one job at a time, the newest request wins); TikTok
+# Only YouTube is fetched by the daemon (yt-dlp, video-first, <= 480p, avc1 first, one job at a time, the newest request wins; a JS
+# runtime + the tv/mweb clients get past YouTube's "confirm you're not a bot" wall on VPN IPs, see YTDLP_CLIENTS); TikTok
 # videos are uploaded by the userscript, because yt-dlp is IP-blocked for TikTok on many networks.  Nothing is fetched from any other
 # host.  The video is a silent visual mirror: the audio always stays in the browser.
 # One copy of this script lives in each theme repo (byte-identical); ~/.local/bin/hypr-nowplaying links to one of them.
@@ -89,6 +90,10 @@ UPLOAD_WAIT = 150.0       # s the daemon waits for an upload it asked for
 RETRY_FAILED = 600.0      # s before a failed key is tried again
 RETRY_SKIPPED = 3600.0    # s before yt-dlp's own "live / too long / too big" is asked again (a live stream may have ended)
 YTDLP_TIMEOUT = 300.0
+# YouTube clients yt-dlp asks, one attempt per entry until one works. Behind a VPN / datacenter IP the default clients get
+# "Sign in to confirm you're not a bot" (or 429), while adding tv + mweb still returns plain progressive formats; the second
+# entry covers the rarer "The page needs to be reloaded" / 403 of the first.  Needs a JS runtime (see js_runtime_args).
+YTDLP_CLIENTS = ("default,tv,mweb", "tv,mweb,web_embedded")
 TAB_RE = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
 ACTIONS = ("like", "repost", "save")
 ACTION_QUEUE_TTL = 10.0   # s a TikTok command waits for its tab's next report
@@ -727,6 +732,17 @@ class Daemon:
                 except OSError:
                     pass
 
+    @staticmethod
+    def js_runtime_args():
+        """--js-runtimes for every JS runtime found: yt-dlp needs one for YouTube's player JS (n / signature), and only
+        enables deno by default, so with node or bun alone most formats vanish and the bot wall wins"""
+        args = []
+        for name, extra in (("deno", HOME + "/.deno/bin/deno"), ("node", ""), ("bun", HOME + "/.bun/bin/bun")):
+            path = shutil.which(name) or (extra if extra and os.access(extra, os.X_OK) else "")
+            if path:
+                args += ["--js-runtimes", "%s:%s" % (name, path)]
+        return args
+
     def work_once(self):
         ytdlp = (os.environ.get("HYPR_NOWPLAYING_YTDLP") or shutil.which("yt-dlp")
                  or (os.path.isfile(HOME + "/.local/bin/yt-dlp") and HOME + "/.local/bin/yt-dlp") or "")
@@ -746,48 +762,56 @@ class Daemon:
             return
         mkdir_private(CACHE_DIR)
         work = tempfile.mkdtemp(prefix=".ytdlp-", dir=CACHE_DIR)
-        cmd = [ytdlp, "--ignore-config", "--no-playlist", "--no-progress", "--quiet", "--no-warnings", "--no-mtime",
-               "--socket-timeout", "20", "--retries", "2", "--fragment-retries", "2",
-               "--match-filter", "!is_live & duration <= %d" % int(self.max_s),
-               "--max-filesize", "300M",
-               "-f", YTDLP_FORMAT, "--remux-video", "mp4",
-               "-o", os.path.join(work, "v.%(ext)s"),
-               "https://www.youtube.com/watch?v=" + vid]
+        base = [ytdlp, "--ignore-config", "--no-playlist", "--no-progress", "--quiet", "--no-warnings", "--no-mtime",
+                "--socket-timeout", "20", "--retries", "2", "--fragment-retries", "2",
+                "--match-filter", "!is_live & duration <= %d" % int(self.max_s),
+                "--max-filesize", "300M",
+                "-f", YTDLP_FORMAT, "--remux-video", "mp4",
+                "-o", os.path.join(work, "v.%(ext)s")] + self.js_runtime_args()
         self.log("fetch " + key)
         status, reason, final = "failed", "", ""
+        t0 = time.time()
         try:
-            proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    start_new_session=True, text=True, preexec_fn=set_pdeathsig)
-            self.proc = proc
-            t0 = time.time()
-            superseded = False
-            while proc.poll() is None:
-                time.sleep(0.2)
-                with self.lock:
-                    superseded = self.want_key != key or self.stopping
-                if superseded or time.time() - t0 > YTDLP_TIMEOUT:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                    try:
-                        proc.wait(5)
-                    except subprocess.TimeoutExpired:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                        proc.wait()
-                    reason = "superseded" if superseded else "timed out"
+            for attempt, clients in enumerate(YTDLP_CLIENTS):
+                cmd = base + ["--extractor-args", "youtube:player_client=" + clients,
+                              "https://www.youtube.com/watch?v=" + vid]
+                for p in glob.glob(os.path.join(work, "v.*")):
+                    os.unlink(p)
+                status, reason, final = "failed", "", ""
+                proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        start_new_session=True, text=True, preexec_fn=set_pdeathsig)
+                self.proc = proc
+                superseded = False
+                while proc.poll() is None:
+                    time.sleep(0.2)
+                    with self.lock:
+                        superseded = self.want_key != key or self.stopping
+                    if superseded or time.time() - t0 > YTDLP_TIMEOUT:
+                        os.killpg(proc.pid, signal.SIGTERM)
+                        try:
+                            proc.wait(5)
+                        except subprocess.TimeoutExpired:
+                            os.killpg(proc.pid, signal.SIGKILL)
+                            proc.wait()
+                        reason = "superseded" if superseded else "timed out"
+                        break
+                out, err = proc.communicate()
+                files = [p for p in glob.glob(os.path.join(work, "v.*")) if os.path.splitext(p)[1] in VIDEO_EXT]
+                if reason:
                     break
-            out, err = proc.communicate()
-            files = [p for p in glob.glob(os.path.join(work, "v.*")) if os.path.splitext(p)[1] in VIDEO_EXT]
-            if reason:
-                pass
-            elif proc.returncode == 0 and files:
-                ext = os.path.splitext(files[0])[1]
-                final = os.path.join(CACHE_DIR, key + ext)
-                os.replace(files[0], final)
-                status = "ready"
-            elif proc.returncode == 0:
-                status, reason = "skipped", "live, longer than %d min or larger than 300 MB" % (self.max_s // 60)
-            else:
+                elif proc.returncode == 0 and files:
+                    ext = os.path.splitext(files[0])[1]
+                    final = os.path.join(CACHE_DIR, key + ext)
+                    os.replace(files[0], final)
+                    status = "ready"
+                    break
+                elif proc.returncode == 0:
+                    status, reason = "skipped", "live, longer than %d min or larger than 300 MB" % (self.max_s // 60)
+                    break
                 lines = [ln for ln in (err or "").strip().splitlines() if ln.strip()]
                 reason = (lines[-1] if lines else "yt-dlp exit %d" % proc.returncode)[:200]
+                if attempt + 1 < len(YTDLP_CLIENTS):
+                    self.log("fetch %s: clients %s failed (%s), trying %s" % (key, clients, reason[:80], YTDLP_CLIENTS[attempt + 1]))
         except OSError as e:
             reason = str(e)[:200]
         finally:

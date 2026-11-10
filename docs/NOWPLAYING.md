@@ -152,6 +152,11 @@ hypr-nowplaying init | path | help
   is kept (30 min). yt-dlp: one job at a time, a newer request kills the running one, 5 min timeout, live and too-long
   videos skipped by yt-dlp's own `--match-filter` (asked again after an hour: a live stream may have ended); a failure is not
   retried for 10 min; a "too long" from one browser report is re-judged on the next one. yt-dlp dies with the daemon.
+- YouTube's bot wall ("Sign in to confirm you're not a bot", HTTP 429) hits yt-dlp from VPN / datacenter IPs. The daemon
+  therefore hands yt-dlp every JS runtime it finds (`--js-runtimes`: deno, node, bun; yt-dlp enables only deno by itself)
+  and tries the player-client chains in `YTDLP_CLIENTS` in order (`default,tv,mweb`, then `tv,mweb,web_embedded`). Those
+  clients often return only the 360p progressive format, which has an audio track; the mirror never plays it. No cookies
+  are used. If videos still fail: `yt-dlp -U` (needs the pip install) and check `hypr-nowplaying status`.
 
 ## Config (`~/.config/overworld/config.json` → `"nowplaying"`)
 
