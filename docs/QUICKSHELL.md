@@ -125,6 +125,7 @@ qs -c overworld ipc call osd volume|brightness
 qs -c overworld ipc call workspace reveal <1-10> | current | hide | title <n>   # /title
 qs -c overworld ipc call hud reveal|hide|toggle|status
 qs -c overworld ipc call shell closeAll|status
+qs -c overworld ipc call nowplaying toggle|on|off|status|reveal|reset   # the Now Playing PiP (docs/NOWPLAYING.md)
 qs -c overworld ipc show                                     # lists every target of every module
 ```
 

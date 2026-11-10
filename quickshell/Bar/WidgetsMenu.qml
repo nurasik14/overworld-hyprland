@@ -5,9 +5,12 @@ import Quickshell.Wayland
 import qs.Common
 import qs.Services
 import qs.Widgets.Services
+import qs.NowPlaying
 
 /*  WidgetsMenu — a Minecraft panel above the HUD's item-frame slot: the desktop layer and each card on/off, reset positions.
  *  Click outside (HyprlandFocusGrab) or Esc closes it. State lives in WidgetsState (persisted). Namespace overworld-widgetsmenu.
+ *  Below the cards: the Now Playing PiP (an overlay, not a desktop card: "All widgets" and the chip's middle-click leave it alone;
+ *  its on/off lives in NowPlayingService, ~/.config/overworld/nowplaying.json).
  */
 PanelWindow {
     id: menu
@@ -73,6 +76,22 @@ PanelWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         name: cardRow.modelData.item || ""
                     }
+                }
+            }
+            McDivider { width: parent.width }
+            Item {
+                width: parent.width
+                height: Theme.px(20)
+                McCheckbox {
+                    text: "Now Playing PiP"
+                    labelColor: Theme.guiText
+                    checked: NowPlayingService.on
+                    onToggled: NowPlayingService.toggle()
+                }
+                McItemIcon {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "painting"
                 }
             }
             McDivider { width: parent.width }

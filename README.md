@@ -327,6 +327,15 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
   sheet and type on it, it saves itself; flip, tear off with undo; `SUPER+ALT+N`, chat `/note <text>`, `hypr-notes`, shared the same way, with a
   rofi menu on `SUPER+ALT+N` while no theme is on).
   Opacity is `widgets.opacity` (default 0.72). See [docs/WIDGETS.md](docs/WIDGETS.md).
+- **Now Playing PiP** (`SUPER+ALT+P`, or the widgets menu): a small painting that floats above every window, fullscreen ones
+  too, with the title, artist and cover of what plays, and **for YouTube and TikTok the video itself**, a silent mirror kept
+  in sync with the browser (the sound stays there). Drag it, resize it from its corner, hover for ⏮ ⏯ ⏭, focus and ✕; it
+  dims when paused, fades out when nothing plays and hides while the source is fullscreen. A Zen userscript and a small
+  localhost daemon (`hypr-nowplaying`, shared with Apothecary, token-protected) bring the video ids and the TikTok clips.
+  **TikTok from the PiP**, while Zen stays on another workspace: ⏮ / ⏭ (and the media keys) scroll the feed, and a second
+  hover row likes ♥, reposts ⟳ and saves 🔖 the clip into a collection (`nowplaying.tiktokCollection`, default "Edits"),
+  each a toggle that shows the clip's state. A clip stuck behind a slow connection is reloaded on its own (after 7 s
+  without progress: away and back twice, then the next clip). See [docs/NOWPLAYING.md](docs/NOWPLAYING.md).
 
 ### World effects (`quickshell/World/`)
 
@@ -429,11 +438,12 @@ Active only while the theme is on (`hypr/keybinds.conf`). The full table, with w
 | `overworld brew ...` | brew timer (`brew set 50 10`, `brew start`, `brew toggle`, `brew rest 0`; `overworld help brew`) |
 | `overworld projects ...` | the Projects card (`projects`, `add <title>`, `done <n>`, `undone <n>`, `rm <n>`, `open`; `overworld help projects`) |
 | `overworld notes ...` | the Notes card (`notes`, `add <text>`, `add -` for stdin, `show [n]`, `rm <n>`, `edit [n]`, `open`, `new`; `overworld help notes`; also plain `hypr-notes`) |
+| `overworld nowplaying ...` | the Now Playing PiP (`on`, `off`, `toggle`, `status`, `reveal`, `reset`, `userscript --serve` installs the Zen bridge, `cache [list\|clear]`; `overworld help nowplaying`; the daemon itself is `hypr-nowplaying`) |
 | `overworld event <name> ['<json>']` | post to the event bus (`$XDG_RUNTIME_DIR/overworld/events.jsonl`) |
 
 Other tools: `scripts/ow-sound --list` (all sound ids), `scripts/fetch-minecraft-assets.sh [--build] [--sounds-only]
 [--force] [--download] [--version V]`. The shell's own commands go through `qs -c overworld ipc call <target> <function>`;
-the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects notes widgets chat
+the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects notes nowplaying widgets chat
 advancements stats options gamemode world interact` (see [docs/QUICKSHELL.md](docs/QUICKSHELL.md)).
 
 ## config.json keys
@@ -461,6 +471,7 @@ Defaults are in `quickshell/Services/ConfigService.qml`.
 | `brew.work` / `brew.break` | 25 / 5 | minutes, or a string like `"90s"` |
 | `weather.lat` `.lon` `.name` | unset | location for sun times and the Weather card |
 | `weather_thunder_sound` | `false` | thunder sound with the overlay |
+| `nowplaying.layer` `.autoHideSec` `.maxVideoMin` `.hideWhenSourceFullscreen` `.width` `.cacheMB` `.port` `.video` | `"overlay"`, 20, 20, true, 360, 400, 47833, true | the Now Playing PiP, see [docs/NOWPLAYING.md](docs/NOWPLAYING.md) |
 
 ## Layout of the repo
 

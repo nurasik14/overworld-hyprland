@@ -171,6 +171,16 @@ A pad of **Paper** sheets for dumping raw, stray thoughts: no titles, no structu
 - **Sounds**: `book.page` on a flip and a tear-off (from the card and the editor, not from IPC), `ui.click` on buttons. No game events: a note's text has no business on the event bus.
 - **Tests** (all offscreen, temp file): `bash tests/hypr-notes.test.sh` (the CLI: every verb, stdin, numbering, cap, concurrent writers, invalid files, `$EDITOR`, the rofi menu with a scripted stand-in), `preview/notes-test.qml` (service), `preview/notes-chat-test.qml` (chat), `preview/notes-render.qml` (`OW_RENDER_WHAT=card|undo|edit`, `OW_RENDER_PIN=1` draws the ✕, `OW_RENDER_NEW=1`, `OW_RENDER_LATE=<ms>`; `act` sends real key and mouse events to its own offscreen window through QtTest's `TestEvent`), `bash tests/notes-quit.test.sh` (typing and the write queue survive a quit, a reload, and IPC flush + SIGTERM), `node tests/widgets-layout.test.js` (10 cards, overflow column, where the editor lands).
 
+## Now Playing PiP — `quickshell/NowPlaying/` (an overlay, not a desk card)
+
+The floating mini-player with the video lives in its own module and layer (`overworld-nowplaying`, Overlay), not on the
+widget layer: it floats above windows. Its row in the widgets menu sits under the cards and is **not** part of "All widgets"
+or the chip's middle-click; its on/off is `~/.config/overworld/nowplaying.json` (starts off). Everything about it —
+the Zen bridge, the shared `hypr-nowplaying` daemon, privacy, config, sync, tests — is in [NOWPLAYING.md](NOWPLAYING.md).
+For a logged-in **TikTok** tab its hover controls also have **like / repost / save-to-collection** toggles (bridge 1.3.0;
+un-saving un-favourites the clip, which removes it from every collection; config `nowplaying.tiktokCollection`, default
+`"Edits"`): see [NOWPLAYING.md → TikTok](NOWPLAYING.md#tiktok-like-repost-save-to-a-collection).
+
 ## IPC
 
 ```

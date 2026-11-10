@@ -69,6 +69,10 @@ chmod +x "$REPO/scripts/hypr-projects"
 # the sticky-notes CLI (+ rofi menu on SUPER+ALT+N while no theme is on); same arrangement: one script per theme repo, the data is shared
 link "$REPO/scripts/hypr-notes" "$BIN/hypr-notes"
 chmod +x "$REPO/scripts/hypr-notes"
+# the Now Playing bridge daemon/CLI (the PiP's browser bridge + video cache); same arrangement, and its token is made once here
+link "$REPO/scripts/hypr-nowplaying" "$BIN/hypr-nowplaying"
+chmod +x "$REPO/scripts/hypr-nowplaying"
+"$REPO/scripts/hypr-nowplaying" init >/dev/null 2>&1 || say "note: could not create the Now Playing token (hypr-nowplaying init)"
 case ":$PATH:" in *":$BIN:"*) ;; *) say "note: $BIN is not in PATH for this shell (Hyprland uses the full path)";; esac
 
 # d) state dir (defaults only if missing — never clobber the user's choices)

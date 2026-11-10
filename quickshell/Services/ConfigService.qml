@@ -15,6 +15,8 @@ import Quickshell.Io
  *    daycycle "auto" ("auto"|"day"|"night"|"off") · difficulty "normal" ("normal"|"peaceful" = DND) · widgets.opacity 0.72
  *    death_screen true · hud.bossbar_media "playing" ("playing"|"track"|"off")
  *    notifications.timeout.{low 4000, normal 7000} · workspace_card.{enabled,duration,position,show_untitled}
+ *    nowplaying.{layer "overlay"|"top", autoHideSec 20, maxVideoMin 20, hideWhenSourceFullscreen true, width 360, cacheMB 400,
+ *                port 47833, video true}   (the Now Playing PiP, quickshell/NowPlaying)
  *
  *  OW_CONFIG=<path> points the service at another file (tests).
  */
@@ -38,7 +40,9 @@ Singleton {
         widgets: { opacity: 0.72 },
         death_screen: true,
         hud: { bossbar_media: "playing" },
-        notifications: { timeout: { low: 4000, normal: 7000 } }
+        notifications: { timeout: { low: 4000, normal: 7000 } },
+        nowplaying: { layer: "overlay", autoHideSec: 20, maxVideoMin: 20, hideWhenSourceFullscreen: true, width: 360, cacheMB: 400,
+                      port: 47833, video: true }
     })
 
     readonly property bool sounds: config.sounds !== false

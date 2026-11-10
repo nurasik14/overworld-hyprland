@@ -15,11 +15,12 @@ import qs.Brew
 import qs.Game
 import qs.World
 import qs.Interact
+import qs.NowPlaying
 
 /*  Overworld Hyprland — Quickshell entry.  `qs -c overworld`
  *  Surfaces (layer namespaces): overworld-bar (the HUD) · overworld-bossbar · overworld-widgetsmenu · overworld-launcher · overworld-notif ·
  *  overworld-notifcenter · overworld-network · overworld-power · overworld-wallpapers · overworld-osd · overworld-wscard · overworld-brew ·
- *  overworld-widgets (qs-widgets) and the Game, World and Interact modules' own
+ *  overworld-widgets (qs-widgets) · overworld-nowplaying (the Now Playing PiP) and the Game, World and Interact modules' own
  *  IPC: qs -c overworld ipc call <target> <fn>   — see docs/QUICKSHELL.md
  */
 ShellRoot {
@@ -42,6 +43,7 @@ ShellRoot {
     GameSystems {}      // qs-features: chat console, advancements, statistics, options screen
     WorldFx {}          // fx-world: day/night cycle, weather overlay, F3 debug screen
     Interactions {}     // fx-interactions: block-break close, place-block open, screenshot, low-battery screens
+    NowPlayingPip {}    // the floating Now Playing mini-player (video mirror); off until switched on (widgets menu, SUPER+ALT+P)
 
     // ------------------------------------------------------------ IPC (BRIEF §4)
     IpcHandler {

@@ -1,0 +1,1317 @@
+#!/usr/bin/env python3
+# hypr-nowplaying — the Now Playing bridge shared by every theme (Overworld, Apothecary): a tiny localhost daemon that
+# the browser userscript (apps/zen/nowplaying-bridge.user.js) reports to, plus a video cache for the floating mini-player.
+#
+#   hypr-nowplaying serve [--port N] [--cache-mb N] [--max-min N] [--upload-mb N] [--stdin] [--keep] [-v]
+#                                         the daemon (127.0.0.1 only, one instance); the theme shell runs it while the PiP is on
+#   hypr-nowplaying status [--json]       is it running, what plays, the video, the cache
+#   hypr-nowplaying userscript [--port N] [--serve] [--print]
+#                                         write the token-baked userscript, print how to install it (--serve: a one-off local URL)
+#   hypr-nowplaying cache [list|clear]    the downloaded / uploaded mirror videos
+#   hypr-nowplaying want <youtube-url|id> ask the running daemon to fetch a YouTube video (what the shell does for MPRIS-only tabs)
+#   hypr-nowplaying init                  make the token if missing (install.sh)
+#   hypr-nowplaying path | -h | help
+#
+# Files (env overrides in brackets, used by tests):
+#   token   ~/.local/share/hypr-nowplaying/token                 [HYPR_NOWPLAYING_DATA]   0600, made by init / serve / userscript
+#   state   $XDG_RUNTIME_DIR/hypr-nowplaying/state.json          [HYPR_NOWPLAYING_RUNTIME] rewritten IN PLACE (the shells watch the inode)
+#   videos  ~/.cache/hypr-nowplaying/<site>-<id>.mp4             [HYPR_NOWPLAYING_CACHE]   LRU, capped (--cache-mb, default 400)
+#   port    47833                                                [HYPR_NOWPLAYING_PORT]    must match the port baked into the userscript
+#   yt-dlp  from $PATH or ~/.local/bin                           [HYPR_NOWPLAYING_YTDLP]
+#
+# HTTP API (every request needs the header X-Hypr-Nowplaying-Token and Host 127.0.0.1:<port> / localhost:<port>, else 403):
+#   POST /state        the browser's playing media (JSON, see validate_bridge)   -> {"ok", "key", "wantVideo", "actions", "poll"}
+#   POST /video/<key>  the bytes of a TikTok video the daemon asked for (wantVideo) -> {"ok"}
+#   POST /video-error/<key>  the browser could not get it                        -> {"ok"}
+#   POST /want         {"site": "youtube", "id": "<11 chars>"} fetch with yt-dlp  -> {"ok", "key"}
+#   GET  /ping                                                                    -> {"ok", "version", "port"}
+# --stdin: the same `want` (and {"cmd": "active", "key": …}) as JSON lines on stdin; EOF = the parent is gone = exit.
+#
+# TikTok actions (the PiP's like / repost / save buttons): stdin {"cmd": "action", "tab": <tab>, "key": "tiktok-<id>",
+# "action": "like"|"repost"|"save", "collection": "Edits"} queues ONE command per tab (a second one while it runs is refused:
+# "busy"). It is handed to that tab in the reply to its next POST /state ("actions": [{id, key, action, collection}]; queued for
+# max 10 s), the userscript clicks TikTok's own button (refusing when the page shows another clip) and reports the result
+# ("tt": {"last": {id, ok, error}}) and the clip's like / favourite / repost state in its next reports. "poll": true in the reply
+# asks a TikTok tab to keep reporting every second even while paused, so a command reaches it; the daemon runs only while the
+# PiP is on, so with the PiP off nobody answers and the tab goes quiet. The state file carries the last command as "action":
+# {id, tab, key, action, status queued|sent|done|failed|expired|refused, error, t}.
+#
+# Only YouTube is fetched by the daemon (yt-dlp, video-only, <= 480p, avc1 first, one job at a time, the newest request wins); TikTok
+# videos are uploaded by the userscript, because yt-dlp is IP-blocked for TikTok on many networks.  Nothing is fetched from any other
+# host.  The video is a silent visual mirror: the audio always stays in the browser.
+# One copy of this script lives in each theme repo (byte-identical); ~/.local/bin/hypr-nowplaying links to one of them.
+
+import fcntl
+import glob
+import hmac
+import http.server
+import json
+import os
+import re
+import secrets
+import shutil
+import signal
+import socketserver
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+import urllib.request
+
+VERSION = "1"
+DEFAULT_PORT = 47833
+TOKEN_HEADER = "X-Hypr-Nowplaying-Token"
+HOME = os.path.expanduser("~")
+DATA_DIR = os.environ.get("HYPR_NOWPLAYING_DATA") or os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "hypr-nowplaying")
+RUNTIME_DIR = os.environ.get("HYPR_NOWPLAYING_RUNTIME") or os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "hypr-nowplaying")
+CACHE_DIR = os.environ.get("HYPR_NOWPLAYING_CACHE") or os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "hypr-nowplaying")
+TOKEN_FILE = os.path.join(DATA_DIR, "token")
+STATE_FILE = os.path.join(RUNTIME_DIR, "state.json")
+LOCK_FILE = os.path.join(RUNTIME_DIR, "serve.lock")
+PID_FILE = os.path.join(RUNTIME_DIR, "serve.pid")
+USERSCRIPT_DIR = os.path.join(CACHE_DIR, "userscript")
+USERSCRIPT_NAME = "nowplaying-bridge.user.js"
+
+SITES = ("youtube", "ytmusic", "tiktok")
+ID_RE = {"youtube": re.compile(r"^[A-Za-z0-9_-]{11}$"), "ytmusic": re.compile(r"^[A-Za-z0-9_-]{11}$"), "tiktok": re.compile(r"^\d{8,25}$")}
+KEY_RE = re.compile(r"^(youtube-[A-Za-z0-9_-]{11}|tiktok-\d{8,25})$")
+VIDEO_EXT = (".mp4", ".webm")
+PAGE_HOSTS = ("www.youtube.com", "youtube.com", "m.youtube.com", "music.youtube.com", "www.tiktok.com", "tiktok.com", "m.tiktok.com")
+# pictures the shell may load straight from the web (thumbnails / covers); anything else is dropped
+THUMB_HOSTS = ("ytimg.com", "ggpht.com", "googleusercontent.com", "tiktokcdn.com", "tiktokcdn-us.com", "ibyteimg.com",
+               "byteimg.com", "tiktokv.com", "tiktokv.us", "muscdn.com", "scdn.co", "spotifycdn.com")
+YTDLP_FORMAT = "bv*[height<=480][vcodec^=avc1]/bv*[height<=480][ext=mp4]/bv*[height<=480]"
+PLAYING_TTL = 5.0         # s without a report before a playing tab is dropped (it reports every second)
+PAUSED_TTL = 1800.0       # a paused tab reports once; keep it (the shell also checks MPRIS)
+UPLOAD_WAIT = 150.0       # s the daemon waits for an upload it asked for
+RETRY_FAILED = 600.0      # s before a failed key is tried again
+RETRY_SKIPPED = 3600.0    # s before yt-dlp's own "live / too long / too big" is asked again (a live stream may have ended)
+YTDLP_TIMEOUT = 300.0
+TAB_RE = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
+ACTIONS = ("like", "repost", "save")
+ACTION_QUEUE_TTL = 10.0   # s a TikTok command waits for its tab's next report
+ACTION_RUN_TTL = 40.0     # s the tab may take to finish it (save: favourite, the Manage toast, the collection list)
+
+
+def now_ms():
+    return int(time.time() * 1000)
+
+
+def warn(msg):
+    print("hypr-nowplaying: " + msg, file=sys.stderr, flush=True)
+
+
+def die(msg, code=1):
+    warn(msg)
+    sys.exit(code)
+
+
+def mkdir_private(path):
+    os.makedirs(path, mode=0o700, exist_ok=True)
+
+
+# ------------------------------------------------------------------------------------------------ token
+def read_token():
+    try:
+        with open(TOKEN_FILE, encoding="ascii") as f:
+            t = f.read().strip()
+        return t if len(t) >= 16 else ""
+    except OSError:
+        return ""
+
+
+def ensure_token():
+    t = read_token()
+    if t:
+        return t
+    mkdir_private(DATA_DIR)
+    t = secrets.token_urlsafe(32)
+    fd, tmp = tempfile.mkstemp(prefix=".token.", dir=DATA_DIR)   # mode 0600; replaces an empty / short file too
+    with os.fdopen(fd, "w", encoding="ascii") as f:
+        f.write(t + "\n")
+    os.replace(tmp, TOKEN_FILE)
+    return t
+
+
+# ------------------------------------------------------------------------------------------------ helpers
+def write_in_place(path, text):
+    """Rewrite a small file without replacing its inode (FileView watchers keep working): write first, then cut the tail,
+    so a reader never sees an empty file; at worst it sees a torn file for an instant and the next change notification
+    gives it the whole one."""
+    data = text.encode("utf-8")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        os.pwrite(fd, data, 0)
+        os.ftruncate(fd, len(data))
+    finally:
+        os.close(fd)
+
+
+def host_allowed(host, allowed):
+    host = (host or "").lower().rstrip(".")
+    return any(host == h or host.endswith("." + h) for h in allowed)
+
+
+def clean_str(v, n=300):
+    if not isinstance(v, str):
+        return ""
+    v = "".join(ch for ch in v if ch == " " or ch.isprintable())
+    return v.strip()[:n]
+
+
+def clean_num(v, lo=0.0, hi=1e7, default=0.0):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return default
+    if f != f or f in (float("inf"), float("-inf")):
+        return default
+    return max(lo, min(hi, f))
+
+
+def clean_bool3(v):
+    """true / false / None (unknown)"""
+    return v if isinstance(v, bool) else None
+
+
+def clean_tt(v):
+    """The userscript's view of TikTok's action bar for the reported clip: bar (the logged-in like / favourite / share column is
+    there and belongs to this clip), clip (its id), liked / saved / reposted (true, false or null = unknown), busy (the command it
+    is running), last (the newest finished command: id, action, ok, error)."""
+    if not isinstance(v, dict):
+        return None
+    clip = clean_str(v.get("clip"), 30)
+    if not ID_RE["tiktok"].match(clip):
+        clip = ""
+    last = None
+    lv = v.get("last")
+    if isinstance(lv, dict):
+        lid = lv.get("id")
+        if isinstance(lid, int) and not isinstance(lid, bool) and 0 < lid < 10 ** 9:
+            last = {"id": lid, "action": lv.get("action") if lv.get("action") in ACTIONS else "", "ok": lv.get("ok") is True,
+                    "error": clean_str(lv.get("error"), 160)}
+    return {"bar": v.get("bar") is True and bool(clip), "clip": clip, "liked": clean_bool3(v.get("liked")),
+            "saved": clean_bool3(v.get("saved")), "reposted": clean_bool3(v.get("reposted")),
+            "busy": v.get("busy") if v.get("busy") in ACTIONS else "", "last": last}
+
+
+def clean_url(v, hosts, n=1000):
+    v = clean_str(v, n)
+    if not v:
+        return ""
+    try:
+        u = urllib.parse.urlsplit(v)
+    except ValueError:
+        return ""
+    if u.scheme != "https" or not host_allowed(u.hostname, hosts):
+        return ""
+    return v
+
+
+def video_key(site, vid):
+    return ("tiktok-" if site == "tiktok" else "youtube-") + vid
+
+
+def youtube_id(text):
+    text = (text or "").strip()
+    if ID_RE["youtube"].match(text):
+        return text
+    try:
+        u = urllib.parse.urlsplit(text)
+    except ValueError:
+        return ""
+    if not host_allowed(u.hostname, ("youtube.com", "youtu.be")):
+        return ""
+    if u.hostname and u.hostname.endswith("youtu.be"):
+        cand = u.path.strip("/").split("/")[0]
+    else:
+        q = urllib.parse.parse_qs(u.query)
+        cand = (q.get("v") or [""])[0]
+        if not cand:
+            m = re.match(r"^/(shorts|live|embed)/([^/?#]+)", u.path)
+            cand = m.group(2) if m else ""
+    return cand if ID_RE["youtube"].match(cand) else ""
+
+
+def cached_file(key):
+    for ext in VIDEO_EXT:
+        p = os.path.join(CACHE_DIR, key + ext)
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
+            return p
+    return ""
+
+
+def probe(path):
+    """width, height, duration of the first video stream (ffprobe; zeros when it is missing)"""
+    if not shutil.which("ffprobe"):
+        return 0, 0, 0.0
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
+                              "-of", "json", path], capture_output=True, text=True, timeout=15).stdout
+        j = json.loads(out or "{}")
+        s = (j.get("streams") or [{}])[0]
+        return int(s.get("width") or 0), int(s.get("height") or 0), float((j.get("format") or {}).get("duration") or 0)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0, 0, 0.0
+
+
+def looks_like_video(path):
+    try:
+        with open(path, "rb") as f:
+            head = f.read(16)
+    except OSError:
+        return ""
+    if len(head) >= 12 and head[4:8] == b"ftyp":
+        return ".mp4"
+    if head[:4] == b"\x1a\x45\xdf\xa3":
+        return ".webm"
+    return ""
+
+
+def cache_entries():
+    out = []
+    for p in glob.glob(os.path.join(CACHE_DIR, "*")):
+        name = os.path.basename(p)
+        stem, ext = os.path.splitext(name)
+        if ext in VIDEO_EXT and KEY_RE.match(stem) and os.path.isfile(p):
+            st = os.stat(p)
+            out.append({"key": stem, "file": p, "size": st.st_size, "mtime": st.st_mtime})
+    out.sort(key=lambda e: e["mtime"])
+    return out
+
+
+def human(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return ("%d %s" % (n, unit)) if unit == "B" else ("%.1f %s" % (n, unit))
+        n /= 1024.0
+    return str(n)
+
+
+# ------------------------------------------------------------------------------------------------ the daemon
+def validate_bridge(d):
+    """The userscript's report -> a clean dict, or None.  Fields: tab site pageUrl videoId title author thumbnail position duration
+    paused rate live isVideo ad width height visible ts tt (TikTok only, see clean_tt) (+ gone)"""
+    if not isinstance(d, dict):
+        return None
+    tab = clean_str(d.get("tab"), 40)
+    if not TAB_RE.match(tab):
+        return None
+    if d.get("gone") is True:
+        return {"tab": tab, "gone": True}
+    site = d.get("site")
+    if site not in SITES:
+        return None
+    vid = clean_str(d.get("videoId"), 30)
+    if vid and not ID_RE[site].match(vid):
+        vid = ""
+    out = {
+        "tab": tab, "site": site, "videoId": vid, "key": video_key(site, vid) if vid else "",
+        "pageUrl": clean_url(d.get("pageUrl"), PAGE_HOSTS, 500),
+        "title": clean_str(d.get("title"), 300), "author": clean_str(d.get("author"), 120),
+        "thumbnail": clean_url(d.get("thumbnail"), THUMB_HOSTS),
+        "position": clean_num(d.get("position")), "duration": clean_num(d.get("duration")),
+        "paused": d.get("paused") is not False, "rate": clean_num(d.get("rate"), 0.0625, 16.0, 1.0),
+        "buffering": d.get("buffering") is True,
+        "live": d.get("live") is True, "isVideo": d.get("isVideo") is True, "ad": d.get("ad") is True,
+        "width": int(clean_num(d.get("width"), 0, 16384)), "height": int(clean_num(d.get("height"), 0, 16384)),
+        "visible": d.get("visible") is not False,
+        "ts": int(clean_num(d.get("ts"), 0, 1e14)),
+        "tt": clean_tt(d.get("tt")) if site == "tiktok" else None,
+    }
+    if out["tt"] and out["tt"]["clip"] != vid:   # the action bar shows another clip than the one reported: no state, no buttons
+        out["tt"].update({"bar": False, "liked": None, "saved": None, "reposted": None})
+    return out
+
+
+class Daemon:
+    def __init__(self, port, cache_mb, max_min, upload_mb, verbose=False):
+        self.port = port
+        self.cache_bytes = int(cache_mb * 1024 * 1024)
+        self.max_s = max_min * 60.0
+        self.upload_bytes = int(upload_mb * 1024 * 1024)
+        self.verbose = verbose
+        self.token = ensure_token()
+        self.lock = threading.RLock()
+        self.tabs = {}               # tab -> {"data", "received" (s), "playingSince" (s)}
+        self.videos = {}             # key -> {"status", "file", "reason", "width", "height", "duration", "t"}
+        self.uploads = {}            # key -> expiry (s): TikTok uploads the daemon asked for
+        self.active_key = ""         # what the shell shows (stdin `active`): kept by the LRU
+        self.want_key = ""           # the newest fetch request (yt-dlp)
+        self.want_cv = threading.Condition(self.lock)
+        self.stopping = False
+        self.last_written = ""
+        self.started = now_ms()
+        self.selected = None
+        self.proc = None             # the running yt-dlp
+        self.actions = {}            # tab -> the TikTok command for it (one at a time): see queue_action
+        self.last_action = None      # the newest command record (what the shell shows)
+        self.action_seq = 0
+
+    def log(self, msg):
+        if self.verbose:
+            warn(msg)
+
+    # ---- selection: the playing tab that started last, else the newest report
+    def select(self):
+        best, best_k = None, None
+        for t, e in self.tabs.items():
+            d = e["data"]
+            k = (0 if d["paused"] else 1, e["playingSince"] if not d["paused"] else 0, e["received"])
+            if best_k is None or k > best_k:
+                best, best_k = t, k
+        return self.tabs[best] if best else None
+
+    def expire(self):
+        now = time.time()
+        changed = False
+        for t in list(self.tabs):
+            e = self.tabs[t]
+            ttl = PAUSED_TTL if e["data"]["paused"] else PLAYING_TTL
+            if now - e["received"] > ttl:
+                del self.tabs[t]
+                changed = True
+        for t, rec in list(self.actions.items()):
+            if rec["status"] == "queued" and (t not in self.tabs or now - rec["t0"] > ACTION_QUEUE_TTL):
+                self.end_action(rec, "expired", "the browser tab did not pick it up" if t in self.tabs else "the browser tab is gone")
+                changed = True
+            elif rec["status"] == "sent" and now - rec["sentAt"] > ACTION_RUN_TTL:
+                self.end_action(rec, "expired", "no answer from the browser tab")
+                changed = True
+        for k in list(self.uploads):
+            if now > self.uploads[k]:
+                del self.uploads[k]
+                v = self.videos.get(k)
+                if v and v["status"] == "fetching":
+                    self.set_video(k, "failed", reason="no upload from the browser")
+                changed = True
+        return changed
+
+    def set_video(self, key, status, file="", reason="", width=0, height=0, duration=0.0, soft=False):
+        """soft: a judgement from one browser report (live / too long), re-made on the next report, never final"""
+        self.videos[key] = {"status": status, "file": file, "reason": reason, "width": width, "height": height,
+                            "duration": duration, "t": time.time(), "soft": soft}
+        if len(self.videos) > 24:   # keep the newest entries only
+            for k in sorted(self.videos, key=lambda k: self.videos[k]["t"])[:len(self.videos) - 24]:
+                if k != self.active_key:
+                    del self.videos[k]
+
+    def video_info(self, key):
+        if not key:
+            return {"status": "none", "file": ""}
+        v = self.videos.get(key)
+        if v and v["status"] == "ready" and not os.path.isfile(v["file"]):
+            v = None
+        if not v:
+            f = cached_file(key)
+            if f:
+                self.set_video(key, "ready", file=f)
+                v = self.videos[key]
+                threading.Thread(target=self.probe_later, args=(key, f), daemon=True).start()
+        return v or {"status": "none", "file": ""}
+
+    def probe_later(self, key, f):
+        """ffprobe can take seconds: never under the lock"""
+        w, h, dur = probe(f)
+        with self.lock:
+            v = self.videos.get(key)
+            if v and v["status"] == "ready" and v["file"] == f:
+                v["width"], v["height"], v["duration"] = w, h, dur
+                self.write_state()
+
+    def snapshot(self):
+        sel = self.select()
+        self.selected = sel
+        bridge = None
+        if sel:
+            bridge = dict(sel["data"])
+            bridge["received"] = int(sel["received"] * 1000)
+        key = bridge["key"] if bridge else ""
+        cur = self.video_info(key) if key else {"status": "none", "file": ""}
+        videos = {}
+        for k, v in self.videos.items():
+            videos[k] = {kk: v[kk] for kk in ("status", "file", "reason", "width", "height", "duration")}
+        return {
+            "v": 1,
+            "server": {"pid": os.getpid(), "port": self.port, "started": self.started, "version": VERSION},
+            "updated": now_ms(),
+            "bridge": bridge,
+            "videoFile": cur.get("file", "") if cur.get("status") == "ready" else "",
+            "videoStatus": cur.get("status", "none"),
+            "videos": videos,
+            "fetching": self.want_key,
+            "action": self.public_action(self.last_action),
+        }
+
+    def write_state(self, force=False):
+        with self.lock:
+            s = self.snapshot()
+            body = dict(s)
+            body.pop("updated")
+            sig = json.dumps(body, sort_keys=True)
+            if not force and sig == self.last_written:
+                return
+            self.last_written = sig
+            try:
+                write_in_place(STATE_FILE, json.dumps(s, ensure_ascii=False) + "\n")
+            except OSError as e:
+                warn("cannot write %s: %s" % (STATE_FILE, e))
+
+    # ---- requests
+    # ---- TikTok commands (like / repost / save): queued per tab, handed over in the reply to the tab's next report
+    @staticmethod
+    def public_action(rec):
+        if not rec:
+            return None
+        return {k: rec[k] for k in ("id", "tab", "key", "action", "status", "error")} | {"t": int(rec["t"] * 1000)}
+
+    def end_action(self, rec, status, error=""):
+        rec.update({"status": status, "error": error, "t": time.time()})
+
+    def record_refusal(self, tab, key, action, error):
+        self.action_seq += 1
+        self.last_action = {"id": self.action_seq, "tab": tab, "key": key, "action": action, "collection": "", "status": "refused",
+                            "error": error, "t": time.time(), "t0": time.time(), "sentAt": 0.0}
+        self.write_state()
+        return {"ok": False, "error": error}
+
+    def queue_action(self, d):
+        tab = clean_str(d.get("tab"), 40)
+        key = clean_str(d.get("key"), 40)
+        action = d.get("action") if d.get("action") in ACTIONS else ""
+        coll = clean_str(d.get("collection"), 60) or "Edits"
+        with self.lock:
+            tab = tab if TAB_RE.match(tab) else ""
+            key = key if KEY_RE.match(key) else ""
+            if not action:
+                return self.record_refusal(tab, key, "", "unknown action (like, repost or save)")
+            if not tab or not key.startswith("tiktok-"):
+                return self.record_refusal(tab, key, action, "needs a TikTok tab and clip")
+            e = self.tabs.get(tab)
+            if not e:
+                return self.record_refusal(tab, key, action, "that browser tab is gone")
+            if e["data"]["site"] != "tiktok" or e["data"]["key"] != key:
+                return self.record_refusal(tab, key, action, "that tab shows another clip now")
+            cur = self.actions.get(tab)
+            if cur and cur["status"] in ("queued", "sent"):
+                return {"ok": False, "error": "busy", "id": cur["id"]}   # one at a time: a second press is ignored
+            self.action_seq += 1
+            now = time.time()
+            rec = {"id": self.action_seq, "tab": tab, "key": key, "action": action, "collection": coll, "status": "queued",
+                   "error": "", "t": now, "t0": now, "sentAt": 0.0}
+            self.actions[tab] = rec
+            self.last_action = rec
+            self.write_state()
+            return {"ok": True, "id": rec["id"]}
+
+    def tab_actions(self, d, now):
+        """on a tab's report: take its result, hand it its queued command (only for the clip it was meant for)"""
+        rec = self.actions.get(d["tab"])
+        if not rec:
+            return []
+        tt = d.get("tt") or {}
+        last = tt.get("last")
+        if last and last["id"] == rec["id"] and (rec["status"] == "sent" or (rec["status"] == "expired" and rec["sentAt"])):
+            self.end_action(rec, "done" if last["ok"] else "failed", last["error"])
+        if rec["status"] != "queued":
+            return []
+        if rec["key"] != d["key"]:
+            self.end_action(rec, "failed", "the clip changed before the tab got the command")
+            return []
+        rec.update({"status": "sent", "sentAt": now, "t": now})
+        return [{"id": rec["id"], "key": rec["key"], "action": rec["action"], "collection": rec["collection"]}]
+
+    def on_state(self, d):
+        with self.lock:
+            if d.get("gone"):
+                self.tabs.pop(d["tab"], None)
+                rec = self.actions.get(d["tab"])
+                if rec and rec["status"] in ("queued", "sent"):
+                    self.end_action(rec, "failed", "the browser tab closed")
+                self.write_state()
+                return {"ok": True, "key": "", "wantVideo": False, "actions": [], "poll": False}
+            now = time.time()
+            old = self.tabs.get(d["tab"])
+            since = now
+            if old and not old["data"]["paused"] and old["data"]["key"] == d["key"]:
+                since = old["playingSince"]
+            self.tabs[d["tab"]] = {"data": d, "received": now, "playingSince": since}
+            sel = self.select()
+            want = False
+            key = d["key"]
+            if sel is self.tabs[d["tab"]] and key and d["isVideo"] and not d["ad"]:
+                # an ad, audio only, or a picture not loaded yet: no decision now (the next report decides)
+                info = self.video_info(key)
+                if d["live"] or d["duration"] > self.max_s:
+                    if info["status"] == "none" or (info["status"] == "skipped" and info.get("soft")):
+                        self.set_video(key, "skipped", reason="live" if d["live"] else "longer than %d min" % (self.max_s // 60), soft=True)
+                elif d["site"] == "tiktok":
+                    retry = (info["status"] == "failed" and now - self.videos[key]["t"] > RETRY_FAILED) \
+                        or (info["status"] == "skipped" and info.get("soft"))
+                    if info["status"] == "none" or retry:
+                        self.uploads[key] = now + UPLOAD_WAIT
+                        self.set_video(key, "fetching", reason="waiting for the browser")
+                        want = True
+                    elif key in self.uploads and info["status"] == "fetching":
+                        want = True     # still waiting: the browser may ask again after a reload
+                else:
+                    self.request_fetch(key, d["duration"])
+            actions = self.tab_actions(d, now)
+            self.write_state()
+            return {"ok": True, "key": key, "wantVideo": want, "actions": actions, "poll": d["site"] == "tiktok"}
+
+    def request_fetch(self, key, duration=0.0):
+        """yt-dlp job for youtube-<id>; the newest request wins"""
+        with self.lock:
+            if not key.startswith("youtube-"):
+                return False
+            info = self.video_info(key)
+            st = info.get("status")
+            if st == "ready" or (st == "fetching" and self.want_key == key):
+                return True
+            age = time.time() - self.videos[key]["t"] if key in self.videos else 1e9
+            if st == "failed" and age < RETRY_FAILED:
+                return True
+            if st == "skipped" and not info.get("soft") and age < RETRY_SKIPPED:
+                return True
+            if duration and duration > self.max_s:
+                self.set_video(key, "skipped", reason="longer than %d min" % (self.max_s // 60), soft=True)
+                self.write_state()
+                return True
+            self.want_key = key
+            self.set_video(key, "fetching")
+            self.want_cv.notify_all()
+            self.write_state()
+            return True
+
+    def on_upload(self, key, rfile, length, ctype):
+        with self.lock:
+            if key not in self.uploads:
+                return 409, {"ok": False, "error": "not asked for"}
+        if length <= 0 or length > self.upload_bytes:
+            with self.lock:
+                self.uploads.pop(key, None)
+                self.set_video(key, "failed", reason="too big (%s)" % human(max(0, length)))
+                self.write_state()
+            return 413, {"ok": False, "error": "size"}
+        mkdir_private(CACHE_DIR)
+        fd, tmp = tempfile.mkstemp(prefix="." + key + ".", suffix=".part", dir=CACHE_DIR)
+        got = 0
+        try:
+            with os.fdopen(fd, "wb") as f:
+                while got < length:
+                    chunk = rfile.read(min(1 << 20, length - got))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    got += len(chunk)
+            ext = looks_like_video(tmp)
+            if got != length or not ext:
+                os.unlink(tmp)
+                with self.lock:
+                    self.uploads.pop(key, None)
+                    self.set_video(key, "failed", reason="not a video file" if got == length else "upload cut short")
+                    self.write_state()
+                return 400, {"ok": False, "error": "not a video"}
+            final = os.path.join(CACHE_DIR, key + ext)
+            os.replace(tmp, final)
+        except OSError as e:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            return 500, {"ok": False, "error": str(e)}
+        w, h, dur = probe(final)
+        with self.lock:
+            self.uploads.pop(key, None)
+            self.set_video(key, "ready", file=final, width=w, height=h, duration=dur)
+            self.prune()
+            self.write_state()
+        self.log("upload %s %s" % (key, human(got)))
+        return 200, {"ok": True}
+
+    def on_upload_error(self, key, reason):
+        with self.lock:
+            if key in self.uploads:
+                self.uploads.pop(key, None)
+                self.set_video(key, "failed", reason=clean_str(reason, 200) or "the browser could not get it")
+                self.write_state()
+        return {"ok": True}
+
+    def on_control(self, d):
+        if not isinstance(d, dict):
+            return {"ok": False}
+        cmd = d.get("cmd", "want")
+        if cmd == "active":
+            key = clean_str(d.get("key"), 40)
+            with self.lock:
+                self.active_key = key if KEY_RE.match(key) else ""
+                f = cached_file(self.active_key) if self.active_key else ""
+                if f:
+                    try:
+                        os.utime(f)
+                    except OSError:
+                        pass
+            return {"ok": True}
+        if cmd == "want":
+            site = d.get("site", "youtube")
+            vid = youtube_id(clean_str(d.get("id") or d.get("url"), 300)) if site in ("youtube", "ytmusic") else ""
+            if not vid:
+                return {"ok": False, "error": "need a YouTube id or URL"}
+            key = video_key("youtube", vid)
+            if d.get("live") is True:
+                with self.lock:
+                    if self.video_info(key)["status"] == "none":
+                        self.set_video(key, "skipped", reason="live")
+                    self.write_state()
+                return {"ok": True, "key": key}
+            self.request_fetch(key, clean_num(d.get("duration")))
+            return {"ok": True, "key": key}
+        if cmd == "action":
+            return self.queue_action(d)
+        if cmd == "quit":
+            self.shutdown()
+            return {"ok": True}
+        return {"ok": False, "error": "unknown cmd"}
+
+    # ---- the cache
+    def prune(self):
+        """LRU by mtime (a shown video is touched); the active and the in-flight key are never removed"""
+        entries = cache_entries()
+        total = sum(e["size"] for e in entries)
+        keep = {self.active_key, self.want_key, self.selected["data"]["key"] if self.selected else ""}
+        for e in entries:
+            if total <= self.cache_bytes:
+                break
+            if e["key"] in keep:
+                continue
+            try:
+                os.unlink(e["file"])
+                total -= e["size"]
+                self.videos.pop(e["key"], None)
+                self.log("pruned " + e["key"])
+            except OSError:
+                pass
+        for p in glob.glob(os.path.join(CACHE_DIR, ".*.part")) + glob.glob(os.path.join(CACHE_DIR, ".ytdlp-*")):
+            try:   # leftovers of a killed run, older than an hour
+                if time.time() - os.path.getmtime(p) > 3600:
+                    shutil.rmtree(p) if os.path.isdir(p) else os.unlink(p)
+            except OSError:
+                pass
+
+    # ---- the yt-dlp worker: one job at a time, a newer request kills the running one
+    def worker(self):
+        while not self.stopping:
+            try:
+                self.work_once()
+            except Exception as e:   # never let the worker die: a stuck "fetching" would never clear
+                warn("fetch worker: %s" % e)
+                with self.lock:
+                    if self.want_key:
+                        self.set_video(self.want_key, "failed", reason=str(e)[:200])
+                        self.want_key = ""
+                        self.write_state()
+                time.sleep(1.0)
+
+    def kill_child(self):
+        p = self.proc
+        if p and p.poll() is None:
+            try:
+                os.killpg(p.pid, signal.SIGTERM)
+                p.wait(3)
+            except (OSError, subprocess.TimeoutExpired):
+                try:
+                    os.killpg(p.pid, signal.SIGKILL)
+                except OSError:
+                    pass
+
+    def work_once(self):
+        ytdlp = (os.environ.get("HYPR_NOWPLAYING_YTDLP") or shutil.which("yt-dlp")
+                 or (os.path.isfile(HOME + "/.local/bin/yt-dlp") and HOME + "/.local/bin/yt-dlp") or "")
+        with self.lock:
+            while not self.want_key and not self.stopping:
+                self.want_cv.wait(1.0)
+            if self.stopping:
+                return
+            key = self.want_key
+        vid = key[len("youtube-"):]
+        if not ytdlp:
+            with self.lock:
+                self.set_video(key, "failed", reason="yt-dlp is not installed")
+                if self.want_key == key:
+                    self.want_key = ""
+                self.write_state()
+            return
+        mkdir_private(CACHE_DIR)
+        work = tempfile.mkdtemp(prefix=".ytdlp-", dir=CACHE_DIR)
+        cmd = [ytdlp, "--ignore-config", "--no-playlist", "--no-progress", "--quiet", "--no-warnings", "--no-mtime",
+               "--socket-timeout", "20", "--retries", "2", "--fragment-retries", "2",
+               "--match-filter", "!is_live & duration <= %d" % int(self.max_s),
+               "--max-filesize", "300M",
+               "-f", YTDLP_FORMAT, "--remux-video", "mp4",
+               "-o", os.path.join(work, "v.%(ext)s"),
+               "https://www.youtube.com/watch?v=" + vid]
+        self.log("fetch " + key)
+        status, reason, final = "failed", "", ""
+        try:
+            proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    start_new_session=True, text=True, preexec_fn=set_pdeathsig)
+            self.proc = proc
+            t0 = time.time()
+            superseded = False
+            while proc.poll() is None:
+                time.sleep(0.2)
+                with self.lock:
+                    superseded = self.want_key != key or self.stopping
+                if superseded or time.time() - t0 > YTDLP_TIMEOUT:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                    try:
+                        proc.wait(5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait()
+                    reason = "superseded" if superseded else "timed out"
+                    break
+            out, err = proc.communicate()
+            files = [p for p in glob.glob(os.path.join(work, "v.*")) if os.path.splitext(p)[1] in VIDEO_EXT]
+            if reason:
+                pass
+            elif proc.returncode == 0 and files:
+                ext = os.path.splitext(files[0])[1]
+                final = os.path.join(CACHE_DIR, key + ext)
+                os.replace(files[0], final)
+                status = "ready"
+            elif proc.returncode == 0:
+                status, reason = "skipped", "live, longer than %d min or larger than 300 MB" % (self.max_s // 60)
+            else:
+                lines = [ln for ln in (err or "").strip().splitlines() if ln.strip()]
+                reason = (lines[-1] if lines else "yt-dlp exit %d" % proc.returncode)[:200]
+        except OSError as e:
+            reason = str(e)[:200]
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        w = h = 0
+        dur = 0.0
+        if status == "ready":
+            w, h, dur = probe(final)
+        with self.lock:
+            if reason == "superseded":
+                if self.videos.get(key, {}).get("status") == "fetching":
+                    self.videos.pop(key, None)
+            else:
+                self.set_video(key, status, file=final, reason=reason, width=w, height=h, duration=dur)
+            if self.want_key == key:
+                self.want_key = ""
+            if status == "ready":
+                self.prune()
+            self.write_state()
+        self.log("fetch %s -> %s %s" % (key, status, reason))
+
+    def housekeeping(self):
+        while not self.stopping:
+            time.sleep(1.0)
+            with self.lock:
+                if self.expire():
+                    self.write_state()
+
+    def stdin_reader(self):
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                self.on_control(json.loads(line))
+            except ValueError:
+                warn("stdin: not JSON")
+        self.shutdown()   # EOF: the shell that started us is gone
+
+    def shutdown(self):
+        with self.lock:
+            if self.stopping:
+                return
+            self.stopping = True
+            self.want_key = ""
+            self.want_cv.notify_all()
+        srv = getattr(self, "httpd", None)
+        if srv:
+            threading.Thread(target=srv.shutdown, daemon=True).start()
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    server_version = "hypr-nowplaying/" + VERSION
+    sys_version = ""
+    timeout = 30                       # a stalled client cannot hold a thread forever
+    app = None
+
+    def log_message(self, fmt, *args):
+        if self.app.verbose:
+            warn("%s %s" % (self.address_string(), fmt % args))
+
+    def reply(self, code, obj):
+        body = (json.dumps(obj) + "\n").encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def authorised(self):
+        host = (self.headers.get("Host") or "").lower()
+        if host not in ("127.0.0.1:%d" % self.app.port, "localhost:%d" % self.app.port):
+            return False
+        tok = self.headers.get(TOKEN_HEADER) or ""
+        return hmac.compare_digest(tok.encode(), self.app.token.encode())
+
+    def deny(self):
+        self.close_connection = True
+        self.reply(403, {"ok": False, "error": "forbidden"})
+
+    def length(self):
+        try:
+            return int(self.headers.get("Content-Length") or "0")
+        except ValueError:
+            return -1
+
+    def read_json(self, cap=32768):
+        n = self.length()
+        if n <= 0 or n > cap:
+            return None
+        try:
+            return json.loads(self.rfile.read(n).decode("utf-8", "replace"))
+        except ValueError:
+            return None
+
+    def do_GET(self):
+        if not self.authorised():
+            return self.deny()
+        if self.path == "/ping":
+            return self.reply(200, {"ok": True, "version": VERSION, "port": self.app.port})
+        return self.reply(404, {"ok": False})
+
+    def do_POST(self):
+        if not self.authorised():
+            return self.deny()
+        path = urllib.parse.urlsplit(self.path).path
+        if path == "/state":
+            d = validate_bridge(self.read_json())
+            if d is None:
+                return self.reply(400, {"ok": False, "error": "bad state"})
+            return self.reply(200, self.app.on_state(d))
+        m = re.match(r"^/video/([A-Za-z0-9_-]+)$", path)
+        if m:
+            key = m.group(1)
+            if not KEY_RE.match(key) or not key.startswith("tiktok-"):
+                return self.reply(400, {"ok": False, "error": "bad key"})
+            n = self.length()
+            if n > self.app.upload_bytes:
+                self.close_connection = True
+            code, obj = self.app.on_upload(key, self.rfile, n, self.headers.get("Content-Type") or "")
+            if code != 200:
+                self.close_connection = True   # the body may be unread
+            return self.reply(code, obj)
+        m = re.match(r"^/video-error/([A-Za-z0-9_-]+)$", path)
+        if m:
+            d = self.read_json() or {}
+            return self.reply(200, self.app.on_upload_error(m.group(1), d.get("reason") if isinstance(d, dict) else ""))
+        if path == "/want":
+            d = self.read_json()
+            if not isinstance(d, dict):
+                return self.reply(400, {"ok": False})
+            d["cmd"] = "want"
+            r = self.app.on_control(d)
+            return self.reply(200 if r.get("ok") else 400, r)
+        return self.reply(404, {"ok": False})
+
+    def do_PUT(self):
+        self.deny()
+
+    do_DELETE = do_OPTIONS = do_PATCH = do_HEAD = do_PUT
+
+
+class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+    request_queue_size = 16
+
+
+def set_pdeathsig():
+    """in a child (preexec_fn): die with the daemon (yt-dlp runs in its own session, so no group signal reaches it)"""
+    try:
+        import ctypes
+        ctypes.CDLL(None).prctl(1, signal.SIGTERM, 0, 0, 0)
+    except (OSError, AttributeError):
+        pass
+
+
+def die_with_parent():
+    try:
+        import ctypes
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.prctl(1, signal.SIGTERM, 0, 0, 0)   # PR_SET_PDEATHSIG
+    except (OSError, AttributeError):
+        pass
+
+
+def cmd_serve(args):
+    port = int(opt(args, "--port", os.environ.get("HYPR_NOWPLAYING_PORT") or DEFAULT_PORT))
+    cache_mb = float(opt(args, "--cache-mb", 400))
+    max_min = float(opt(args, "--max-min", 20))
+    upload_mb = float(opt(args, "--upload-mb", 60))
+    verbose = flag(args, "-v") or flag(args, "--verbose")
+    use_stdin = flag(args, "--stdin")
+    keep = flag(args, "--keep")
+    if args:
+        die("serve: unknown option %s" % args[0], 2)
+    if not 1024 <= port <= 65535:
+        die("serve: port must be 1024-65535", 2)
+    parent = os.getppid()
+    if not keep:
+        die_with_parent()
+        if os.getppid() != parent:
+            sys.exit(0)
+    mkdir_private(RUNTIME_DIR)
+    mkdir_private(CACHE_DIR)
+    lockf = open(LOCK_FILE, "a+")
+    for attempt in range(16):          # up to 3 s: a restart may overlap the old instance's exit
+        try:
+            fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except OSError:
+            if attempt < 15:
+                time.sleep(0.2)
+    else:
+        pid = ""
+        try:
+            pid = open(PID_FILE).read().strip()
+        except OSError:
+            pass
+        warn("already running (pid %s)" % (pid or "?"))
+        sys.exit(3)
+    d = Daemon(port, cache_mb, max_min, upload_mb, verbose)
+    Handler.app = d
+    try:
+        httpd = Server(("127.0.0.1", port), Handler)
+    except OSError as e:
+        die("cannot listen on 127.0.0.1:%d: %s" % (port, e.strerror or e), 4)
+    d.httpd = httpd
+    write_in_place(PID_FILE, "%d\n" % os.getpid())
+
+    def on_signal(signum, frame):
+        d.shutdown()
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGHUP, on_signal)
+    with d.lock:
+        d.prune()
+    d.write_state(force=True)
+    threading.Thread(target=d.worker, daemon=True).start()
+    threading.Thread(target=d.housekeeping, daemon=True).start()
+    if use_stdin:
+        threading.Thread(target=d.stdin_reader, daemon=True).start()
+    d.log("serving on 127.0.0.1:%d" % port)
+    try:
+        httpd.serve_forever(poll_interval=0.5)
+    finally:
+        d.shutdown()
+        d.kill_child()
+        httpd.server_close()
+        with d.lock:
+            d.tabs.clear()
+            stopped = {"v": 1, "server": None, "updated": now_ms(), "bridge": None, "videoFile": "", "videoStatus": "none",
+                       "videos": {}, "fetching": "", "action": None}
+            try:
+                write_in_place(STATE_FILE, json.dumps(stopped) + "\n")
+                os.unlink(PID_FILE)
+            except OSError:
+                pass
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ CLI
+def opt(args, name, default):
+    if name in args:
+        i = args.index(name)
+        if i + 1 >= len(args):
+            die("%s needs a value" % name, 2)
+        v = args[i + 1]
+        del args[i:i + 2]
+        return v
+    return default
+
+
+def flag(args, name):
+    if name in args:
+        args.remove(name)
+        return True
+    return False
+
+
+def read_state():
+    try:
+        with open(STATE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def running_pid():
+    try:
+        pid = int(open(PID_FILE).read().strip())
+        os.kill(pid, 0)
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            if b"hypr-nowplaying" not in f.read():
+                return 0
+        return pid
+    except (OSError, ValueError):
+        return 0
+
+
+def cmd_status(args):
+    as_json = flag(args, "--json")
+    st = read_state() or {}
+    pid = running_pid()
+    entries = cache_entries()
+    info = {
+        "running": bool(pid), "pid": pid, "port": (st.get("server") or {}).get("port") if pid else None,
+        "bridge": st.get("bridge") if pid else None, "videoStatus": st.get("videoStatus", "none") if pid else "none",
+        "videoFile": st.get("videoFile", "") if pid else "", "fetching": st.get("fetching", "") if pid else "",
+        "cache": {"dir": CACHE_DIR, "files": len(entries), "bytes": sum(e["size"] for e in entries)},
+        "token": bool(read_token()), "stateFile": STATE_FILE, "action": st.get("action") if pid else None,
+    }
+    if as_json:
+        print(json.dumps(info, ensure_ascii=False, indent=1))
+        return 0
+    if pid:
+        print("hypr-nowplaying: serving on 127.0.0.1:%s (pid %d)" % (info["port"], pid))
+    else:
+        print("hypr-nowplaying: not running (the theme shell starts it while the Now Playing PiP is on)")
+    b = info["bridge"]
+    if b:
+        print("  browser: %s %s  \"%s\"%s" % (b.get("site"), b.get("videoId") or "-", b.get("title"),
+                                             (" - " + b["author"]) if b.get("author") else ""))
+        print("           %s %.1f / %.1f s, rate %.2g%s%s" % ("paused" if b.get("paused") else "playing", b.get("position", 0),
+                                                         b.get("duration", 0), b.get("rate", 1), ", live" if b.get("live") else "",
+                                                         ", ad" if b.get("ad") else ""))
+        print("  video:   %s %s" % (info["videoStatus"], info["videoFile"]))
+        tt = b.get("tt")
+        if tt:
+            yn = lambda v: "?" if v is None else ("yes" if v else "no")
+            print("  tiktok:  " + ("liked %s, saved %s, reposted %s" % (yn(tt.get("liked")), yn(tt.get("saved")), yn(tt.get("reposted")))
+                                   if tt.get("bar") else "no action bar for this clip (logged out, or another layout)"))
+    a = st.get("action") if pid else None
+    if a:
+        print("  action:  %s %s %s%s" % (a.get("action") or "?", a.get("key"), a.get("status"), (": " + a["error"]) if a.get("error") else ""))
+    elif pid:
+        print("  browser: nothing reported (is the userscript installed? `hypr-nowplaying userscript`)")
+    if info["fetching"]:
+        print("  fetching: " + info["fetching"])
+    print("  cache:   %d files, %s in %s" % (len(entries), human(info["cache"]["bytes"]), CACHE_DIR))
+    print("  token:   %s" % ("ok" if info["token"] else "missing (hypr-nowplaying init)"))
+    return 0
+
+
+def template_path():
+    env = os.environ.get("HYPR_NOWPLAYING_USERSCRIPT")
+    if env:
+        return env
+    here = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(os.path.dirname(here), "apps", "zen", USERSCRIPT_NAME)
+
+
+def build_userscript(port):
+    tpl = template_path()
+    try:
+        with open(tpl, encoding="utf-8") as f:
+            src = f.read()
+    except OSError:
+        die("the userscript template is missing: %s" % tpl)
+    if "__HYPR_NOWPLAYING_TOKEN__" not in src:
+        die("%s has no __HYPR_NOWPLAYING_TOKEN__ placeholder" % tpl)
+    token = ensure_token()
+    return src.replace("__HYPR_NOWPLAYING_TOKEN__", token).replace("__HYPR_NOWPLAYING_PORT__", str(port))
+
+
+def cmd_userscript(args):
+    port = int(opt(args, "--port", os.environ.get("HYPR_NOWPLAYING_PORT") or DEFAULT_PORT))
+    serve = flag(args, "--serve")
+    to_stdout = flag(args, "--print")
+    if args:
+        die("userscript: unknown option %s" % args[0], 2)
+    src = build_userscript(port)
+    if to_stdout:
+        sys.stdout.write(src)
+        return 0
+    mkdir_private(USERSCRIPT_DIR)
+    out = os.path.join(USERSCRIPT_DIR, USERSCRIPT_NAME)
+    fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(src)
+    print("Wrote %s (token and port %d baked in; keep it private)." % (out, port))
+    if not serve:
+        print("Install it in Violentmonkey: run `hypr-nowplaying userscript --serve`, open the URL it prints in Zen,")
+        print("and press Install. Or: Violentmonkey > + > Install from URL.")
+        return 0
+
+    class One(http.server.BaseHTTPRequestHandler):
+        hits = 0
+
+        def log_message(self, fmt, *a):
+            pass
+
+        def do_GET(self):
+            if urllib.parse.urlsplit(self.path).path != secret_path:
+                self.send_response(404)
+                self.end_headers()
+                return
+            body = src.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            One.hits += 1
+
+    # a random path: while it is served, no web page can guess the URL and read the token out of it
+    secret_path = "/%s/%s" % (secrets.token_urlsafe(12), USERSCRIPT_NAME)
+    srv = None
+    for p in [port + 1] + list(range(port + 2, port + 20)):
+        try:
+            srv = http.server.HTTPServer(("127.0.0.1", p), One)
+            break
+        except OSError:
+            continue
+    if not srv:
+        die("no free local port to serve the userscript on")
+    url = "http://127.0.0.1:%d%s" % (srv.server_address[1], secret_path)
+    print()
+    print("  1. In Zen, open:  " + url)
+    print("  2. Violentmonkey shows the install page: press Install (it asks for 127.0.0.1 and tiktok hosts: that is the bridge).")
+    print("  3. Reload the YouTube / TikTok tabs that are already open.")
+    print()
+    print("Serving for 10 minutes (Ctrl+C stops it; it also stops 20 s after the first download).", flush=True)
+    srv.timeout = 1.0
+    deadline = time.time() + 600
+    first = 0.0
+    try:
+        while time.time() < deadline and not (first and time.time() - first > 20):
+            srv.handle_request()
+            if One.hits and not first:
+                first = time.time()
+                print("Downloaded by the browser.", flush=True)
+    except KeyboardInterrupt:
+        pass
+    srv.server_close()
+    return 0
+
+
+def cmd_cache(args):
+    sub = args.pop(0) if args else "list"
+    entries = cache_entries()
+    if sub in ("list", "ls"):
+        if not entries:
+            print("(the cache is empty: %s)" % CACHE_DIR)
+            return 0
+        for e in reversed(entries):
+            age = time.time() - e["mtime"]
+            print("%-34s %9s  %s ago" % (e["key"], human(e["size"]),
+                                        ("%d min" % (age // 60)) if age < 7200 else ("%d h" % (age // 3600))))
+        print("%d files, %s" % (len(entries), human(sum(e["size"] for e in entries))))
+        return 0
+    if sub == "clear":
+        n = 0
+        for e in entries:
+            try:
+                os.unlink(e["file"])
+                n += 1
+            except OSError:
+                pass
+        print("removed %d files from %s" % (n, CACHE_DIR))
+        return 0
+    die("cache: list | clear", 2)
+
+
+def cmd_want(args):
+    port = int(opt(args, "--port", os.environ.get("HYPR_NOWPLAYING_PORT") or DEFAULT_PORT))
+    if not args:
+        die("want <youtube-url|id>", 2)
+    vid = youtube_id(args[0])
+    if not vid:
+        die("not a YouTube video id or URL: %s" % args[0], 2)
+    token = read_token()
+    if not token:
+        die("no token (hypr-nowplaying init)")
+    req = urllib.request.Request("http://127.0.0.1:%d/want" % port, data=json.dumps({"site": "youtube", "id": vid}).encode(),
+                                 headers={TOKEN_HEADER: token, "Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            print(r.read().decode().strip())
+    except OSError as e:
+        die("the daemon does not answer on 127.0.0.1:%d (%s)" % (port, e))
+    return 0
+
+
+HELP = """hypr-nowplaying — the Now Playing bridge shared by every theme: the browser userscript reports what plays, this daemon
+keeps the state for the floating mini-player and a cache of silent mirror videos.
+
+  serve [--port N] [--cache-mb 400] [--max-min 20] [--upload-mb 60] [--stdin] [--keep] [-v]
+                          the daemon on 127.0.0.1 (one instance). The theme shell runs it while its Now Playing PiP is on;
+                          it dies with its parent (--keep: it does not), --stdin takes JSON commands and exits on EOF
+  status [--json]         running?, what the browser reports, the video, the cache
+  userscript [--port N] [--serve] [--print]
+                          write the userscript with your token baked in to ~/.cache/hypr-nowplaying/userscript/;
+                          --serve also offers it on a local URL for one install (Violentmonkey > Install)
+  cache [list|clear]      the mirror videos (~/.cache/hypr-nowplaying, LRU, --cache-mb)
+  want <url|id>           ask the running daemon to fetch a YouTube video (yt-dlp, video only, <= 480p)
+  init                    create the token (~/.local/share/hypr-nowplaying/token) if it is missing
+  path                    print the token, state and cache paths
+
+Privacy: everything stays on this machine. The daemon listens on 127.0.0.1 only and answers nobody without the token.
+The userscript sends: site, page URL, video id, title, channel/author, thumbnail URL, position, duration, paused, rate,
+live/ad flags, picture size, tab visibility, and on TikTok whether the clip is liked / favourited / reposted.
+Videos come from YouTube (yt-dlp) or from the TikTok tab itself.
+TikTok like / repost / save: only the theme shell can ask for them (stdin of `serve --stdin`, not HTTP); the daemon hands
+the command to the TikTok tab, whose userscript clicks TikTok's own button for the clip the PiP shows.
+"""
+
+
+def main(argv):
+    args = list(argv)
+    verb = args.pop(0) if args else "help"
+    if verb in ("-h", "--help", "help"):
+        sys.stdout.write(HELP)
+        return 0
+    if verb == "serve":
+        return cmd_serve(args)
+    if verb == "status":
+        return cmd_status(args)
+    if verb == "userscript":
+        return cmd_userscript(args)
+    if verb == "cache":
+        return cmd_cache(args)
+    if verb == "want":
+        return cmd_want(args)
+    if verb == "init":
+        existed = bool(read_token())
+        ensure_token()
+        print("token %s: %s" % ("kept" if existed else "created", TOKEN_FILE))
+        return 0
+    if verb == "path":
+        print("token  " + TOKEN_FILE)
+        print("state  " + STATE_FILE)
+        print("cache  " + CACHE_DIR)
+        print("script " + template_path())
+        return 0
+    warn("unknown verb: " + verb)
+    sys.stderr.write(HELP)
+    return 2
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except BrokenPipeError:
+        sys.exit(0)

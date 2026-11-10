@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### Now Playing PiP: like, repost and save TikTok clips from the PiP (tiktok-actions)
+- With a logged-in TikTok tab in Zen (background or paused is fine), the PiP's hover controls get a second row: **like**,
+  **repost**, **save** to a collection (config `nowplaying.tiktokCollection`, default `"Edits"`). Each is a toggle showing the
+  clip's state (filled in colour = on, outline = off; repost "unknown" until first used). Un-saving un-favourites the clip, and
+  TikTok then removes it from every collection. A missing collection is never created (the clip stays in Favorites only).
+- The userscript clicks TikTok's own buttons for the clip the PiP showed, and refuses when TikTok shows another clip; one
+  command at a time; failures shown on the picture and in the tooltip. Hidden for YouTube, Spotify and MPRIS-only sources.
+- Bridge userscript **1.3.0** (reinstall: `overworld nowplaying userscript --serve`): the like / repost / save runner, the shown
+  clip's state in its reports, a 1 s heartbeat while a TikTok clip is paused **only while the PiP is on**, ⏮ / ⏭ through
+  TikTok's own feed-navigation buttons first, no stall-watchdog bounce while a button press runs.
+- `hypr-nowplaying` (shared): stdin command `action`, per-tab queue delivered in the `/state` reply (`actions`, `poll`), `tt`
+  state sanitised into the state file, `action` record (queued / sent / done / failed / expired / refused). Commands are
+  accepted only on stdin, not over HTTP.
+- Tests: daemon 119, bridge 72 (a fake logged-in TikTok page, the feed buttons and the stall watchdog), service 45,
+  `preview/tt-act.qml` pointer test.
+
+### Now Playing PiP: a floating mini-player that shows the video (now-playing-pip)
+- A small painting on a GUI panel, always on top (layer `overworld-nowplaying`, Overlay: above fullscreen apps; `nowplaying.layer
+  "top"` keeps it below them): title, channel / artist, source icon, XP-bar progress, the cover, and for **YouTube** (watch, Shorts,
+  music videos) and **TikTok** the video itself as a **silent mirror** synced to the browser (rate nudge under 0.35 s of drift, a
+  seek above it, no seeks while buffering; no audio output at all). Portrait frame for vertical clips, square for music.
+- Drag (per monitor, from the nearest corner), resize from the corner grip, double-click = reset; hover ⏮ ⏯ ⏭ (MPRIS), focus the
+  source window, ✕. Dims when paused, fades out after `autoHideSec` with nothing playing, hides while the source is the focused
+  fullscreen window. Day and Night. Off until switched on: widgets menu row, `SUPER+ALT+P`, IPC target `nowplaying`,
+  `overworld nowplaying on|off|toggle|status|reveal|reset|userscript|cache|bridge`.
+- `hypr-nowplaying` (shared with Apothecary): a localhost-only, token-protected daemon the shell runs only while the PiP is on;
+  downloads YouTube video-only ≤ 480p with yt-dlp (newest request wins, LRU cache 400 MB), takes TikTok clips from the browser.
+- `apps/zen/nowplaying-bridge.user.js`: the Zen (Violentmonkey) bridge for YouTube, YouTube Music and TikTok; install with
+  `overworld nowplaying userscript --serve`. Without it, YouTube still works from Zen's MPRIS URL, Spotify and others show cover + title.
+- Config keys `nowplaying.{layer, autoHideSec, maxVideoMin, hideWhenSourceFullscreen, width, cacheMB, port, video}`. Docs: docs/NOWPLAYING.md.
+
 ### Notes: sticky notes for raw, stray thoughts (sticky-notes)
 - A tenth desk card, **Notes**: a pad of Paper sheets with a pin, a perforated top and a folded corner. Click the sheet and you type on it: the same sheet opens right over the card on a layer that takes the keyboard (`overworld-notes`), saved 700 ms after the last key and on close, empty sheets dropped. Page counter, flip with the arrows or the wheel, `+`, tear off with crumbs and a 5 s Undo.
 - `SUPER+ALT+N` (a blank sheet), chat `/note <text>` / `/note` / `/note list`, IPC target `notes`, `overworld notes …`.

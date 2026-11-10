@@ -3,7 +3,7 @@
 #
 #   overworld on | off | status | toggle | light | dark | reload | repair | session-start | prepare on|off
 #   overworld wallpaper … | world new … | gamemode … | weather … | daycycle … | f3 | chat … | kill …
-#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | projects … | notes … | event …
+#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | projects … | notes … | nowplaying … | event …
 #   overworld help [verb]
 #
 # Installed as ~/.local/bin/overworld -> <repo>/scripts/overworld by scripts/install.sh.
@@ -691,6 +691,7 @@ Playing
   brew …          the brewing stand timer (overworld brew help)
   projects …      the Projects card: your built / in-progress to-do list (overworld projects help)
   notes …         the Notes card: sticky notes for raw, stray thoughts (overworld notes help)
+  nowplaying …    the floating Now Playing mini-player with the video (overworld nowplaying help)
   event <name> ['<json>']                                       post to the game event bus
 
   help <verb>     details for one verb, e.g. overworld help gamemode
@@ -804,6 +805,7 @@ EOF
         brew) cmd_brew_help ;;
         projects|project) cmd_projects_help ;;
         notes|note) cmd_notes_help ;;
+        nowplaying|pip) cmd_nowplaying_help ;;
         event) cat <<'EOF'
 overworld event <name> ['<json object>']   appends to $XDG_RUNTIME_DIR/overworld/events.jsonl (the GameEvents bus).
 EOF
@@ -1195,6 +1197,59 @@ cmd_notes() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- nowplaying (the PiP mini-player)
+# The surface is quickshell/NowPlaying (IPC target `nowplaying`); the browser bridge + video cache is the shared scripts/hypr-nowplaying.
+HYPR_NOWPLAYING="$REPO/scripts/hypr-nowplaying"
+NP_STATE="$STATE/nowplaying.json"
+
+cmd_nowplaying_help() {
+    cat <<'EOF'
+overworld nowplaying — the floating Now Playing mini-player: title, cover and, for YouTube / TikTok, the video itself (silent;
+the sound stays in the browser). Always on top; drag it, resize it from its corner, hover for ⏮ ⏯ ⏭, focus and ✕.
+
+  nowplaying on | off | toggle   switch it (also SUPER+ALT+P and the widgets menu); remembered across restarts
+  nowplaying status              what it shows, the bridge daemon, the video
+  nowplaying reveal              show it on the focused monitor now, even when nothing plays
+  nowplaying reset               back to its default corner and size
+  nowplaying userscript [--serve]   install the Zen bridge: writes the userscript with your token and offers it on a local URL
+  nowplaying cache [list|clear]  the downloaded mirror videos (~/.cache/hypr-nowplaying)
+  nowplaying bridge              the daemon's own status (hypr-nowplaying status)
+
+Without the userscript it still works from MPRIS: Spotify and others show cover + title, a YouTube tab its video (the id comes
+from Zen's MPRIS URL). TikTok needs the userscript. Config (config.json → "nowplaying"): layer "overlay"|"top", autoHideSec 20,
+maxVideoMin 20, hideWhenSourceFullscreen true, width 360, cacheMB 400, port 47833, video true.  More: docs/NOWPLAYING.md
+EOF
+}
+np_port() { json_get '.nowplaying.port' 47833; }
+np_write_on() {                 # shell not running: flip "on" in the state file (keeps the saved positions)
+    have jq || die "jq is required"
+    local cur='{}' tmp
+    [[ -s "$NP_STATE" ]] && cur="$(cat "$NP_STATE")"
+    tmp="$(jq -c --argjson on "$1" '(if type == "object" then . else {} end) | .on = $on' <<<"$cur" 2>/dev/null)" || tmp="{\"on\": $1}"
+    printf '%s\n' "$tmp" >"$NP_STATE"
+}
+cmd_nowplaying() {
+    local sub="${1:-status}"; shift || true
+    case "$sub" in
+        on|off|toggle|reveal|reset)
+            local answer
+            if answer="$(qs_ipc nowplaying "$sub" 2>/dev/null)"; then say "$answer"
+            elif [[ "$sub" == on || "$sub" == off ]]; then
+                np_write_on "$([[ "$sub" == on ]] && echo true || echo false)"
+                say "$sub (the shell is not running; it applies when it starts)"
+            else die "the shell is not running (overworld on)"; fi ;;
+        status)
+            local answer
+            if answer="$(qs_ipc nowplaying status 2>/dev/null)"; then say "$answer"
+            else say "shell not running; saved: $(jq -r 'if .on then "on" else "off" end' "$NP_STATE" 2>/dev/null || echo off)"; fi ;;
+        userscript) exec "$HYPR_NOWPLAYING" userscript --port "$(np_port)" "$@" ;;
+        cache)      exec "$HYPR_NOWPLAYING" cache "$@" ;;
+        bridge|daemon) exec "$HYPR_NOWPLAYING" status "$@" ;;
+        help|-h|--help) cmd_nowplaying_help ;;
+        *) warn "unknown: nowplaying $sub"; cmd_nowplaying_help >&2; exit 1 ;;
+    esac
+}
+
 cmd_event() {                   # overworld event <name> ['<json object>']  → GameEvents bus (BRIEF §4.4)
     local name="${1:-}" data="${2:-{\}}" dir="${XDG_RUNTIME_DIR:-/tmp}/overworld"
     [[ -n "$name" ]] || die "usage: overworld event <name> ['<json>']"
@@ -1231,6 +1286,7 @@ case "${1:-help}" in
     brew)          shift; cmd_brew "$@" ;;
     projects|project) shift; cmd_projects "$@" ;;
     notes|note) shift; cmd_notes "$@" ;;
+    nowplaying|pip) shift; cmd_nowplaying "$@" ;;
     event)         shift; cmd_event "$@" ;;
     help|-h|--help) shift || true; cmd_help "${1:-}" ;;
     *)             warn "unknown command: $1"; cmd_help >&2; exit 2 ;;
