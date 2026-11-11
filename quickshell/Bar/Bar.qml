@@ -251,10 +251,11 @@ Variants {
             anchors.right: parent.right
             anchors.rightMargin: Theme.px(2)
             y: hud.height - Theme.px(hud.clockStacked ? 33 : 16)
-            text: TimeService.mcClock
+            text: (SemesterService.label.length ? SemesterService.label + " · " : "") + TimeService.mcClock
             hoverEnabled: true
             tooltip: TimeService.dateLong
-            tooltipDescription: TimeService.phase + "\nDay " + TimeService.dayOfYear + " of the year"
+            tooltipDescription: (SemesterService.title.length ? SemesterService.title + "\n" + SemesterService.detail + "\n" : "")
+                + TimeService.phase + "\nDay " + TimeService.dayOfYear + " of the year"
             tooltipCategory: "Clock"
         }
     }
