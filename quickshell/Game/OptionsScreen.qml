@@ -5,6 +5,7 @@ import qs.Services
 
 /*  OptionsScreen — layer `overworld-options` (IPC `options open|page <name>`): the game's Options menu on config.json.
  *    main:  Widget Opacity · Difficulty (Peaceful = Do Not Disturb) · Video Settings… · Music & Sounds… · Controls… · Accessibility… · Time of Day · Game Mode
+ *           · Workspace Cards (workspace_card.enabled) · Claude Labels (workspace_auto.enabled = the ws-autolabel watcher)
  *    video: GUI Scale (applies live) · Animations · Particles · Weather Effects · Day/Night cycle · Widget Opacity
  *    sounds: master + ui + toasts + blocks + ambient · Sounds ON/OFF       controls: live `hyprctl binds -j` table (read-only)
  *    access: Reduced Motion · Animations · GUI Scale
@@ -50,7 +51,7 @@ Variants {
         function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
         BindsModel { id: binds }
-        readonly property int pageRows: ({ main: 4, video: 3, sounds: 3, access: 2, controls: 0 })[page]
+        readonly property int pageRows: ({ main: 5, video: 3, sounds: 3, access: 2, controls: 0 })[page]
         readonly property real baseY: Math.max(Theme.px(40), win.height / 6 - Theme.px(12))
 
         component OptButton: McButton { }
@@ -86,6 +87,12 @@ Variants {
                 McButton { text: "Time of Day: " + win.cap(win.cycleNow); onClicked: win.cycleNext()
                            tooltip: "Day / Night"; tooltipDescription: "Auto follows the sun; Day and Night pin the theme." }
                 McButton { text: "Game Mode: " + GameMode.info(GameMode.mode).name.replace(" Mode", ""); onClicked: { GameUi.close("options"); GameUi.open("switcher"); } }
+                McToggle { label: "Workspace Cards"; checked: Options.get("workspace_card.enabled", true) !== false
+                           onToggled: c => Options.set("workspace_card.enabled", c)
+                           tooltip: "Workspace Cards"; tooltipDescription: "The title + note card shown when you switch workspace." }
+                McToggle { label: "Claude Labels"; checked: Options.get("workspace_auto.enabled", false) === true
+                           onToggled: c => Options.set("workspace_auto.enabled", c)
+                           tooltip: "Claude Labels"; tooltipDescription: "Claude (haiku) names workspaces from their windows. Sends window titles off this machine." }
             }
 
             // ---------------------------------------------------------- video
