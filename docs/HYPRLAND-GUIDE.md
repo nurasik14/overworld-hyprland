@@ -331,8 +331,13 @@ Tune it under `config.json → "workspace_auto"`:
 ```json
 "workspace_auto": { "enabled": true, "model": "haiku", "send_titles": true,
                     "settle": 20, "cooldown": 600, "recheck": 600, "reset_after": 600,
-                    "manage_manual": true, "max_per_hour": 20 }
+                    "manage_manual": true, "max_per_hour": 20,
+                    "blocklist": "~/.config/overworld/blocklist.txt" }
 ```
+
+`blocklist` points to a plain text file with one domain, address or word per line (`#` starts a comment). Any
+window title, session title or note text that contains one of them is sent and logged as `[private]` instead. No file
+means nothing is masked; a file that exists but can't be read stops every Claude call, so nothing slips through.
 
 `send_titles: false` sends app classes only (more private, vaguer labels, and title-only changes are no longer
 noticed); `reset_after: 0` never resets; `max_per_hour` caps the calls. The empty/check timers live in

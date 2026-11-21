@@ -18,14 +18,18 @@ Labels it writes are stored in ~/.config/overworld/workspaces.json with "auto": 
 
 config.json → "workspace_auto": { "enabled": false, "model": "haiku", "send_titles": true, "settle": 20,
                                    "cooldown": 600, "recheck": 600, "reset_after": 600,
-                                   "manage_manual": true, "max_per_hour": 20 }
-Window classes (and titles unless send_titles is false) are sent to Claude. Calls count against your plan:
+                                   "manage_manual": true, "max_per_hour": 20,
+                                   "blocklist": "~/.config/overworld/blocklist.txt" }
+Window classes (and titles unless send_titles is false) are sent to Claude. Any text matching a line of the
+blocklist file (a domain, address or word; # comments) is replaced by "[private]" before it is sent or logged.
+No file = nothing masked; a file that exists but can't be read stops every Claude call. Calls count against your plan:
 ANTHROPIC_API_KEY is removed from the child environment so the CLI uses the logged-in subscription.
 Log: ~/.cache/overworld/ws-auto.log   timers: ~/.cache/overworld/ws-auto-state.json
 """
 import fcntl
 import json
 import os
+import re
 import shutil
 import signal
 import socket
@@ -58,7 +62,8 @@ CHECK_SCHEMA = json.dumps({
 })
 STYLE = ("Title: 1-3 words, max 24 characters, Title Case, no emoji, no quotes. Note: one plain line, max 50 "
          "characters, saying what is going on there. Keep it distinct from the other workspaces' titles. Never "
-         "include secrets, emails, or personal names that appear in window titles.")
+         "include secrets, emails, or personal names that appear in window titles. Text shown as [private] is "
+         "hidden on purpose: never repeat it or guess what it was.")
 SYSTEM = ("You name virtual desktop workspaces for a CS student's Linux desktop. From the open windows, infer what "
           "the workspace is FOR (the activity or project), not a list of apps. " + STYLE)
 CHECK_SYSTEM = ("You keep the titles of virtual desktop workspaces on a CS student's Linux desktop accurate. You get "
@@ -72,12 +77,13 @@ CHECK_SYSTEM = ("You keep the titles of virtual desktop workspaces on a CS stude
                 "and note for what the windows show. " + STYLE)
 
 DEFAULTS = {"enabled": False, "model": "haiku", "send_titles": True, "settle": 20, "cooldown": 600,
-            "recheck": 600, "reset_after": 600, "manage_manual": True, "max_per_hour": 20}
+            "recheck": 600, "reset_after": 600, "manage_manual": True, "max_per_hour": 20,
+            "blocklist": "~/.config/overworld/blocklist.txt"}
 
 
 def log(msg):
     CACHE.mkdir(parents=True, exist_ok=True)
-    line = time.strftime("%Y-%m-%d %H:%M:%S ") + msg
+    line = time.strftime("%Y-%m-%d %H:%M:%S ") + mask(msg, private_terms(settings()) or [])
     with open(LOG, "a") as f:
         f.write(line + "\n")
     if sys.stderr.isatty():
@@ -90,6 +96,26 @@ def settings():
     except Exception:
         cfg = {}
     return {**DEFAULTS, **(cfg if isinstance(cfg, dict) else {})}
+
+
+# ------------------------------------------------------------------------------------------- private terms
+def private_terms(cfg):
+    """Lower-cased terms from the blocklist file. [] = no file (nothing to mask); None = file exists but is unreadable."""
+    path = Path(os.path.expanduser(str(cfg.get("blocklist") or "")))
+    if not cfg.get("blocklist") or not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return [t for t in (ln.split("#", 1)[0].strip().lower() for ln in lines) if t]
+
+
+def mask(text, terms):
+    """Replace every case-insensitive occurrence of a term with [private]."""
+    if not terms:
+        return text
+    return re.sub("|".join(map(re.escape, sorted(terms, key=len, reverse=True))), "[private]", text, flags=re.I)
 
 
 # ------------------------------------------------------------------------------------------- workspaces.json
@@ -344,6 +370,10 @@ def _windows(wins, cfg):
 
 
 def _claude(prompt, system, schema, cfg):
+    terms = private_terms(cfg)
+    if terms is None:
+        raise RuntimeError(f"blocklist {cfg['blocklist']} exists but can't be read; not calling Claude")
+    prompt = mask(prompt, terms)
     env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
     cmd = [claude_bin(), "-p", "--model", str(cfg["model"]), "--tools", "", "--strict-mcp-config",
            "--setting-sources", "", "--no-session-persistence", "--output-format", "json",
