@@ -25,7 +25,7 @@ scripts/world/
 | call | does |
 |---|---|
 | `weather clear\|rain\|thunder\|snow\|auto` | override the overlay (what `/weather` calls); `auto` = the real weather. Not persisted. |
-| `daycycle auto\|day\|night\|off` | writes `config.json daycycle` and acts at once (what `/time set` and the Options screen call) |
+| `daycycle auto\|day\|night\|dawn\|dusk\|off` | writes `config.json daycycle` and acts at once (what `/time set` and the Options screen call) |
 | `time` | phase, sunrise / sunset, next transition (3 lines) |
 | `f3 on\|off\|toggle` | the debug screen. Bind: `SUPER+F3` → `qs -c overworld ipc call world f3 toggle` |
 | `f3graph on\|off\|toggle` | the CPU chart (turns F3 on) |
@@ -37,12 +37,16 @@ scripts/world/
 ## Day/night cycle
 
 ```
-config.json   "daycycle": "auto" | "day" | "night" | "off"     (missing = "auto")
+config.json   "daycycle": "auto" | "day" | "night" | "dawn" | "dusk" | "off"     (missing = "auto")
               "weather": {"lat": .., "lon": .., "name": ..}      optional location override (same key the Weather card reads)
 ```
 
 * **auto** — `overworld light` at local sunrise, `overworld dark` at sunset; the wallpaper follows the sky.
 * **day** / **night** — pinned: applied once when chosen, then left alone. **off** — does nothing.
+* **dawn** / **dusk** — pinned the same way: the current scene's dawn or dusk picture (`assets/wallpapers/variants/`) with Day
+  (dawn) or Night (dusk) mode. The mode flips after the wallpaper fade. Scenes without that variant (Nether, End, saved worlds)
+  keep their picture and only the mode changes. The wallpaper picker lists Day/Night pictures only; this is the way to get the
+  dawn/dusk ones.
 * **A manual `overworld light|dark` always wins until the next sunrise or sunset.** The cycle only acts at a boundary, and once at
   start-up if a boundary passed while the shell was not running (`~/.cache/overworld/daycycle.json` remembers the last phase; a first
   ever run records the phase and changes nothing). Between boundaries it never touches the theme.
@@ -130,7 +134,7 @@ on the right, green → yellow → red, lines at 50 % and 100 %. It only samples
 
 | key | default | meaning |
 |---|---|---|
-| `daycycle` | `"auto"` | `auto` / `day` / `night` / `off` (this module reads the raw key; a missing key means auto) |
+| `daycycle` | `"auto"` | `auto` / `day` / `night` / `dawn` / `dusk` / `off` (this module reads the raw key; a missing key means auto) |
 | `weather_effects` | `true` | master switch of the overlay |
 | `weather_thunder_sound` | `false` | play the quiet `lightning` sound with each flash |
 | `particles` | `"all"` | `decreased` = at most 2 layers, `minimal` = 1 |

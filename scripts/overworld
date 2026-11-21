@@ -636,8 +636,8 @@ cmd_daycycle() {
     case "${1:-status}" in
         status) qs_need world time ;;
         help|-h|--help) help_page daycycle ;;
-        auto|day|night|off) qs_need world daycycle "$1" ;;
-        *) warn "unknown daycycle: $1 (auto, day, night, off)"; exit 2 ;;
+        auto|day|night|dawn|dusk|off) qs_need world daycycle "$1" ;;
+        *) warn "unknown daycycle: $1 (auto, day, night, dawn, dusk, off)"; exit 2 ;;
     esac
 }
 cmd_sound() {
@@ -757,6 +757,7 @@ EOF
         daycycle) cat <<'EOF'
 overworld daycycle auto         switch Day/Night at local sunrise and sunset, with time-of-day wallpapers
 overworld daycycle day | night  pin one
+overworld daycycle dawn | dusk  pin the scene's dawn (Day mode) or dusk (Night mode) picture
 overworld daycycle off          leave the mode alone
 overworld daycycle              print the current state
 EOF

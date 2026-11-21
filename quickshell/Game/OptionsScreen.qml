@@ -45,9 +45,9 @@ Variants {
         readonly property var particleOrder: ["all", "decreased", "minimal"]
         readonly property string particlesNow: Options.get("particles", "all")
         function particlesNext() { Options.set("particles", particleOrder[(Math.max(0, particleOrder.indexOf(particlesNow)) + 1) % 3]); }
-        readonly property var cycleOrder: ["auto", "day", "night"]
+        readonly property var cycleOrder: ["auto", "day", "dusk", "night", "dawn"]
         readonly property string cycleNow: Options.get("daycycle", "auto")
-        function cycleNext() { ChatService.setTime(cycleOrder[(Math.max(0, cycleOrder.indexOf(cycleNow)) + 1) % 3]); }
+        function cycleNext() { ChatService.setTime(cycleOrder[(Math.max(0, cycleOrder.indexOf(cycleNow)) + 1) % cycleOrder.length]); }
         function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
         BindsModel { id: binds }
@@ -85,7 +85,7 @@ Variants {
                 McButton { text: "Controls..."; onClicked: win.go("controls") }
                 McButton { text: "Accessibility Settings..."; onClicked: win.go("access") }
                 McButton { text: "Time of Day: " + win.cap(win.cycleNow); onClicked: win.cycleNext()
-                           tooltip: "Day / Night"; tooltipDescription: "Auto follows the sun; Day and Night pin the theme." }
+                           tooltip: "Day / Night"; tooltipDescription: "Auto follows the sun; Day, Dusk, Night and Dawn pin the theme and picture." }
                 McButton { text: "Game Mode: " + GameMode.info(GameMode.mode).name.replace(" Mode", ""); onClicked: { GameUi.close("options"); GameUi.open("switcher"); } }
                 McToggle { label: "Workspace Cards"; checked: Options.get("workspace_card.enabled", true) !== false
                            onToggled: c => Options.set("workspace_card.enabled", c)

@@ -309,7 +309,7 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
 
 ### Game systems (`quickshell/Game/`)
 
-- **Chat console** (`SUPER+SHIFT+T`, or `SUPER+/` with `/` typed): `/help` lists the commands. `/time set day|night|auto`,
+- **Chat console** (`SUPER+SHIFT+T`, or `SUPER+/` with `/` typed): `/help` lists the commands. `/time set day|night|dawn|dusk|auto`,
   `/weather clear|rain|thunder|snow|auto`, `/gamemode`, `/tp <1-10>`, `/give <app>`, `/locate <app>`, `/kill [class]`,
   `/brew 25m`, `/title <ws> <text>`, `/msg <text> in <duration>` (a real reminder), `/advancement`, `/stats`, `/f3`,
   `/seed`, `/clear`, `/reload`. Tab completes, Up/Down is history. System events appear as chat lines that fade after 10 s.

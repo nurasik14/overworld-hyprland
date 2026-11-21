@@ -37,7 +37,7 @@ Type `/help` for the list (texts: `quotes/chat.json`). Commands, what each reall
 | command | effect |
 |---|---|
 | `/help [page\|command]` | 7 commands per page; `/help brew` shows one usage |
-| `/time set day\|night\|auto` · `/time query` | day → `overworld light`, night → `overworld dark`, auto → the sun decides. Also writes `config.json` `daycycle` and calls `ipc world daycycle <v>` (fx-world) |
+| `/time set day\|night\|dawn\|dusk\|auto` · `/time query` | day → `overworld light`, night → `overworld dark`, dawn / dusk → the scene's dawn / dusk picture with Day / Night mode, auto → the sun decides. Also writes `config.json` `daycycle` and calls `ipc world daycycle <v>` (fx-world) |
 | `/weather clear\|rain\|thunder\|snow\|auto` | `ipc call world weather <w>` (fx-world overlay); auto = real Open-Meteo weather |
 | `/gamemode [survival\|creative\|adventure\|spectator]` | sets the mode (see §3); no argument opens the switcher |
 | `/tp <1-10>` | `hyprctl dispatch workspace N` |

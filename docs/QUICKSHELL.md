@@ -86,7 +86,7 @@ Everything visual comes from `qs.Common`. No `qmldir` files: Quickshell register
 | `animations`, `reduced_motion` | true, false | Theme |
 | `particles` | `"all"` (`"decreased"`, `"minimal"`) | fx modules |
 | `weather_effects` | true | fx-world |
-| `daycycle` | `"auto"` (`"day"`, `"night"`, `"off"`) | fx-world |
+| `daycycle` | `"auto"` (`"day"`, `"night"`, `"dawn"`, `"dusk"`, `"off"`) | fx-world |
 | `difficulty` | `"normal"` (`"peaceful"` = DND) | NotificationService |
 | `widgets.opacity` | 0.72 | Theme, Widgets |
 | `death_screen` | true | fx-interactions |

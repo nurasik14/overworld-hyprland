@@ -8,7 +8,7 @@ import qs.Services
  *
  *  IPC  (qs -c overworld ipc call world <fn> [arg]):
  *    weather <clear|rain|thunder|snow|auto>   override the weather overlay; auto = the real Open-Meteo weather (/weather)
- *    daycycle <auto|day|night|off>            set config daycycle and act at once (/time set …); auto syncs to the sky now
+ *    daycycle <auto|day|night|dawn|dusk|off>  set config daycycle and act at once (/time set …); auto syncs to the sky now
  *    strike [hold|release]                    one lightning stroke now (thunder only)
  *    time                                     phase, sunrise / sunset, the next transition
  *    f3 <on|off|toggle>                       the debug screen (SUPER+F3, /f3)
@@ -32,7 +32,7 @@ Scope {
                       : "usage: weather clear|rain|thunder|snow|auto";
         }
         function daycycle(m: string): string {
-            return DayCycle.setSetting(m) ? "daycycle: " + m : "usage: daycycle auto|day|night|off";
+            return DayCycle.setSetting(m) ? "daycycle: " + m : "usage: daycycle auto|day|night|dawn|dusk|off";
         }
         function strike(mode: string): string {        // one lightning stroke now; "hold" keeps it lit (screenshots), "release" lets go
             if (mode === "release") { WeatherState.holdFlash = false; return "released"; }

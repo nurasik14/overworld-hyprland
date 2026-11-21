@@ -8,10 +8,12 @@ import "SunCalc.js" as Sun
 
 /*  DayCycle — the Overworld day/night cycle.
  *
- *  config.json  daycycle: "auto" (default) | "day" | "night" | "off"
+ *  config.json  daycycle: "auto" (default) | "day" | "night" | "dawn" | "dusk" | "off"
  *    auto   `overworld light` at local sunrise, `overworld dark` at sunset, and the wallpaper follows the sky
  *           (dawn → day → dusk → night variants of the same scene, assets/wallpapers/index.json)
  *    day / night   pinned: the mode is applied once when chosen and never touched by the cycle again
+ *    dawn / dusk   pinned the same way: the scene's dawn / dusk picture, with Day (dawn) or Night (dusk) mode
+ *                  (scenes without that variant — Nether, End, saved worlds — keep their picture; only the mode changes)
  *    off    the cycle does nothing
  *  A manual `overworld light|dark` always wins until the next sunrise / sunset: the cycle only acts at a boundary
  *  (and once when a boundary passed while the shell was not running), never in between.
@@ -73,8 +75,9 @@ Singleton {
     // ------------------------------------------------------------ setting
     readonly property string configured: {
         const v = ConfigService.config.daycycle;
-        return v === "day" || v === "night" || v === "off" || v === "auto" ? v : "auto";
+        return root.settings.indexOf(v) >= 0 ? v : "auto";
     }
+    readonly property var settings: ["auto", "day", "night", "dawn", "dusk", "off"]
     property string setting: "auto"
     property bool _settingKnown: false
     onConfiguredChanged: syncSetting(configured)
@@ -88,10 +91,12 @@ Singleton {
         if (s === "auto") applyNow(info.phase, info.mode);
         else if (s === "day") applyNow("day", "light");
         else if (s === "night") applyNow("night", "dark");
+        else if (s === "dawn") applyNow("dawn", "light");
+        else if (s === "dusk") applyNow("dusk", "dark");
     }
     // `world daycycle <m>` and the Options screen: write config, act at once
     function setSetting(s) {
-        if (["auto", "day", "night", "off"].indexOf(s) < 0) return false;
+        if (settings.indexOf(s) < 0) return false;
         ConfigService.set("daycycle", s);
         syncSetting(s);
         return true;

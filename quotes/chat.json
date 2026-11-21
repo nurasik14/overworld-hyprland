@@ -129,8 +129,8 @@
    },
    {
     "name": "time",
-    "usage": "/time <set day|set night|set auto|query>",
-    "description": "Switches Day/Night mode, follows the sun, or tells the time.",
+    "usage": "/time <set day|set night|set dawn|set dusk|set auto|query>",
+    "description": "Switches Day/Night mode or dawn/dusk, follows the sun, or tells the time.",
     "args": [
      {
       "name": "action",
@@ -146,6 +146,8 @@
       "choices": [
        "day",
        "night",
+       "dawn",
+       "dusk",
        "auto"
       ]
      }
@@ -253,6 +255,8 @@
   "note_none": "No notes yet. /note <text> pins one",
   "time_day": "Set the time to Day",
   "time_night": "Set the time to Night",
+  "time_dawn": "Set the time to Dawn",
+  "time_dusk": "Set the time to Dusk",
   "time_auto": "The day/night cycle now follows the sun",
   "time_query": "The time is {time}",
   "weather_clear": "Changing to clear weather",

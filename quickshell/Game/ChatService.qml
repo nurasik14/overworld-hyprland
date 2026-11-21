@@ -178,7 +178,7 @@ Singleton {
             let a = args[argIndex - 1];
             const first = (w[1] || "").toLowerCase();
             if (spec.name === "time") a = argIndex === 1 ? { type: "choice", choices: ["set", "query"] }
-                                      : (first === "set" && argIndex === 2 ? { type: "choice", choices: ["day", "night", "auto"] } : null);
+                                      : (first === "set" && argIndex === 2 ? { type: "choice", choices: ["day", "night", "dawn", "dusk", "auto"] } : null);
             else if (spec.name === "advancement" && argIndex === 2) {
                 if (first === "list") a = { type: "choice", choices: ["unlocked", "locked"].concat(Advancements.tabs.map(t => t.id)) };
                 else if (first === "reset") a = { type: "choice", choices: ["confirm"] };
@@ -292,11 +292,12 @@ Singleton {
         let v = (a[0] || "").toLowerCase();
         if (v === "set") v = (a[1] || "").toLowerCase();
         if (v === "query") { ok(GameCore.t("ok.time_query", { time: Qt.formatDateTime(new Date(), "HH:mm") + " (" + (Theme.isDark ? "Night" : "Day") + ")" })); return; }
-        if (v !== "day" && v !== "night" && v !== "auto") { post("§c" + GameCore.t("errors.incorrect_argument")); post("§7" + spec.usage); return; }
+        if (["day", "night", "dawn", "dusk", "auto"].indexOf(v) < 0) { post("§c" + GameCore.t("errors.incorrect_argument")); post("§7" + spec.usage); return; }
         setTime(v);
         ok(GameCore.t("ok.time_" + v));
     }
-    // day → `overworld light`, night → `overworld dark`, auto → the sun decides (fx-world); the choice is kept in config.json "daycycle"
+    // day → `overworld light`, night → `overworld dark`, dawn / dusk → that picture of the scene with Day / Night (the day cycle
+    // switches the mode after the wallpaper fade), auto → the sun decides (fx-world); the choice is kept in config.json "daycycle"
     function setTime(v) {
         if (v === "day") GameCore.cli(["light"]);
         if (v === "night") GameCore.cli(["dark"]);

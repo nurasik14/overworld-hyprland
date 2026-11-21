@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Day cycle: pin dawn or dusk
+- `/time set dawn|dusk`, `overworld daycycle dawn|dusk`, IPC `world daycycle dawn|dusk`, and the Options button (Auto → Day →
+  Dusk → Night → Dawn) pin the current scene's dawn or dusk picture with Day (dawn) or Night (dusk) mode. Before, those
+  pictures only appeared through the automatic cycle and could not be chosen. Scenes without the variant keep their picture.
+
 ### Now Playing PiP: long YouTube videos get their picture in parts (nowplaying-chunks)
 - Videos longer than `nowplaying.maxVideoMin` (default 20) used to show only the cover. Behind the author's VPN even a 120-min limit
   did not help, because each fetch is capped at 300 s and ran at ≈ 160 KB/s. Now such videos (not live, **no length limit**) are fetched in **parts around the

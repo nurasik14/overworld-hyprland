@@ -7,7 +7,7 @@ import qs.Services
  *    Options.get("sound_volume.master", 100) · Options.set("particles", "decreased") · Options.revision
  *  Keys the screen writes (ConfigService/Theme/ow-sound/fx-world read them; defaults in brackets):
  *    gui_scale 1|2|3|4|"auto" [2] · animations bool [true] · reduced_motion bool [false] · particles "all"|"decreased"|"minimal" ["all"]
- *    weather_effects bool [true] · daycycle "auto"|"day"|"night" ["auto"] · widgets.opacity 0.3–1 [0.72]
+ *    weather_effects bool [true] · daycycle "auto"|"day"|"night"|"dawn"|"dusk" ["auto"] · widgets.opacity 0.3–1 [0.72]
  *    sounds bool [true] · sound_volume.{master,ui,toasts,blocks,ambient} 0–100 [100]
  *  Difficulty (Peaceful) is not a key: it is NotificationService.dnd.
  */
