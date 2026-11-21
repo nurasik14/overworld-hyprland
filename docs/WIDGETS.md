@@ -179,7 +179,15 @@ or the chip's middle-click; its on/off is `~/.config/overworld/nowplaying.json` 
 the Zen bridge, the shared `hypr-nowplaying` daemon, privacy, config, sync, tests — is in [NOWPLAYING.md](NOWPLAYING.md).
 For a logged-in **TikTok** tab its hover controls also have **like / repost / save-to-collection** toggles (bridge 1.3.0;
 un-saving un-favourites the clip, which removes it from every collection; config `nowplaying.tiktokCollection`, default
-`"Edits"`): see [NOWPLAYING.md → TikTok](NOWPLAYING.md#tiktok-like-repost-save-to-a-collection).
+`"Edits"`): see [NOWPLAYING.md → TikTok](NOWPLAYING.md#tiktok-like-repost-save-to-a-collection). **Several tabs or apps**
+(two YouTube tabs, YouTube + Spotify…): the hover chip `YouTube 2/3` opens a list inside the PiP to pin one (Auto by default; the
+pin is released when that source goes away), the wheel cycles; `overworld nowplaying sources|pick`. See
+[NOWPLAYING.md → Several tabs](NOWPLAYING.md#several-tabs-or-apps-choosing-what-the-pip-shows). **Long YouTube videos**
+(longer than `nowplaying.maxVideoMin`, default 20 min, which now only decides "whole file or parts") get their picture in
+**parts** around the position: a 5-min part where you are (the picture appears after about a minute), then 40-min parts ahead, the
+next one when less than 5 min is left; a seek outside starts again there; 360p, video only, under the same `cacheMB` LRU; parts
+more than 10 min behind are deleted. Config `partFirstMin` 5, `partMin` 40, `partAheadMin` 5, `partHeight` 360. See
+[NOWPLAYING.md → Long videos](NOWPLAYING.md#long-videos-the-picture-comes-in-parts).
 
 ## IPC
 

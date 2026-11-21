@@ -8,19 +8,24 @@ window.setInterval = (f, ms) => { const id = __setInterval(f, ms); window.__inte
 window.__done = false;
 window.__wantVideo = false;
 window.__actionQueue = [];   // TikTok commands for the next /state reply (like the daemon: handed out once)
-window.__poll = false;       // the daemon's "poll" (a TikTok tab while the PiP is on): keep reporting while paused
+window.__poll = false;       // the daemon's "poll" (a TikTok / pinned tab while the PiP is on): keep reporting while paused
+window.__keepalive = 0;      // the daemon's "keepalive" (s): a paused tab's slow heartbeat while the PiP is on
+window.__down = false;       // nobody listens on 127.0.0.1 (the PiP is off): requests fail
 function GM_xmlhttpRequest(o) {
   if (window.__done) return { abort() {} };
   let data = o.data;
   if (data && typeof data !== "string") data = "[binary " + (data.size || data.byteLength || 0) + "]";
   window.__calls.push({ method: o.method, url: o.url, headers: o.headers || {}, data: data, responseType: o.responseType, anonymous: o.anonymous });
+  if (window.__down && /^http:\/\/127\.0\.0\.1/.test(o.url)) { window.__lastFailed = true; setTimeout(() => { if (o.onerror) o.onerror({}); }, 5); return { abort() {} }; }   // the PiP is off
   setTimeout(() => {
     let r = { status: 200, response: { ok: true } };
     if (/\/state$/.test(o.url)) {
       let key = "";
       try { const d = JSON.parse(o.data); key = d.videoId ? (d.site === "tiktok" ? "tiktok-" : "youtube-") + d.videoId : ""; } catch (e) {}
       const tt = /^tiktok-/.test(key);
-      r.response = { ok: true, key: key, wantVideo: window.__wantVideo && tt, actions: tt ? window.__actionQueue.splice(0) : [], poll: window.__poll && tt };
+      // 1.4.0: commands and the heartbeat for any site (a pinned tab); __keepalive like the daemon's slow paused heartbeat
+      r.response = { ok: true, key: key, wantVideo: window.__wantVideo && tt, actions: window.__actionQueue.splice(0), poll: !!window.__poll };
+      if (window.__keepalive) r.response.keepalive = window.__keepalive;
     } else if (o.method === "GET" && /video_slow|v16-webapp-prime/.test(o.url)) {
       r = { status: /bad/.test(o.url) ? 403 : 200, response: new Blob([new Uint8Array(4096)], { type: "video/mp4" }) };
     }
@@ -156,4 +161,23 @@ async function ttAct(id, action, extra) {   // hand a command to the tab, wait f
   const first = window.__tt ? window.__tt.clickAt.find(c => c.t >= t0) : null;   // when the tab acted on it
   return { last: r ? r.tt.last : null, tt: r ? r.tt : null, dom: window.__tt ? window.__tt.snap() : null, ms: Date.now() - t0,
            firstClickMs: first ? first.t - t0 : -1 };
+}
+
+// 1.4.0 media commands: a fake play() / pause() on a fake media element (the real ones would try to load the blob: source)
+function fakePlayable(v, o) {
+  o = o || {};
+  v.__plays = 0;
+  v.play = () => {
+    v.__plays++;
+    if (o.refuse) return Promise.reject(new DOMException("play() can only be initiated by a user gesture.", "NotAllowedError"));
+    v.__st.paused = false; fire(v, "play"); fire(v, "playing"); return Promise.resolve();
+  };
+  v.pause = () => { v.__st.paused = true; fire(v, "pause"); };
+}
+function doneOf(id) { return reports().find(x => x.done && x.done.id === id) || null; }
+async function mediaAct(id, action, key) {   // -> {done, ms, report}
+  const t0 = Date.now();
+  window.__actionQueue.push({ id: id, key: key || "", action: action });
+  const r = await untilP(() => doneOf(id), 6000);
+  return { done: r ? r.done : null, ms: Date.now() - t0, paused: r ? r.paused : null };
 }

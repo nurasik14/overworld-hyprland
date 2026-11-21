@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+### Now Playing PiP: long YouTube videos get their picture in parts (nowplaying-chunks)
+- Videos longer than `nowplaying.maxVideoMin` (default 20) used to show only the cover. Behind the author's VPN even a 120-min limit
+  did not help, because each fetch is capped at 300 s and ran at ≈ 160 KB/s. Now such videos (not live, **no length limit**) are fetched in **parts around the
+  position**: a 5-min part where you are (the picture appears after about a minute), then 40-min parts that overlap the previous one by
+  8 s + the keyframe pre-roll, the next one when less than 5 min is left ahead. A seek outside the fetched range starts again there.
+  `maxVideoMin` now only decides "whole file or parts".
+- 360p, video only (`partHeight`), normal cache files `youtube-<id>.part-<startMs>-<endMs>.mp4` (true timeline range, found again after
+  a restart) under the same `cacheMB` LRU. Parts more than 10 min behind are deleted; the shown part and the next one never are.
+- Where a part really starts is **measured, not assumed**: yt-dlp cuts at the keyframe before the asked start and hides the extra frames
+  in an MP4 edit list (3.707 s for a cut at 50:00, 3.175 s at 50:28). The daemon reads the edit list and keeps those frames
+  (`ffmpeg -ignore_editlist`). Frame-matched against an exactly cut copy: within one frame.
+- The PiP plays parts with **two players** (`MirrorStack.qml`): the next part is preloaded, starts in sync when the browser reaches it,
+  and takes over 1 s before the current part ends, with no flash. Status line `video parts 2/3 ready`.
+- Config `partFirstMin` 5, `partMin` 40, `partAheadMin` 5, `partHeight` 360. `hypr-nowplaying serve --part-first-min/--part-min/
+  --part-ahead-min/--part-height`; `status` lists the part ranges, `cache list` the part files. An MPRIS-only long YouTube video sends its
+  position with `want` (every 5 s, at once on a jump or pause). The userscript is unchanged (still 1.4.1).
+- Tests: daemon 165 (+21, a fake yt-dlp that cuts a real test video like yt-dlp), service 80 (+8), sync 44 (+19),
+  `preview/parts-test.qml` (real parts across a boundary).
+
+### Now Playing PiP: choose which tab / app it shows (nowplaying-sources)
+- With several things playing or paused (two YouTube tabs, YouTube + TikTok, + Spotify…), hover the PiP: a **source chip**
+  `YouTube 2/3` top left. Click = a list **inside the PiP** (Auto + one row per source: ▶/⏸, site, title); the wheel over the chip
+  cycles. **Auto** = the old rule; choosing a row **pins** it until that source goes away (then Auto again); the pin survives a shell
+  reload, not a logout. `overworld nowplaying sources` / `pick <n|next|prev|auto>`, IPC `nowplaying sources` / `pick`.
+- Sources = every bridge tab (YouTube, YouTube Music, TikTok) + every MPRIS player not already shown as a tab (deduped by title).
+  Zen has one MPRIS player for all its tabs, so tabs on other sites cannot be listed one by one.
+- Controls act on the **shown** source: a pinned tab that Zen's MPRIS does not follow gets ⏯ ⏮ ⏭ through the bridge (its own
+  `<video>`, YouTube's next button, TikTok's feed step); a background `play()` the browser refuses is reported, not retried.
+- Bridge userscript **1.4.0** (reinstall: `overworld nowplaying userscript --serve`): per-tab play / pause / toggle / next /
+  previous, `done` results, a 2 s keepalive for paused tabs and a 1 s heartbeat for a pinned one **only while the PiP is on**, two
+  reconnect checks after a daemon restart.
+- `hypr-nowplaying` (shared): `tabs` (every fresh tab, sanitised like `bridge`) and `pin` in state.json, stdin `pin`, media actions
+  in the per-tab queue (any site, not bound to a clip), `keepalive` in the reply, `status` lists the tabs.
+- Bridge **1.4.1**: `@sandbox JavaScript` so it also runs under **Tampermonkey in Google Chrome** (page world: YouTube's player
+  object and media session reachable). Chrome's MPRIS has no URL, so a Chrome YouTube tab needed the bridge to get its video.
+- Fix: the PiP stayed hidden as "source fullscreen" after leaving a fullscreen video (seen with Chrome): `lastIpcObject` is a
+  snapshot that nothing refreshed on a fullscreen change; the service now calls `refreshToplevels()` on Hyprland `fullscreen` /
+  `activewindowv2` events.
+- Fix (orchestrator, tested here): a **maximized** source window (Hyprland `fullscreen = 1`) no longer hides the PiP; only real
+  fullscreen (bit 2) does.
+- Tests: daemon 144, bridge 91, service 72, `preview/src-act.qml` pointer test (17).
+
 ### Now Playing PiP: like, repost and save TikTok clips from the PiP (tiktok-actions)
 - With a logged-in TikTok tab in Zen (background or paused is fine), the PiP's hover controls get a second row: **like**,
   **repost**, **save** to a collection (config `nowplaying.tiktokCollection`, default `"Edits"`). Each is a toggle showing the

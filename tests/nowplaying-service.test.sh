@@ -26,6 +26,21 @@ SRC="${NP_SAMPLE:-$HOME/.hermes/cache/scratch/np/zoo.mp4}"
 if [[ -s "$SRC" ]]; then ffmpeg -v error -nostdin -y -i "$SRC" -t 3 -an -vf "crop=135:240:100:0,scale=270:480" -c:v libx264 -pix_fmt yuv420p "$T/portrait.mp4"
 else ffmpeg -v error -nostdin -y -f lavfi -i testsrc2=s=270x480:d=3 -c:v libx264 -pix_fmt yuv420p "$T/portrait.mp4"; fi
 
+# no network: a stand-in yt-dlp. Whole files fail (as a made-up id would); --download-sections cuts a 2 h test video like yt-dlp
+ffmpeg -v error -nostdin -y -f lavfi -i "testsrc2=s=64x36:r=2:d=7200" -c:v libx264 -g 10 -pix_fmt yuv420p "$T/src2h.mp4"
+cat >"$T/fake-ytdlp" <<'FAKE'
+#!/usr/bin/env bash
+out=""; prev=""; sec=""
+for a in "$@"; do [[ "$prev" == -o ]] && out="$a"; [[ "$prev" == --download-sections ]] && sec="${a#\*}"; prev="$a"; done
+echo "${sec:+SECTION $sec }${@: -1}" >>"$FAKE_LOG"
+[[ -z "$sec" ]] && { echo "ERROR: [youtube] fake: no network in tests" >&2; exit 1; }
+sleep 0.3
+exec ffmpeg -v error -nostdin -y -ss "${sec%-*}" -t "$(( ${sec#*-} - ${sec%-*} ))" -i "$FAKE_SRC" -c copy "${out//%(ext)s/mp4}"
+FAKE
+chmod +x "$T/fake-ytdlp"
+export HYPR_NOWPLAYING_YTDLP="$T/fake-ytdlp" FAKE_LOG="$T/fake.log" FAKE_SRC="$T/src2h.mp4"
+: >"$FAKE_LOG"
+
 qs -p "$QML" >"$T/qs.log" 2>&1 &
 QPID=$!
 sleep 3
@@ -86,6 +101,51 @@ check "... and a press is refused"          '[[ "$(nptest repost)" == refused ]]
 post /state '{"tab":"tabY7","gone":true}' >/dev/null
 ttpost "$TTS" 2.7 >/dev/null
 check "back on the TikTok clip -> buttons again" 'waitfor .canLike true'
+# ------------------------------------------------------------------ several sources (1.4.0): list, Auto vs pinned, controls routed, release
+nptest2() { timeout 5 qs -p "$QML" ipc call nptest "$@" 2>/dev/null; }
+( while :; do ttpost "$TTS" 2.8 >/dev/null; sleep 1; done ) & HB=$!          # keep the TikTok tab playing and fresh
+det "one source -> one row (the chip stays hidden)" 'waitfor .shownId tab:tabS1 && [[ "$(last .sources)" == "tab:tabS1|TikTok|playing|pov: you beat the dragon" && "$(last .shownIndex)" == 1 ]]'
+YB='{"tab":"tabYB","site":"youtube","pageUrl":"https://www.youtube.com/watch?v=bbbbbbbbbbb","videoId":"bbbbbbbbbbb","title":"Second tab song","author":"Band","position":10,"duration":100,"paused":true,"rate":1,"live":false,"isVideo":true,"ad":false,"visible":true,"bv":"1.4.0"}'
+YC='{"tab":"tabYC","site":"youtube","pageUrl":"https://www.youtube.com/watch?v=ccccccccccc","videoId":"ccccccccccc","title":"Old bridge tab","author":"Old","position":5,"duration":100,"paused":true,"rate":1,"live":false,"isVideo":true,"ad":false,"visible":true}'
+ttpost "$YB" 10 >/dev/null
+det "two tabs -> two sources in order, Auto shows the playing one" 'waitfor .sources "tab:tabS1|TikTok|playing|pov: you beat the dragon;tab:tabYB|YouTube|paused|Second tab song" && [[ "$(last .auto)" == true && "$(last .shownId)" == tab:tabS1 && "$(last .shownIndex)" == 1 ]]'
+det "ipc sources: auto marked, one line per source, the shown one" 'ipc sources >"$T/src"; head -1 "$T/src" | grep -q "^\* 0 auto   showing 1: TikTok" && grep -q "^  1 TikTok  playing  pov: you beat the dragon — blocky.builds  \[shown\]" "$T/src" && grep -q "^  2 YouTube  paused   Second tab song — Band" "$T/src"'
+det "Auto, a TikTok tab with an older bridge and no MPRIS -> no controls (as before)" '[[ "$(last .route)" == none ]]'
+det "ipc pick 2 -> pinned, the paused tab is shown" '[[ "$(ipc pick 2)" == "pinned 2/2: YouTube Second tab song" ]] && waitfor .shownId tab:tabYB && [[ "$(last .pinned)" == tab:tabYB && "$(last .auto)" == false && "$(last .title)" == "Second tab song" && "$(last .paused)" == true ]]'
+det "the daemon got the pin (its bridge = the pinned tab)" 'for _ in $(seq 1 20); do [[ "$(dstate .pin)" == tabYB ]] && break; sleep 0.1; done; [[ "$(dstate .pin)" == tabYB && "$(dstate .bridge.tab)" == tabYB ]]'
+det "status line: source pinned 2/2"  'ipc status | grep -q "source pinned 2/2"'
+det "pinned tab, bridge 1.4, no MPRIS following it -> controls go to the tab" '[[ "$(last .route)" == tab && "$(last .canToggle)" == true && "$(last .canNext)" == true ]]'
+det "play on the pinned paused tab -> queued for THAT tab" '[[ "$(nptest2 control toggle)" == tab ]] && for _ in $(seq 1 20); do [[ "$(dstate .action.tab)" == tabYB ]] && break; sleep 0.1; done; [[ "$(dstate ".action | \"\(.action) \(.tab) \(.status)\"")" == "play tabYB queued" ]]'
+R="$(ttpost "$YB" 10)"; MID="$(jq -r ".actions[0].id" <<<"$R")"
+det "... handed to that tab in its reply" '[[ "$(jq -r ".actions[0].action" <<<"$R")" == play ]]'
+ttpost "$(jq -c --argjson i "$MID" '.paused=false | .done={id:$i, action:"play", ok:true, error:""}' <<<"$YB")" 10.2 >/dev/null
+det "... done, and the PiP follows: playing" 'waitfor .paused false && [[ "$(dstate .action.status)" == done ]]'
+nptest2 control next >/dev/null
+det "next on the pinned tab -> queued for that tab" 'for _ in $(seq 1 20); do [[ "$(dstate .action.action)" == next ]] && break; sleep 0.1; done; [[ "$(dstate ".action | \"\(.action) \(.tab)\"")" == "next tabYB" ]]'
+R="$(ttpost "$(jq -c '.paused=false' <<<"$YB")" 11)"; MID="$(jq -r ".actions[0].id" <<<"$R")"
+ttpost "$(jq -c --argjson i "$MID" '.paused=false | .done={id:$i, action:"next", ok:false, error:"the browser refused to start a background tab (autoplay policy): click the tab once"}' <<<"$YB")" 11.2 >/dev/null
+det "a refused command shows its reason" 'waitfor .actErrFresh true && [[ "$(last .actErr)" == *autoplay* ]]'
+ttpost "$YB" 12 >/dev/null                                                   # paused again (a paused report stays fresh)
+ttpost "$YC" 5 >/dev/null
+det "a pinned tab with an older bridge -> no controls" 'waitfor .sources "tab:tabS1|TikTok|playing|pov: you beat the dragon;tab:tabYB|YouTube|paused|Second tab song;tab:tabYC|YouTube|paused|Old bridge tab" && ipc pick 3 >/dev/null && waitfor .shownId tab:tabYC && [[ "$(last .route)" == none && "$(last .canToggle)" == false ]]'
+det "pick next from the last row -> auto"   '[[ "$(ipc pick next)" == auto* ]] && waitfor .auto true && [[ "$(last .pinned)" == "" && "$(last .shownId)" == tab:tabS1 ]]'
+det "pick prev from auto -> the last row"   '[[ "$(ipc pick prev)" == "pinned 3/3"* ]] && waitfor .pinned tab:tabYC'
+det "pick next wraps: 3 -> auto -> 1"       'ipc pick next >/dev/null; [[ "$(ipc pick next)" == "pinned 1/3"* ]] && waitfor .pinned tab:tabS1'
+det "pick auto, and a bad number is refused" '[[ "$(ipc pick auto)" == auto* && "$(ipc pick 9)" == "no source 9"* ]] && waitfor .auto true'
+det "the daemon pin follows Auto (null)"     'for _ in $(seq 1 20); do [[ "$(dstate .pin)" == null ]] && break; sleep 0.1; done; [[ "$(dstate .pin)" == null ]]'
+ipc pick 2 >/dev/null; waitfor .pinned tab:tabYB >/dev/null
+post /state '{"tab":"tabYB","gone":true}' >/dev/null
+det "the pinned tab closes -> back to Auto within ~3 s" 'waitfor .auto true 24 && [[ "$(last .pinned)" == "" && "$(last .shownId)" == tab:tabS1 && "$(last .sources)" != *tabYB* ]]'
+det "... and the daemon is automatic again" '[[ "$(dstate .pin)" == null ]]'
+check "dedupe: the browser player of a listed tab is that tab; Spotify and other browser sites are their own rows" '[[ "$(nptest2 sourcesWith "org.mpris.MediaPlayer2.firefox.instance_1_642|Zen|POV: You Beat The Dragon|1;org.mpris.MediaPlayer2.spotify|Spotify|Pigstep|0;org.mpris.MediaPlayer2.chromium.instance9|Chromium|Some podcast|1")" == "tab:tabS1|TikTok|tiktok;tab:tabYC|YouTube|youtube;mpris:org.mpris.MediaPlayer2.spotify|Spotify|spotify;mpris:org.mpris.MediaPlayer2.chromium.instance9|Chromium|other" ]]'
+check "dedupe: no browser player at all -> paused tabs are dropped (the browser quit)" '[[ "$(nptest2 sourcesWith "org.mpris.MediaPlayer2.spotify|Spotify|Pigstep|1")" == "tab:tabS1|TikTok|tiktok;mpris:org.mpris.MediaPlayer2.spotify|Spotify|spotify" ]]'
+check "maximized source window (Hyprland fullscreen 1) -> still shown" '[[ "$(nptest2 fullscreen 1)" == "fullscreen 1" ]] && sleep 0.3 && waitfor .fs false && [[ "$(last .shown)" == true ]]'
+check "fullscreen source window (2) -> hidden" 'nptest2 fullscreen 2 >/dev/null; waitfor .shown false && [[ "$(last .fs)" == true ]]'
+check "fullscreen + maximized bits (3) -> hidden" 'nptest2 fullscreen 3 >/dev/null; waitfor .fs true'
+check "back to a normal window -> shown"    'nptest2 fullscreen 0 >/dev/null; waitfor .shown true && nptest2 fullscreen none >/dev/null'
+kill "$HB" 2>/dev/null; wait "$HB" 2>/dev/null
+sleep 1.2                                                                     # a heartbeat still in flight lands first
+post /state '{"tab":"tabYC","gone":true}' >/dev/null
 post /state "$(jq -c ".ts=$(date +%s%3N) | .position=2.4 | .paused=true" <<<"$TT")" >/dev/null
 det "paused follows the browser"      'waitfor .paused true && [[ "$(last .shown)" == true && "$(last .pos)" == 2.4 ]]'
 det "status line"                     'ipc status | grep -q "TikTok paused: pov: you beat the dragon, video ready"'
@@ -95,6 +155,20 @@ post /state '{"tab":"tabS1","gone":true}' >/dev/null
 det "tab gone -> nothing, lingering"  'waitfor .kind none && [[ "$(last .lingering)" == true && "$(last .shown)" == true && "$(last .title)" == "pov: you beat the dragon" ]]'
 det "auto-hide after autoHideSec (3 s)" 'waitfor .shown false 24 && [[ "$(last .lingering)" == false ]]'
 check "ipc reveal shows it idle"        'ipc reveal >/dev/null; waitfor .shown true'
+# ------------------------------------------------------------------ long videos in parts (default 5 min first part, 40 min parts)
+YL='{"tab":"tabYL","site":"youtube","pageUrl":"https://www.youtube.com/watch?v=LLLLLLLLLLL","videoId":"LLLLLLLLLLL","title":"A long lecture","author":"Prof","position":3001,"duration":6377.9,"paused":false,"rate":1,"live":false,"isVideo":true,"ad":false,"visible":true,"bv":"1.4.1"}'
+( while :; do post /state "$(jq -c ".ts=$(date +%s%3N) | .position=(3001 + ($(date +%s%3N) % 100000) / 100000)" <<<"$YL")" >/dev/null; sleep 1; done ) & HB=$!
+det "a video longer than maxVideoMin -> parts mode, the first part asked at the position" 'waitfor .key youtube-LLLLLLLLLLL && waitfor .inParts true && for _ in $(seq 1 30); do grep -Eq "^SECTION 2999-33(00|01) .*LLLLLLLLLLL" "$FAKE_LOG" && break; sleep 0.2; done; grep -Eq "^SECTION 2999-33(00|01) " "$FAKE_LOG"'
+det "parts: the part arrives -> the mirror gets it with its true start (the keyframe before the cut)" 'waitfor ".mirrorParts | length >= 1" true 40 && [[ "$(last ".mirrorParts[0].start")" == 2995 && "$(last ".mirrorParts[0].file")" == "$T/cache/youtube-LLLLLLLLLLL.part-"*.mp4 && "$(last .videoFile)" == "" ]]'
+det "parts: status line \"video parts n/m ready\" (the next part may already be on its way)" '[[ "$(last .partsText)" =~ ^parts\ [12]/[12]\ ready$ ]] && ipc status | grep -Eq "video parts [12]/[12] ready"'
+kill "$HB" 2>/dev/null; wait "$HB" 2>/dev/null
+post /state '{"tab":"tabYL","gone":true}' >/dev/null
+W1="$(nptest2 want MMMMMMMMMMM 7200 100 false)"
+check "MPRIS-only long video: want carries the position, duration, paused, rate" '[[ "$(jq -c "[.cmd, .id, .duration, .position, .paused, .rate]" <<<"$W1")" == "[\"want\",\"MMMMMMMMMMM\",7200,100,false,1]" ]]'
+check "... not again within 5 s while it plays on as predicted" '[[ "$(nptest2 want MMMMMMMMMMM 7200 100.5 false)" == "" ]]'
+check "... at once after a jump (> 3 s off the prediction)" '[[ "$(nptest2 want MMMMMMMMMMM 7200 1500 false | jq -r .position)" == 1500 ]]'
+check "... at once on pause"             '[[ "$(nptest2 want MMMMMMMMMMM 7200 1500 true | jq -r .paused)" == true ]]'
+check "... and again after 5 s"          'sleep 5.1; [[ "$(nptest2 want MMMMMMMMMMM 7200 1500 true | jq -r .position)" == 1500 ]]'
 if [[ "$OW_NOWPLAYING_NOMPRIS" != 1 ]]; then sleep 2; echo "  with the real MPRIS players: $(last '"kind=\(.kind) site=\(.site) title=\(.title) key=\(.key) video=\(.videoStatus)"')"; fi
 check "ipc off"                         '[[ "$(ipc off)" == off ]]'
 check "daemon stopped with off"         'for _ in $(seq 1 20); do kill -0 "$DPID" 2>/dev/null || break; sleep 0.25; done; ! kill -0 "$DPID" 2>/dev/null'

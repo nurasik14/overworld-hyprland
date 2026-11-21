@@ -16,7 +16,8 @@ import Quickshell.Io
  *    death_screen true · hud.bossbar_media "playing" ("playing"|"track"|"off")
  *    notifications.timeout.{low 4000, normal 7000} · workspace_card.{enabled,duration,position,show_untitled}
  *    nowplaying.{layer "overlay"|"top", autoHideSec 20, maxVideoMin 20, hideWhenSourceFullscreen true, width 360, cacheMB 400,
- *                port 47833, video true}   (the Now Playing PiP, quickshell/NowPlaying)
+ *                port 47833, video true, partFirstMin 5, partMin 40, partAheadMin 5, partHeight 360}   (the Now Playing PiP,
+ *                quickshell/NowPlaying; maxVideoMin = whole file up to this length, longer YouTube videos come in parts)
  *
  *  OW_CONFIG=<path> points the service at another file (tests).
  */
@@ -42,7 +43,7 @@ Singleton {
         hud: { bossbar_media: "playing" },
         notifications: { timeout: { low: 4000, normal: 7000 } },
         nowplaying: { layer: "overlay", autoHideSec: 20, maxVideoMin: 20, hideWhenSourceFullscreen: true, width: 360, cacheMB: 400,
-                      port: 47833, video: true }
+                      port: 47833, video: true, partFirstMin: 5, partMin: 40, partAheadMin: 5, partHeight: 360 }
     })
 
     readonly property bool sounds: config.sounds !== false

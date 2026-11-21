@@ -69,20 +69,29 @@ check "userscript --serve: the real URL serves it" 'curl -s "$USURL" | grep -qF 
 kill "$(cat "$T/serve-us.pid")" 2>/dev/null
 check "userscript JS parses"        'node --check "$US" 2>/dev/null || node -e "new Function(require(\"fs\").readFileSync(process.argv[1],\"utf8\"))" "$US"'
 
-# a stand-in for yt-dlp: no network. Logs its URL, sleeps $FAKE_SLEEP, writes a fake mp4 where -o says (FAKE_FAIL=1: exit 1)
+# a stand-in for yt-dlp: no network. Logs its URL, sleeps $FAKE_SLEEP, writes a fake mp4 where -o says (FAKE_FAIL=1: exit 1).
+# --download-sections "*A-B" (long videos in parts): logs "SECTION A-B <url>" and cuts $FAKE_SRC (a real 2 h test video, a
+# keyframe every 5 s) the way yt-dlp's ffmpeg does (-ss before -i, stream copy: starts at the keyframe before A, edit list)
 cat >"$T/fake-ytdlp" <<'FAKE'
 #!/usr/bin/env bash
-out=""; prev=""
-for a in "$@"; do [[ "$prev" == -o ]] && out="$a"; prev="$a"; done
-echo "${@: -1}" >>"$FAKE_LOG"
+out=""; prev=""; sec=""
+for a in "$@"; do [[ "$prev" == -o ]] && out="$a"; [[ "$prev" == --download-sections ]] && sec="${a#\*}"; prev="$a"; done
+if [[ -n "$sec" ]]; then echo "SECTION $sec ${@: -1}" >>"$FAKE_LOG"; else echo "${@: -1}" >>"$FAKE_LOG"; fi
 sleep "${FAKE_SLEEP:-0.2}"
 [[ "${FAKE_FAIL:-0}" == 1 ]] && { echo "ERROR: [youtube] fake failure" >&2; exit 1; }
 f="${out//%(ext)s/mp4}"
+if [[ -n "$sec" ]]; then
+    a="${sec%-*}"; b="${sec#*-}"
+    exec ffmpeg -v error -nostdin -y -ss "$a" -t "$(( b - a ))" -i "$FAKE_SRC" -c copy "$f"
+fi
 { printf '\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2'; head -c 2048 /dev/zero; } >"$f"
 FAKE
 chmod +x "$T/fake-ytdlp"
-export HYPR_NOWPLAYING_YTDLP="$T/fake-ytdlp" FAKE_LOG="$T/fake.log" FAKE_SLEEP=0.2
+export HYPR_NOWPLAYING_YTDLP="$T/fake-ytdlp" FAKE_LOG="$T/fake.log" FAKE_SLEEP=0.2 FAKE_SRC="$T/src2h.mp4"
 : >"$FAKE_LOG"
+# the long test video the fake cuts parts from: 2 h, 2 fps, 64x36, a keyframe every 5 s (~3 s to make)
+ffmpeg -v error -nostdin -y -f lavfi -i "testsrc2=s=64x36:r=2:d=7200" -c:v libx264 -g 10 -pix_fmt yuv420p "$FAKE_SRC" \
+    || bad "the long fixture video (ffmpeg libx264)"
 
 # ------------------------------------------------------------------ the server
 start --cache-mb 1 --max-min 20 || { bad "server starts" "$(cat "$T/serve.log")"; }
@@ -103,13 +112,13 @@ check "bad JSON -> 400"              '[[ "$(post /state "{nope" | cut -d" " -f1)
 check "unknown site -> 400"          '[[ "$(post /state "$(jq -c ".site=\"vimeo\"" <<<"$YT")" | cut -d" " -f1)" == 400 ]]'
 check "huge body -> 400"             '[[ "$(post /state "$(jq -c ".title=\"$(head -c 40000 /dev/zero | tr "\0" a)\"" <<<"$YT")" | cut -d" " -f1)" == 400 ]]'
 
-# a 60 min video: longer than --max-min 20 -> skipped, no yt-dlp run
+# a 60 min video: longer than --max-min 20 -> in parts (see the parts section below), no whole-file yt-dlp run
 R="$(post /state "$YT")"
 check "good state -> 200"            '[[ "${R%% *}" == 200 ]]'
 check "youtube never asks the browser for bytes" '[[ "$(jq -r .wantVideo <<<"${R#* }")" == false ]]'
 check "state.json has the bridge"    '[[ "$(state .bridge.videoId)" == dQw4w9WgXcQ && "$(state .bridge.title)" == "Never Gonna" ]]'
 check "received stamped"             '[[ "$(state .bridge.received)" -gt 1000000000000 ]]'
-check "too long -> skipped"          '[[ "$(state .videoStatus)" == skipped ]]'
+check "too long -> parts, not the whole file" '[[ "$(state ".videos[\"youtube-dQw4w9WgXcQ\"].mode")" == parts && "$(state .videoStatus)" =~ ^(fetching|ready)$ && "$(state .videoFile)" == "" ]]'
 check "state.json is 0600"           '[[ "$(stat -c %a "$T/run/state.json")" == 600 ]]'
 INODE="$(stat -c %i "$T/run/state.json")"
 post /state "$(jq -c '.position=13.5' <<<"$YT")" >/dev/null
@@ -198,7 +207,7 @@ check "fetch -> ready"                   'waitst youtube-dQw4w9WgXcQ ready && [[
 check "yt-dlp got the canonical URL"     'grep -qx "https://www.youtube.com/watch?v=dQw4w9WgXcQ" "$FAKE_LOG"'
 post /state "$(jq -c '.tab="tabY1" | .duration=200' <<<"$YT")" >/dev/null
 check "bridge on a cached id -> ready at once" '[[ "$(state .videoStatus)" == ready && "$(state .videoFile)" == "$T/cache/youtube-dQw4w9WgXcQ.mp4" ]]'
-check "no second download of a cached id" '[[ "$(grep -c dQw4w9WgXcQ "$FAKE_LOG")" == 1 ]]'
+check "no second download of a cached id" '[[ "$(grep -v ^SECTION "$FAKE_LOG" | grep -c dQw4w9WgXcQ)" == 1 ]]'
 check "no work dirs left"                '! ls -a "$T/cache" | grep -q "^.ytdlp-"'
 stop; FAKE_SLEEP=3 start --cache-mb 1 || bad "server restarts (worker)"
 "$NP" want aaaaaaaaaaa >/dev/null; sleep 0.5; "$NP" want bbbbbbbbbbb >/dev/null
@@ -213,7 +222,7 @@ check "a failed id is not retried at once" '[[ "$(wc -l <"$FAKE_LOG")" == "$n" ]
 stop; FAKE_FAIL=0 start --cache-mb 1 || bad "server restarts (soft skip)"
 SK="$(jq -c '.tab="tabK1" | .videoId="ddddddddddd" | .duration=7200' <<<"$YT")"
 post /state "$SK" >/dev/null
-check "too long in one report -> skipped (soft)" '[[ "$(state ".videos[\"youtube-ddddddddddd\"].status")" == skipped ]]'
+check "too long in one report -> parts (no whole file)" '[[ "$(state ".videos[\"youtube-ddddddddddd\"].mode")" == parts ]]'
 post /state "$(jq -c '.duration=95' <<<"$SK")" >/dev/null
 check "the next report with the real length fetches it" 'waitst youtube-ddddddddddd ready'
 # the worker survives an exception (cache dir made unwritable mid-run)
@@ -298,11 +307,143 @@ sleep 10.6
 check "not picked up in 10 s -> expired" '[[ "$(state .action.status)" == expired && "$(state .action.error)" == *"did not pick it up"* ]]'
 R="$(reply "$(jq -c '.paused=true' <<<"$TA")")"
 check "an expired command is never delivered" '[[ "$(jq -c .actions <<<"$R")" == "[]" ]]'
+# ------------------------------------------------------------------ several tabs (1.4.0): the list, pin / unpin, per-tab media commands
+post /state '{"tab":"tabX1","gone":true}' >/dev/null
+YA="$(jq -c '.tab="tabMa" | .duration=100 | .title="Tab A\u0007 song"' <<<"$YT")"
+YB="$(jq -c '.tab="tabMb" | .videoId="bbbbbbbbbbb" | .pageUrl="https://www.youtube.com/watch?v=bbbbbbbbbbb" | .duration=100 | .title="Tab B" | .paused=true | .thumbnail="https://evil.example/x.jpg" | .bv="1.4.0"' <<<"$YT")"
+reply "$YA" >/dev/null; R="$(reply "$YB")"
+check "tabs: both listed, the playing one first, bridge = auto choice" '[[ "$(state "[.tabs[].tab] | join(\",\")")" == "tabMa,tabMb" && "$(state .bridge.tab)" == tabMa && "$(state .pin)" == null ]]'
+check "tabs: cleaned like bridge (control char, foreign thumbnail), received, pinned, bv" '[[ "$(state ".tabs[0].title")" == "Tab A song" && "$(state ".tabs[1].thumbnail")" == "" && "$(state ".tabs[1].received > 0")" == true && "$(state "[.tabs[].pinned] | join(\",\")")" == "false,false" && "$(state ".tabs[1].bv")" == 1.4.0 && "$(state ".tabs[0].bv")" == "" ]]'
+check "tabs: junk bv dropped"            'reply "$(jq -c ".bv=\"1.4.0; rm\"" <<<"$YA")" >/dev/null; [[ "$(state ".tabs[0].bv")" == "" ]]'
+check "a paused unpinned YouTube tab: no poll, keepalive 2 s" '[[ "$(jq -r .poll <<<"$R")" == false && "$(jq -r .keepalive <<<"$R")" == 2 ]]'
+ctl '{"cmd":"pin","tab":"tabMb"}'
+check "pin: state.pin, the pinned tab is the bridge even paused" '[[ "$(state .pin)" == tabMb && "$(state .bridge.tab)" == tabMb && "$(state "[.tabs[] | select(.pinned) | .tab] | join(\",\")")" == tabMb ]]'
+R="$(reply "$YB")"
+check "pin: the pinned tab gets poll (1 s heartbeat while paused)" '[[ "$(jq -r .poll <<<"$R")" == true ]]'
+check "pin: the video fetch follows the pinned tab" '[[ "$(state ".videos[\"youtube-bbbbbbbbbbb\"].status")" =~ ^(fetching|ready)$ ]]'
+reply "$YA" >/dev/null
+check "pin: a playing other tab does not take over" '[[ "$(state .bridge.tab)" == tabMb ]]'
+ctl '{"cmd":"pin","tab":"../bad"}'
+check "pin: a bad tab id is ignored"     '[[ "$(state .pin)" == tabMb ]]'
+ctl '{"cmd":"action","tab":"tabMb","action":"play"}'
+check "media: play queued for the tab, bound to what it plays" '[[ "$(state .action.status)" == queued && "$(state .action.action)" == play && "$(state .action.key)" == youtube-bbbbbbbbbbb && "$(state .action.tab)" == tabMb ]]'
+PID1="$(state .action.id)"
+R="$(reply "$YB")"
+check "media: delivered in the reply (no collection)" '[[ "$(jq -c .actions <<<"$R")" == "[{\"id\":$PID1,\"key\":\"youtube-bbbbbbbbbbb\",\"action\":\"play\"}]" && "$(state .action.status)" == sent ]]'
+reply "$(jq -c --argjson i "$PID1" '.paused=false | .done={id:$i, action:"play", ok:true, error:""}' <<<"$YB")" >/dev/null
+check "media: done (top-level result, any site)" '[[ "$(state .action.status)" == done && "$(state .bridge.paused)" == false && "$(state .bridge.done.id)" == "$PID1" ]]'
+ctl '{"cmd":"action","tab":"tabMb","action":"next"}'; PID2="$(state .action.id)"
+reply "$YB" >/dev/null
+reply "$(jq -c --argjson i "$PID2" '.done={id:$i, action:"next", ok:false, error:"no next button on this page\u0007"}' <<<"$YB")" >/dev/null
+check "media: a failed next -> failed + cleaned error" '[[ "$(state .action.status)" == failed && "$(state .action.error)" == "no next button on this page" ]]'
+ctl '{"cmd":"action","tab":"tabMb","action":"pause"}'; PID3="$(state .action.id)"
+reply "$(jq -c '.videoId="ccccccccccc" | .pageUrl="https://www.youtube.com/watch?v=ccccccccccc"' <<<"$YB")" >"$T/r3"
+check "media: not bound to a clip (delivered after the video changed)" '[[ "$(jq -r ".actions[0].action" "$T/r3")" == pause && "$(jq -r ".actions[0].key" "$T/r3")" == youtube-ccccccccccc ]]'
+reply "$(jq -c --argjson i "$PID3" '.done={id:$i, action:"pause", ok:true, error:""}' <<<"$YB")" >/dev/null
+ctl '{"cmd":"action","tab":"tabMa","action":"pause"}'
+R="$(reply "$YA")"
+check "media: an unpinned tab with a command on its way gets poll" '[[ "$(jq -r .poll <<<"$R")" == true && "$(jq -r ".actions[0].action" <<<"$R")" == pause ]]'
+ctl '{"cmd":"action","tab":"tabZZ","action":"play"}'
+check "media: an unknown tab is refused" '[[ "$(state .action.status)" == refused && "$(state .action.error)" == *gone* ]]'
+ctl '{"cmd":"action","tab":"tabMb","action":"rewind"}'
+check "media: an unknown action is refused" '[[ "$(state .action.status)" == refused && "$(state .action.error)" == *"unknown action"* ]]'
+check "status lists the tabs, the pinned one marked" '"$NP" status | grep -q "tabs:    2" && "$NP" status | grep -q "^    \* youtube"'
+ctl '{"cmd":"pin","tab":null}'
+check "unpin: automatic again (the playing tab)" '[[ "$(state .pin)" == null && "$(state .bridge.tab)" == tabMa ]]'
+ctl '{"cmd":"pin","tab":"tabMb"}'
+post /state '{"tab":"tabMb","gone":true}' >/dev/null
+check "pin released when the pinned tab closes" '[[ "$(state .pin)" == null && "$(state "[.tabs[].tab] | join(\",\")")" == tabMa ]]'
+reply "$YB" >/dev/null; reply "$YA" >/dev/null
+ctl '{"cmd":"pin","tab":"tabMa"}'
+ctl '{"cmd":"action","tab":"tabMb","action":"play"}'
+sleep 6
+check "pin released when the pinned (playing) tab stops reporting" '[[ "$(state .pin)" == null && "$(state "[.tabs[].tab] | join(\",\")")" == tabMb && "$(state .bridge.tab)" == tabMb ]]'
+ctl '{"cmd":"pin","tab":"tabNever"}'
+check "a pin on a tab not seen yet is kept for now" '[[ "$(state .pin)" == tabNever && "$(state .bridge.tab)" == tabMb ]]'
+sleep 5
+check "media: not picked up in 10 s -> expired" '[[ "$(state .action.status)" == expired && "$(state .action.action)" == play ]]'
+check "... and never delivered"          '[[ "$(reply "$YB" | jq -c .actions)" == "[]" ]]'
+sleep 6.2
+check "a pin on a tab never seen clears after 10 s" '[[ "$(state .pin)" == null ]]'
 exec 7>&-
 for _ in $(seq 1 30); do kill -0 "$SPID" 2>/dev/null || break; sleep 0.1; done
-check "stdin closed -> it exits, state says stopped (action null)" '! kill -0 "$SPID" 2>/dev/null && [[ "$(state .server)" == null && "$(state .action)" == null ]]'
+check "stdin closed -> it exits, state says stopped (action null)" '! kill -0 "$SPID" 2>/dev/null && [[ "$(state .server)" == null && "$(state .action)" == null && "$(state .pin)" == null && "$(state ".tabs | length")" == 0 ]]'
 wait "$SPID" 2>/dev/null; SPID=""
 FAKE_SLEEP=0.2 start --cache-mb 1 || bad "server restarts after the actions"
+
+# ------------------------------------------------------------------ long videos in parts (fake yt-dlp cuts $FAKE_SRC like yt-dlp)
+# first part 1 min, then 3 min parts, the next one when < 30 s is fetched ahead
+stop
+rm -f "$T"/cache/*.mp4
+PARTS=(--cache-mb 50 --max-min 20 --part-first-min 1 --part-min 3 --part-ahead-min 0.5)
+mkfifo "$T/ctl2"
+"$NP" serve --keep --stdin "${PARTS[@]}" -v <"$T/ctl2" >"$T/serve.log" 2>&1 &
+SPID=$!
+exec 7>"$T/ctl2"
+for _ in $(seq 1 50); do curl -s -o /dev/null "$URL/ping" && break; sleep 0.1; done
+LK=youtube-LLLLLLLLLLL
+LV="$(jq -c '.tab="tabLV" | .videoId="LLLLLLLLLLL" | .pageUrl="https://www.youtube.com/watch?v=LLLLLLLLLLL" | .duration=7200 | .position=3001.3 | .paused=false' <<<"$YT")"
+lv() { reply "$(jq -c ".position=$1 | .paused=${2:-false}" <<<"$LV")" >/dev/null; }
+pv() { state ".videos[\"$LK\"]$1"; }
+parts() { state "[.videos[\"$LK\"].parts[] | select(.status==\"ready\") | \"\(.start)+\(.dur)\"] | join(\" \")"; }
+waitready() { for _ in $(seq 1 80); do [[ "$(pv .status)" == ready && "$(state .fetching)" == "${2:-}" ]] && return 0; [[ -n "${1:-}" ]] && lv "$1"; sleep 0.1; done; return 1; }
+: >"$FAKE_LOG"
+lv 3001.3
+check "parts: a long video -> the first part at the position (short), not the whole file" '[[ "$(pv .mode)" == parts && "$(state ".fetchingPart | map(tostring) | join(\"-\")")" =~ ^2999-30(59|60)$ ]] && for _ in $(seq 1 20); do grep -Eq "^SECTION 2999-30(59|60) https://www.youtube.com/watch\?v=LLLLLLLLLLL$" "$FAKE_LOG" && break; sleep 0.1; done; grep -Eq "^SECTION 2999-30(59|60) " "$FAKE_LOG" && ! grep -qx "https://www.youtube.com/watch?v=LLLLLLLLLLL" "$FAKE_LOG"'
+check "parts: status fetching meanwhile, a fetching entry in parts" '[[ "$(pv .status)" =~ ^(fetching|ready)$ ]]'
+check "parts: ready once a part covers the position" 'waitready 3001.5'
+P1="$(parts)"
+check "parts: the true start = the keyframe before the cut (2995), the length from the file" '[[ "$P1" =~ ^2995(\.0)?\+6[0-9](\.[0-9]+)?$ ]]'
+F1="$(state ".videos[\"$LK\"].parts[0].file")"
+check "parts: a cache file named after its timeline range" '[[ "$F1" =~ /youtube-LLLLLLLLLLL\.part-2995000-30[56][0-9]+\.mp4$ && -s "$F1" ]]'
+check "parts: normalised (video only, timestamps from 0, no edit list needed)" '[[ "$(ffprobe -v error -show_entries stream=codec_type -of csv=p=0 "$F1" | sort -u | tr "\n" " ")" == "video " ]] && ffmpeg -v error -nostdin -i "$F1" -f null - 2>&1 | wc -l | grep -qx 0'
+check "parts: no next part while > 30 s is ahead" 'sleep 0.5; [[ "$(state .fetching)" == "" && $(grep -c ^SECTION "$FAKE_LOG") == 1 ]]'
+lv 3036
+check "parts: < 30 s ahead -> the next part, starting 8 s before the end (overlap), 3 min" 'for _ in $(seq 1 20); do grep -q "^SECTION 30[45][0-9]-32[2-4][0-9] " "$FAKE_LOG" && break; sleep 0.1; done; grep -q "^SECTION 30[45][0-9]-32[2-4][0-9] " "$FAKE_LOG"'
+waitready 3036.5
+check "parts: contiguous, overlapping by >= 1 s" '[[ "$(state "[.videos[\"$LK\"].parts[] | select(.status==\"ready\")] | length")" == 2 && "$(state "[.videos[\"$LK\"].parts[] | select(.status==\"ready\")] | (.[1].start < .[0].start + .[0].dur - 1) and (.[1].start > .[0].start)")" == true ]]'
+check "parts: status shows the parts" '"$NP" status | grep -q "^  parts:   49:55-5[01]:[0-9][0-9], 5[01]:[0-9][0-9]-5[34]:[0-9][0-9]"'
+n="$(grep -c ^SECTION "$FAKE_LOG")"
+lv 3100 true
+check "parts: paused inside the range -> nothing new" 'sleep 1.2; [[ "$(grep -c ^SECTION "$FAKE_LOG")" == "$n" && "$(pv .status)" == ready ]]'
+lv 5000
+check "parts: a seek outside the range -> a new short part there" 'for _ in $(seq 1 20); do grep -Eq "^SECTION 4998-50(58|59) " "$FAKE_LOG" && break; sleep 0.1; done; grep -Eq "^SECTION 4998-50(58|59) " "$FAKE_LOG"'
+waitready 5000.5
+check "parts: old parts > 10 min behind dropped, the new one kept" '[[ ! -e "$F1" && "$(parts)" =~ ^499[0-9](\.[0-9]+)?\+[0-9.]+$ ]]'
+# superseded: a slow part, then the tab plays another (short) video
+stop; exec 7>&-
+FAKE_SLEEP=3 "$NP" serve --keep --stdin "${PARTS[@]}" <"$T/ctl2" >"$T/serve.log" 2>&1 &
+SPID=$!; exec 7>"$T/ctl2"
+for _ in $(seq 1 50); do curl -s -o /dev/null "$URL/ping" && break; sleep 0.1; done
+check "parts: survive a restart (cache scan): ready at once, no new fetch" 'n=$(grep -c ^SECTION "$FAKE_LOG"); lv 5010; [[ "$(pv .status)" == ready && "$(parts)" =~ ^499[0-9] ]] && sleep 0.5 && [[ $(grep -c ^SECTION "$FAKE_LOG") == $n ]]'
+lv 6000; sleep 1
+FP="$(pgrep -f "fake-ytdlp.*--download-sections \*5998-60(58|59)" | head -1)"
+check "parts: a slow part is running" '[[ -n "$FP" ]]'
+reply "$(jq -c '.videoId="SSSSSSSSSSS" | .pageUrl="https://www.youtube.com/watch?v=SSSSSSSSSSS" | .duration=200 | .position=1' <<<"$LV")" >/dev/null
+check "parts: superseded when the tab plays another video (killed, no file, no fetching entry)" 'for _ in $(seq 1 30); do kill -0 "$FP" 2>/dev/null || break; sleep 0.1; done; ! kill -0 "$FP" 2>/dev/null && ! ls "$T/cache" | grep -q "part-59" && [[ "$(state "[.videos[\"$LK\"].parts[] | select(.status==\"fetching\")] | length")" == 0 ]]'
+check "parts: the short video is fetched whole (no sections)" 'for _ in $(seq 1 60); do [[ "$(state ".videos[\"youtube-SSSSSSSSSSS\"].status")" == ready ]] && break; sleep 0.1; done; [[ -s "$T/cache/youtube-SSSSSSSSSSS.mp4" ]] && grep -qx "https://www.youtube.com/watch?v=SSSSSSSSSSS" "$FAKE_LOG" && ! grep -q "^SECTION.*SSSSSSSSSSS" "$FAKE_LOG"'
+# the MPRIS-only path: the shell's want carries the position
+printf '%s\n' '{"cmd":"want","site":"youtube","id":"MMMMMMMMMMM","duration":7200,"position":100,"paused":false,"rate":1}' >&7
+printf '%s\n' '{"cmd":"active","key":"youtube-MMMMMMMMMMM"}' >&7
+post /state '{"tab":"tabLV","gone":true}' >/dev/null
+check "parts: an MPRIS-only want with a position -> the first part there" 'for _ in $(seq 1 60); do [[ "$(state ".videos[\"youtube-MMMMMMMMMMM\"].status")" == ready ]] && break; sleep 0.1; done; [[ "$(state ".videos[\"youtube-MMMMMMMMMMM\"].mode")" == parts ]] && grep -Eq "^SECTION 98-15[89] .*MMMMMMMMMMM" "$FAKE_LOG"'
+# LRU: whole files of other videos go first; the parts of the shown video stay
+for i in 1 2 3; do fake_mp4 "$T/cache/tiktok-722222222222222222$i.mp4" 20000; touch -d "-$((10 - i)) min" "$T/cache/tiktok-722222222222222222$i.mp4"; done
+MF="$(ls "$T"/cache/youtube-MMMMMMMMMMM.part-*.mp4)"
+touch -d "-1 day" "$MF"
+printf '%s\n' '{"cmd":"want","site":"youtube","id":"MMMMMMMMMMM","duration":7200,"position":145,"paused":false,"rate":1}' >&7
+check "parts: LRU over the cap keeps the shown video's parts (even the oldest file) and its preload" 'for _ in $(seq 1 60); do [[ $(ls "$T"/cache/youtube-MMMMMMMMMMM.part-*.mp4 | wc -l) -ge 2 ]] && break; sleep 0.1; done; [[ -e "$MF" && $(ls "$T"/cache/youtube-MMMMMMMMMMM.part-*.mp4 | wc -l) -ge 2 && $(ls "$T"/cache/tiktok-72222222222222222*.mp4 2>/dev/null | wc -l) -lt 3 ]]'
+stop; exec 7>&-
+# a part that takes too long: timed out (per request), not retried at once
+HYPR_NOWPLAYING_YTDLP_TIMEOUT=1 FAKE_SLEEP=5 "$NP" serve --keep --stdin "${PARTS[@]}" <"$T/ctl2" >"$T/serve.log" 2>&1 &
+SPID=$!; exec 7>"$T/ctl2"
+for _ in $(seq 1 50); do curl -s -o /dev/null "$URL/ping" && break; sleep 0.1; done
+: >"$FAKE_LOG"
+lv 700
+check "parts: a part over the per-request timeout -> failed (timed out)" 'for _ in $(seq 1 40); do [[ "$(pv .status)" == failed ]] && break; lv 700.5; sleep 0.1; done; [[ "$(pv .status)" == failed && "$(pv .reason)" == "timed out" ]]'
+check "parts: ... and not retried at once" 'lv 701; sleep 1.5; [[ $(grep -c ^SECTION "$FAKE_LOG") == 1 ]]'
+stop; exec 7>&-
+FAKE_SLEEP=0.2 start --cache-mb 1 || bad "server restarts after the parts"
 
 # ------------------------------------------------------------------ SIGTERM: clean exit, state says stopped
 kill "$SPID"; wait "$SPID" 2>/dev/null; SPID=""

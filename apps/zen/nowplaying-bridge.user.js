@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Now Playing bridge (hypr-nowplaying)
 // @namespace    hypr-nowplaying
-// @version      1.3.0
-// @description  Tells the desktop's Now Playing mini-player (Overworld / Apothecary Hyprland) what this tab plays: video id, title, channel, thumbnail, position, paused, rate. Talks only to 127.0.0.1 with a private token. On TikTok it can also hand over the playing clip's file, because the desktop cannot download TikTok itself, and run the PiP's like / repost / save buttons on TikTok's own buttons.
+// @version      1.4.1
+// @description  Tells the desktop's Now Playing mini-player (Overworld / Apothecary Hyprland) what this tab plays: video id, title, channel, thumbnail, position, paused, rate. Talks only to 127.0.0.1 with a private token. On TikTok it can also hand over the playing clip's file, because the desktop cannot download TikTok itself, and run the PiP's like / repost / save buttons on TikTok's own buttons. When the PiP shows this tab while another one plays, its play / pause / next / previous come here.
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
 // @match        https://music.youtube.com/*
@@ -17,6 +17,7 @@
 // @connect      byteoversea.com
 // @connect      ibytedtos.com
 // @inject-into  content
+// @sandbox      JavaScript
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -31,7 +32,12 @@
 // The daemon answers {wantVideo}: only then (TikTok, the desktop's PiP is on) the clip's file is fetched from TikTok's own CDN with
 // this tab's cookies and posted to the daemon (max 60 MB). It may also answer {actions: [{id, key, action, collection}]}: the PiP's
 // like / repost / save buttons, run here by clicking TikTok's own buttons for that clip only (see "TikTok: like / repost / save"),
-// and {poll: true} (a TikTok tab while the PiP is on): then a paused tab keeps reporting every second so those commands arrive.
+// and {poll: true} (a TikTok tab, or the tab the PiP is pinned to, while the PiP is on): then a paused tab keeps reporting every
+// second so those commands arrive. {keepalive: 2}: while the daemon answers (the PiP is on) a paused tab reports every 2 s, so it
+// learns when the PiP is pinned to it. With the PiP off nobody answers and a paused tab says nothing.
+// 1.4.0 — the PiP can show one of several tabs: {actions: [{id, key, action: play|pause|toggle|next|previous}]} are run on this
+// tab's own player (any site; <video>.play() in a background tab may be refused by the browser's autoplay policy: reported as an
+// error, never retried); the result goes back as {done: {id, action, ok, error}} in the next report.
 
 (function () {
   "use strict";
@@ -42,6 +48,7 @@
     return;
   }
   const BASE = "http://127.0.0.1:" + PORT;
+  const VERSION = "1.4.1";
   const TAB = (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).slice(0, 24);
   const HOST = location.hostname;
   const SITE = HOST === "music.youtube.com" ? "ytmusic" : /(^|\.)youtube\.com$/.test(HOST) ? "youtube" : "tiktok";
@@ -54,7 +61,8 @@
   let reported = false;     // the daemon knows this tab (send `gone` when it stops)
   let downUntil = 0;        // nobody listens: back off
   let lastKey = "";
-  let pollWanted = false;   // the daemon (so the PiP is on) wants a 1 s heartbeat from this TikTok tab even while paused
+  let pollWanted = false;   // the daemon (so the PiP is on) wants a 1 s heartbeat from this tab even while paused
+  let keepalive = 0;        // s between reports of a paused tab while the daemon answers (0 = none)
   const tried = new Set();  // TikTok keys we already tried to hand over
 
   // ------------------------------------------------------------------ transport
@@ -71,10 +79,20 @@
           downUntil = 0;
           if (onDone) onDone(r.status, r.response);
         },
-        onerror: () => { downUntil = Date.now() + 15000; if (onDone) onDone(0, null); },
-        ontimeout: () => { downUntil = Date.now() + 15000; if (onDone) onDone(0, null); },
+        onerror: () => { down(); if (onDone) onDone(0, null); },
+        ontimeout: () => { down(); if (onDone) onDone(0, null); },
       });
     } catch (e) { /* the extension is updating / reloading */ }
+  }
+
+  // nobody answers: back off 15 s. A tab that was linked (the PiP was on) checks twice more, after 3 and 10 s, because the theme
+  // shell restarts the daemon on a reload; a paused tab would otherwise drop out of the PiP's source list until it plays again.
+  function down() {
+    const wasLinked = pollWanted || keepalive > 0;   // still the last answer's values: onDone runs after this
+    downUntil = Date.now() + (wasLinked ? 2500 : 15000);
+    if (wasLinked) [3000, 10000].forEach(ms => setTimeout(() => {
+      if (!pollWanted && !keepalive && active && !pending) { downUntil = 0; send(); }   // a failure now backs off 15 s, no more retries
+    }, ms));
   }
 
   // ------------------------------------------------------------------ which element plays
@@ -278,6 +296,8 @@
       ts: Date.now(),
     });
     delete out.artTrack;
+    out.bv = VERSION;
+    out.done = lastDone;
     if (SITE === "tiktok") out.tt = ttState(out.videoId);
     return out;
   }
@@ -297,23 +317,27 @@
     const p = payload(m);
     reported = true;
     request("POST", "/state", JSON.stringify(p), null, (status, r) => {
-      const was = pollWanted;
-      pollWanted = status === 200 && !!r && r.poll === true && SITE === "tiktok";   // nobody answers (PiP off): go quiet
+      const was = pollWanted, wasKeep = keepalive;
+      pollWanted = status === 200 && !!r && r.poll === true;   // nobody answers (PiP off): go quiet
+      keepalive = status === 200 && r && typeof r.keepalive === "number" && r.keepalive > 0 ? Math.max(1, Math.min(30, r.keepalive)) : 0;
       if (status === 200 && r && Array.isArray(r.actions)) r.actions.forEach(runAction);
       if (status === 200 && r && r.wantVideo && r.key && !tried.has(r.key) && SITE === "tiktok") {
         tried.add(r.key);
         handOver(r.key, m, p.videoId);
       }
-      if (was !== pollWanted) syncTimer(active);
+      if (was !== pollWanted || wasKeep !== keepalive) syncTimer(active);
     });
     if (p.videoId !== lastKey) lastKey = p.videoId;
     syncTimer(m);
   }
-  function syncTimer(m) {   // every second while it plays; while paused only when the daemon asked for it (TikTok + the PiP is on)
-    if (m && ((!m.paused && !m.ended) || pollWanted)) { if (!timer) timer = setInterval(send, 1000); }
-    else stopTimer();
+  let timerMs = 0;
+  function syncTimer(m) {   // every second while it plays; while paused only when the daemon asked for it (poll 1 s, keepalive slower)
+    const ms = !m ? 0 : (!m.paused && !m.ended) || pollWanted ? 1000 : keepalive ? keepalive * 1000 : 0;
+    if (ms && timer && timerMs === ms) return;
+    stopTimer();
+    if (ms) { timer = setInterval(send, ms); timerMs = ms; }
   }
-  function stopTimer() { if (timer) { clearInterval(timer); timer = 0; } }
+  function stopTimer() { if (timer) { clearInterval(timer); timer = 0; timerMs = 0; } }
   function soon() { if (!pending) pending = setTimeout(send, 150); }
 
   function onMedia(e) {
@@ -512,9 +536,12 @@
     if (!pending) pending = setTimeout(send, 50);   // tell the daemon now
   }
   function runAction(a) {
-    if (!a || typeof a.id !== "number" || !/^(like|repost|save)$/.test(a.action) || !/^tiktok-\d{8,25}$/.test(String(a.key))) return;
+    if (!a || typeof a.id !== "number") return;
+    const media = /^(play|pause|toggle|next|previous)$/.test(a.action);
+    if (!media && (!/^(like|repost|save)$/.test(a.action) || !/^tiktok-\d{8,25}$/.test(String(a.key)))) return;
     if ((lastDone && lastDone.id === a.id) || (acting && acting.id === a.id)) return;   // handed over twice
     if (acting) return finishAction(a, false, "busy with the last " + acting.action);
+    if (media) return runMedia(a);
     const id = a.key.slice(7);
     const bar = actionBar();
     if (!bar || !barButton(bar, "like-icon")) return finishAction(a, false, "TikTok shows no like / save buttons here (logged out?)");
@@ -526,6 +553,43 @@
     try { r = run(bar, id, a); } catch (e) { r = Promise.reject(e); }
     Promise.resolve(r).then(res => finishAction(a, res.ok, res.error),
       e => finishAction(a, false, "error: " + String((e && e.message) || e)));
+  }
+
+  // ------------------------------------------------------------------ play / pause / next / previous for THIS tab (1.4.0)
+  // The PiP shows a tab that the browser's MPRIS does not follow (another tab plays, or it was picked in the PiP's source list):
+  // its buttons come here. play() in a background tab may be refused by the autoplay policy: reported, never retried.
+  function clickFirst(sels) {
+    for (const sel of sels) {
+      const b = document.querySelector(sel);
+      if (b && !b.disabled && b.getAttribute("aria-disabled") !== "true" && b.getClientRects().length) { b.click(); return true; }
+    }
+    return false;
+  }
+  function stepTrack(dir) {   // -> "" or an error
+    if (SITE === "tiktok") { feedStep(dir); return ""; }
+    const ytm = SITE === "ytmusic";
+    const sels = dir > 0 ? (ytm ? ["ytmusic-player-bar .next-button", ".next-button"] : [".ytp-next-button"])
+      : (ytm ? ["ytmusic-player-bar .previous-button", ".previous-button"] : [".ytp-prev-button"]);
+    if (clickFirst(sels)) return "";
+    const m = active && active.isConnected ? active : pick();
+    if (dir < 0 && m) { m.currentTime = 0; return ""; }   // no previous video here: back to the start, like the media keys
+    return "no " + (dir > 0 ? "next" : "previous") + " button on this page";
+  }
+  function runMedia(a) {
+    const m = active && active.isConnected ? active : pick();
+    if (a.action === "next" || a.action === "previous") {
+      let err = "";
+      try { err = stepTrack(a.action === "next" ? 1 : -1); } catch (e) { err = "error: " + String((e && e.message) || e); }
+      return finishAction(a, !err, err);
+    }
+    if (!m) return finishAction(a, false, "nothing to play in this tab");
+    const play = a.action === "play" || (a.action === "toggle" && (m.paused || m.ended));
+    if (!play) { try { m.pause(); } catch (e) { return finishAction(a, false, "error: " + e); } return finishAction(a, true, ""); }
+    acting = { id: a.id, action: a.action };
+    let r;
+    try { r = m.play(); } catch (e) { r = Promise.reject(e); }
+    Promise.resolve(r).then(() => finishAction(a, true, ""), e => finishAction(a, false, e && e.name === "NotAllowedError"
+      ? "the browser refused to start a background tab (autoplay policy): click the tab once" : "play failed: " + String((e && e.message) || e)));
   }
 
   async function doLike(bar, id) {

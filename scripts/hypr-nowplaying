@@ -2,7 +2,8 @@
 # hypr-nowplaying — the Now Playing bridge shared by every theme (Overworld, Apothecary): a tiny localhost daemon that
 # the browser userscript (apps/zen/nowplaying-bridge.user.js) reports to, plus a video cache for the floating mini-player.
 #
-#   hypr-nowplaying serve [--port N] [--cache-mb N] [--max-min N] [--upload-mb N] [--stdin] [--keep] [-v]
+#   hypr-nowplaying serve [--port N] [--cache-mb N] [--max-min N] [--upload-mb N] [--part-first-min N] [--part-min N]
+#                         [--part-ahead-min N] [--part-height N] [--stdin] [--keep] [-v]
 #                                         the daemon (127.0.0.1 only, one instance); the theme shell runs it while the PiP is on
 #   hypr-nowplaying status [--json]       is it running, what plays, the video, the cache
 #   hypr-nowplaying userscript [--port N] [--serve] [--print]
@@ -27,6 +28,17 @@
 #   GET  /ping                                                                    -> {"ok", "version", "port"}
 # --stdin: the same `want` (and {"cmd": "active", "key": …}) as JSON lines on stdin; EOF = the parent is gone = exit.
 #
+# Several tabs (the PiP's source chooser): state.json lists every fresh tab as "tabs": [{tab, site, key, title, author, paused,
+# thumbnail, received, pinned, …}] (the same cleaned fields as "bridge"); "bridge" stays the selected one. stdin
+# {"cmd": "pin", "tab": "<tab>"} makes select() prefer that tab while it exists (the video fetch and "active" follow it);
+# {"cmd": "pin", "tab": null} = automatic again. The pin clears itself when that tab goes away (gone / expired, or never seen
+# within 10 s). "pin" in state.json is the pinned tab or null.
+# Per-tab media commands (bridge 1.4.0+): stdin {"cmd": "action", "tab": <tab>, "action": "play"|"pause"|"toggle"|"next"|
+# "previous"} goes through the same one-at-a-time queue as the TikTok actions (any site, not bound to a clip); the tab answers
+# with "done": {id, action, ok, error} in its next report (TikTok also in tt.last). "poll": true is also sent to a pinned tab and
+# to a tab with a command waiting, and "keepalive": 2 asks every paused tab to report every 2 s while the PiP is on (so a tab
+# learns that it was pinned); with the PiP off nobody answers and paused tabs stay quiet.
+#
 # TikTok actions (the PiP's like / repost / save buttons): stdin {"cmd": "action", "tab": <tab>, "key": "tiktok-<id>",
 # "action": "like"|"repost"|"save", "collection": "Edits"} queues ONE command per tab (a second one while it runs is refused:
 # "busy"). It is handed to that tab in the reply to its next POST /state ("actions": [{id, key, action, collection}]; queued for
@@ -35,6 +47,17 @@
 # asks a TikTok tab to keep reporting every second even while paused, so a command reaches it; the daemon runs only while the
 # PiP is on, so with the PiP off nobody answers and the tab goes quiet. The state file carries the last command as "action":
 # {id, tab, key, action, status queued|sent|done|failed|expired|refused, error, t}.
+#
+# Long YouTube videos in PARTS (longer than --max-min, not live, no length limit): instead of one whole file the daemon fetches
+# pieces around the playback position (yt-dlp --download-sections, <= --part-height p): first a short part at the position
+# (--part-first-min, so the picture appears in about a minute), then contiguous parts of --part-min, each overlapping the one
+# before by PART_OVERLAP s; the next one is fetched when the contiguous range ahead of the position is below --part-ahead-min. A
+# seek outside the fetched range starts again with a short part there. Parts are cache files <key>.part-<startMs>-<endMs>.mp4
+# (true timeline start / end, so a restart finds them again), video only, no edit list (normalise_part); parts more than
+# PART_KEEP_BEHIND s behind the position are dropped, the rest is LRU like whole files. The position comes from the selected
+# tab's reports, or for an MPRIS-only YouTube video from the shell (`want` with position / paused / rate, re-sent every few s).
+# state.json videos[key] for such a video: {"mode": "parts", "status" ready (a part covers the position) | fetching | failed,
+# "parts": [{start, dur, file, status ready|fetching}], "duration", …}; whole-file videos keep {"file", …} as before.
 #
 # Only YouTube is fetched by the daemon (yt-dlp, video-first, <= 480p, avc1 first, one job at a time, the newest request wins; a JS
 # runtime + the tv/mweb clients get past YouTube's "confirm you're not a bot" wall on VPN IPs, see YTDLP_CLIENTS); TikTok
@@ -46,6 +69,7 @@ import fcntl
 import glob
 import hmac
 import http.server
+import io
 import json
 import os
 import re
@@ -53,6 +77,7 @@ import secrets
 import shutil
 import signal
 import socketserver
+import struct
 import subprocess
 import sys
 import tempfile
@@ -84,18 +109,32 @@ PAGE_HOSTS = ("www.youtube.com", "youtube.com", "m.youtube.com", "music.youtube.
 THUMB_HOSTS = ("ytimg.com", "ggpht.com", "googleusercontent.com", "tiktokcdn.com", "tiktokcdn-us.com", "ibyteimg.com",
                "byteimg.com", "tiktokv.com", "tiktokv.us", "muscdn.com", "scdn.co", "spotifycdn.com")
 YTDLP_FORMAT = "bv*[height<=480][vcodec^=avc1]/bv*[height<=480][ext=mp4]/bv*[height<=480]"
+# parts (long videos): the same order at the part height (--part-height, default 360: the PiP is 360 px wide by default)
+YTDLP_PART_FORMAT = "bv*[height<={h}][vcodec^=avc1]/bv*[height<={h}][ext=mp4]/bv*[height<={h}]"
+PART_RE = re.compile(r"^(youtube-[A-Za-z0-9_-]{11})\.part-(\d{1,9})-(\d{1,9})$")
+PART_OVERLAP = 8.0        # s each part reaches back into the one before (yt-dlp cuts at the keyframe before the start anyway)
+PART_LEAD = 2.0           # s a first part starts before the position
+PART_MIN_LEN = 30.0       # s: a part shorter than this is not worth a request (~40 s fixed cost each)
+PART_KEEP_BEHIND = 600.0  # s: parts that end this far behind the position are deleted
+PART_RETRY = 60.0         # s before a failed part is tried again (doubling, max RETRY_FAILED)
 PLAYING_TTL = 5.0         # s without a report before a playing tab is dropped (it reports every second)
 PAUSED_TTL = 1800.0       # a paused tab reports once; keep it (the shell also checks MPRIS)
 UPLOAD_WAIT = 150.0       # s the daemon waits for an upload it asked for
 RETRY_FAILED = 600.0      # s before a failed key is tried again
 RETRY_SKIPPED = 3600.0    # s before yt-dlp's own "live / too long / too big" is asked again (a live stream may have ended)
-YTDLP_TIMEOUT = 300.0
+YTDLP_TIMEOUT = float(os.environ.get("HYPR_NOWPLAYING_YTDLP_TIMEOUT") or 300.0)   # s per request (whole file or part); env: tests
 # YouTube clients yt-dlp asks, one attempt per entry until one works. Behind a VPN / datacenter IP the default clients get
 # "Sign in to confirm you're not a bot" (or 429), while adding tv + mweb still returns plain progressive formats; the second
 # entry covers the rarer "The page needs to be reloaded" / 403 of the first.  Needs a JS runtime (see js_runtime_args).
 YTDLP_CLIENTS = ("default,tv,mweb", "tv,mweb,web_embedded")
 TAB_RE = re.compile(r"^[A-Za-z0-9_-]{4,40}$")
 ACTIONS = ("like", "repost", "save")
+MEDIA_ACTIONS = ("play", "pause", "toggle", "next", "previous")   # any site, for whatever the tab plays (not bound to a clip)
+ALL_ACTIONS = ACTIONS + MEDIA_ACTIONS
+MAX_TABS = 12             # tabs listed in state.json (newest first)
+PIN_UNSEEN_TTL = 10.0     # s a pin on a tab the daemon has not heard from yet is kept
+KEEPALIVE = 2             # s between reports of a paused tab while the daemon runs (it learns about a pin that way)
+BV_RE = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}$")
 ACTION_QUEUE_TTL = 10.0   # s a TikTok command waits for its tab's next report
 ACTION_RUN_TTL = 40.0     # s the tab may take to finish it (save: favourite, the Manage toast, the collection list)
 
@@ -181,6 +220,17 @@ def clean_bool3(v):
     return v if isinstance(v, bool) else None
 
 
+def clean_last(lv):
+    """a finished command as the userscript reports it: {id, action, ok, error} or None"""
+    if not isinstance(lv, dict):
+        return None
+    lid = lv.get("id")
+    if not (isinstance(lid, int) and not isinstance(lid, bool) and 0 < lid < 10 ** 9):
+        return None
+    return {"id": lid, "action": lv.get("action") if lv.get("action") in ALL_ACTIONS else "", "ok": lv.get("ok") is True,
+            "error": clean_str(lv.get("error"), 160)}
+
+
 def clean_tt(v):
     """The userscript's view of TikTok's action bar for the reported clip: bar (the logged-in like / favourite / share column is
     there and belongs to this clip), clip (its id), liked / saved / reposted (true, false or null = unknown), busy (the command it
@@ -190,13 +240,7 @@ def clean_tt(v):
     clip = clean_str(v.get("clip"), 30)
     if not ID_RE["tiktok"].match(clip):
         clip = ""
-    last = None
-    lv = v.get("last")
-    if isinstance(lv, dict):
-        lid = lv.get("id")
-        if isinstance(lid, int) and not isinstance(lid, bool) and 0 < lid < 10 ** 9:
-            last = {"id": lid, "action": lv.get("action") if lv.get("action") in ACTIONS else "", "ok": lv.get("ok") is True,
-                    "error": clean_str(lv.get("error"), 160)}
+    last = clean_last(v.get("last"))
     return {"bar": v.get("bar") is True and bool(clip), "clip": clip, "liked": clean_bool3(v.get("liked")),
             "saved": clean_bool3(v.get("saved")), "reposted": clean_bool3(v.get("reposted")),
             "busy": v.get("busy") if v.get("busy") in ACTIONS else "", "last": last}
@@ -276,15 +320,146 @@ def looks_like_video(path):
 
 
 def cache_entries():
+    """whole files {key, file, size, mtime} and parts (+ "part": (start, end) in s), oldest first"""
     out = []
     for p in glob.glob(os.path.join(CACHE_DIR, "*")):
         name = os.path.basename(p)
         stem, ext = os.path.splitext(name)
-        if ext in VIDEO_EXT and KEY_RE.match(stem) and os.path.isfile(p):
+        if ext not in VIDEO_EXT or not os.path.isfile(p):
+            continue
+        m = PART_RE.match(stem)
+        if KEY_RE.match(stem) or m:
             st = os.stat(p)
-            out.append({"key": stem, "file": p, "size": st.st_size, "mtime": st.st_mtime})
+            e = {"key": m.group(1) if m else stem, "file": p, "size": st.st_size, "mtime": st.st_mtime}
+            if m:
+                e["part"] = (int(m.group(2)) / 1000.0, int(m.group(3)) / 1000.0)
+            out.append(e)
     out.sort(key=lambda e: e["mtime"])
     return out
+
+
+def scan_parts(key):
+    """the cached parts of a key: [{start, end, file}] by start (the file names carry the true timeline range)"""
+    out = []
+    for p in glob.glob(os.path.join(CACHE_DIR, key + ".part-*.mp4")):
+        m = PART_RE.match(os.path.splitext(os.path.basename(p))[0])
+        if m and m.group(1) == key and os.path.getsize(p) > 0:
+            s, e = int(m.group(2)) / 1000.0, int(m.group(3)) / 1000.0
+            if e > s:
+                out.append({"start": s, "end": e, "file": p})
+    out.sort(key=lambda x: (x["start"], x["end"]))
+    return out
+
+
+def mp4_boxes(f, off, end):
+    """(type, payload start, box end) of the boxes in f[off:end] (seeking, so a 100 MB part is not read)"""
+    while off + 8 <= end:
+        f.seek(off)
+        head = f.read(16)
+        if len(head) < 8:
+            return
+        size, typ = struct.unpack(">I4s", head[:8])
+        hdr = 8
+        if size == 1 and len(head) >= 16:
+            size, hdr = struct.unpack(">Q", head[8:16])[0], 16
+        elif size == 0:
+            size = end - off
+        if size < hdr:
+            return
+        yield typ.decode("latin1"), off + hdr, off + size
+        off += size
+
+
+def video_edit_start(path):
+    """where the presentation of the video track starts in its raw timeline (s): the first edit list entry's media_time over
+    the track timescale; None without an edit list"""
+    try:
+        with open(path, "rb") as f:
+            end = os.fstat(f.fileno()).st_size
+            for t, s, e in mp4_boxes(f, 0, end):
+                if t != "moov" or e - s > 64 << 20:
+                    continue
+                f.seek(s)
+                moov = io.BytesIO(f.read(e - s))
+                for t2, s2, e2 in mp4_boxes(moov, 0, e - s):
+                    if t2 != "trak":
+                        continue
+                    hdlr, ts, media_time = "", 0, None
+                    for t3, s3, e3 in mp4_boxes(moov, s2, e2):
+                        if t3 == "edts":
+                            for t4, s4, e4 in mp4_boxes(moov, s3, e3):
+                                if t4 == "elst":
+                                    moov.seek(s4)
+                                    b = moov.read(e4 - s4)
+                                    ver, n = b[0], struct.unpack(">I", b[4:8])[0]
+                                    for i in range(min(n, 8)):
+                                        mt = struct.unpack(">q", b[8 + i * 20 + 8:8 + i * 20 + 16])[0] if ver == 1 \
+                                            else struct.unpack(">i", b[8 + i * 12 + 4:8 + i * 12 + 8])[0]
+                                        if mt >= 0:   # -1 = an empty edit (a delay): skipped
+                                            media_time = mt
+                                            break
+                        elif t3 == "mdia":
+                            for t4, s4, e4 in mp4_boxes(moov, s3, e3):
+                                moov.seek(s4)
+                                b = moov.read(min(e4 - s4, 32))
+                                if t4 == "mdhd":
+                                    ts = struct.unpack(">I", b[20:24] if b[0] == 1 else b[12:16])[0]
+                                elif t4 == "hdlr":
+                                    hdlr = b[8:12].decode("latin1")
+                    if hdlr == "vide":
+                        return media_time / ts if media_time is not None and ts > 0 else None
+    except (OSError, ValueError, struct.error, IndexError):
+        pass
+    return None
+
+
+def part_preroll(path):
+    """s of picture a part has BEFORE the asked start: yt-dlp (ffmpeg -ss, stream copy, no --force-keyframes-at-cuts) starts the
+    file at the keyframe before the cut and hides the extra frames with an edit list. = the edit list's start - the raw pts of
+    the first frame (measured: 3.707 s for a cut at 50:00, the picture then matches an exactly cut copy within one frame).
+    Falls back to the edit-list view's earliest packet (wrong when the file flags later frames as keyframes: seen 2 s off), else 0."""
+    edit = video_edit_start(path)
+    if edit is not None and shutil.which("ffprobe"):
+        try:
+            out = subprocess.run(["ffprobe", "-v", "error", "-ignore_editlist", "1", "-select_streams", "v:0", "-read_intervals", "%+#48",
+                                  "-show_entries", "packet=pts_time", "-of", "csv=p=0", path], capture_output=True, text=True, timeout=15).stdout
+            vals = [float(x.split(",")[0]) for x in out.split() if x.split(",")[0] not in ("", "N/A")]
+            if vals:
+                return max(0.0, edit - min(vals))
+        except (OSError, ValueError, subprocess.SubprocessError):
+            pass
+    first = first_video_pts(path)
+    return max(0.0, -first) if first is not None else 0.0
+
+
+def first_video_pts(path):
+    """pts (s) of the earliest video packet among the first ones, edit list applied: a part cut by yt-dlp without
+    --force-keyframes-at-cuts begins at the keyframe BEFORE the asked start, carried as negative timestamps (measured: -3.737 s
+    for a cut at 50:00, the decoded picture then matches an exactly cut copy within one frame). None when unknown."""
+    if not shutil.which("ffprobe"):
+        return None
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-read_intervals", "%+#24", "-show_entries",
+                              "packet=pts_time", "-of", "csv=p=0", path], capture_output=True, text=True, timeout=15).stdout
+        vals = [float(x.split(",")[0]) for x in out.split() if x.split(",")[0] not in ("", "N/A")]
+        return min(vals) if vals else None
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def normalise_part(src, dst):
+    """video only, the pre-roll kept as real frames (the edit list dropped), timestamps from 0: every player then shows the
+    same frame for the same position, and the part is ~40 % smaller without the audio of a progressive format. False: ffmpeg
+    missing / failed (the caller keeps the original, whose edit list ffmpeg-based players honour)."""
+    if not shutil.which("ffmpeg"):
+        return False
+    try:
+        r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-y", "-ignore_editlist", "1", "-i", src, "-map", "0:v:0", "-c", "copy",
+                            "-avoid_negative_ts", "make_zero", "-movflags", "+faststart", "-f", "mp4", dst],
+                           capture_output=True, timeout=60, preexec_fn=set_pdeathsig)
+        return r.returncode == 0 and os.path.isfile(dst) and os.path.getsize(dst) > 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def human(n):
@@ -298,7 +473,8 @@ def human(n):
 # ------------------------------------------------------------------------------------------------ the daemon
 def validate_bridge(d):
     """The userscript's report -> a clean dict, or None.  Fields: tab site pageUrl videoId title author thumbnail position duration
-    paused rate live isVideo ad width height visible ts tt (TikTok only, see clean_tt) (+ gone)"""
+    paused rate live isVideo ad width height visible ts tt (TikTok only, see clean_tt) done (the newest finished command, any site)
+    bv (the userscript's version) (+ gone)"""
     if not isinstance(d, dict):
         return None
     tab = clean_str(d.get("tab"), 40)
@@ -325,6 +501,8 @@ def validate_bridge(d):
         "visible": d.get("visible") is not False,
         "ts": int(clean_num(d.get("ts"), 0, 1e14)),
         "tt": clean_tt(d.get("tt")) if site == "tiktok" else None,
+        "done": clean_last(d.get("done")),
+        "bv": clean_str(d.get("bv"), 12) if BV_RE.match(clean_str(d.get("bv"), 12)) else "",
     }
     if out["tt"] and out["tt"]["clip"] != vid:   # the action bar shows another clip than the one reported: no state, no buttons
         out["tt"].update({"bar": False, "liked": None, "saved": None, "reposted": None})
@@ -332,10 +510,20 @@ def validate_bridge(d):
 
 
 class Daemon:
-    def __init__(self, port, cache_mb, max_min, upload_mb, verbose=False):
+    def __init__(self, port, cache_mb, max_min, upload_mb, verbose=False, part_first_min=5.0, part_min=40.0, part_ahead_min=5.0,
+                 part_height=360):
         self.port = port
         self.cache_bytes = int(cache_mb * 1024 * 1024)
         self.max_s = max_min * 60.0
+        self.part_first_s = max(PART_MIN_LEN, part_first_min * 60.0)
+        self.part_s = max(PART_MIN_LEN, part_min * 60.0)
+        self.part_ahead_s = max(10.0, part_ahead_min * 60.0)
+        self.part_height = int(max(144, min(1080, part_height)))
+        self.parts = {}              # key -> [{start, end, file}] the cached parts (true timeline), see scan_parts
+        self.part_pos = {}           # key -> {pos, t, paused, rate, duration}: where that video plays (bridge report / shell want)
+        self.part_fail = {}          # key -> {t, n, reason}: the last failed part fetch
+        self.part_key = ""           # the long video whose parts are planned now
+        self.want_part = None        # (start, end) nominal range of the part being fetched for want_key, None = the whole file
         self.upload_bytes = int(upload_mb * 1024 * 1024)
         self.verbose = verbose
         self.token = ensure_token()
@@ -354,20 +542,45 @@ class Daemon:
         self.actions = {}            # tab -> the TikTok command for it (one at a time): see queue_action
         self.last_action = None      # the newest command record (what the shell shows)
         self.action_seq = 0
+        self.pin = ""                # the tab the shell pinned (stdin `pin`), "" = automatic
+        self.pin_t = 0.0             # when it was pinned
+        self.pin_seen = False        # the pinned tab has reported since
 
     def log(self, msg):
         if self.verbose:
             warn(msg)
 
-    # ---- selection: the playing tab that started last, else the newest report
+    # ---- selection: the pinned tab while it exists, else the playing tab that started last, else the newest report
+    @staticmethod
+    def rank(e):
+        d = e["data"]
+        return (0 if d["paused"] else 1, e["playingSince"] if not d["paused"] else 0, e["received"])
+
     def select(self):
+        if self.pin and self.pin in self.tabs:
+            return self.tabs[self.pin]
         best, best_k = None, None
         for t, e in self.tabs.items():
-            d = e["data"]
-            k = (0 if d["paused"] else 1, e["playingSince"] if not d["paused"] else 0, e["received"])
+            k = self.rank(e)
             if best_k is None or k > best_k:
                 best, best_k = t, k
         return self.tabs[best] if best else None
+
+    def drop_tab(self, tab):
+        """a tab went away: forget it, release a pin on it"""
+        self.tabs.pop(tab, None)
+        if self.pin == tab:
+            self.log("pin released: tab %s gone" % tab)
+            self.pin, self.pin_seen = "", False
+
+    def set_pin(self, tab):
+        tab = clean_str(tab, 40) if isinstance(tab, str) else ""
+        with self.lock:
+            if tab and not TAB_RE.match(tab):
+                return {"ok": False, "error": "bad tab id"}
+            self.pin, self.pin_t, self.pin_seen = tab, time.time(), bool(tab) and tab in self.tabs
+            self.write_state()
+            return {"ok": True, "pin": tab or None}
 
     def expire(self):
         now = time.time()
@@ -376,8 +589,11 @@ class Daemon:
             e = self.tabs[t]
             ttl = PAUSED_TTL if e["data"]["paused"] else PLAYING_TTL
             if now - e["received"] > ttl:
-                del self.tabs[t]
+                self.drop_tab(t)
                 changed = True
+        if self.pin and self.pin not in self.tabs and (self.pin_seen or now - self.pin_t > PIN_UNSEEN_TTL):
+            self.pin, self.pin_seen = "", False
+            changed = True
         for t, rec in list(self.actions.items()):
             if rec["status"] == "queued" and (t not in self.tabs or now - rec["t0"] > ACTION_QUEUE_TTL):
                 self.end_action(rec, "expired", "the browser tab did not pick it up" if t in self.tabs else "the browser tab is gone")
@@ -398,15 +614,25 @@ class Daemon:
         """soft: a judgement from one browser report (live / too long), re-made on the next report, never final"""
         self.videos[key] = {"status": status, "file": file, "reason": reason, "width": width, "height": height,
                             "duration": duration, "t": time.time(), "soft": soft}
+        self.evict(key)
+
+    def evict(self, keep):
         if len(self.videos) > 24:   # keep the newest entries only
             for k in sorted(self.videos, key=lambda k: self.videos[k]["t"])[:len(self.videos) - 24]:
-                if k != self.active_key:
+                if k not in (self.active_key, keep, self.part_key):
                     del self.videos[k]
+                    self.parts.pop(k, None)
+                    self.part_pos.pop(k, None)
+                    self.part_fail.pop(k, None)
 
     def video_info(self, key):
         if not key:
             return {"status": "none", "file": ""}
         v = self.videos.get(key)
+        if v and v.get("mode") == "parts":
+            if not cached_file(key):
+                return v
+            v = None   # a whole file turned up (an older run, a shorter limit then): it wins
         if v and v["status"] == "ready" and not os.path.isfile(v["file"]):
             v = None
         if not v:
@@ -426,6 +652,128 @@ class Daemon:
                 v["width"], v["height"], v["duration"] = w, h, dur
                 self.write_state()
 
+    def public_tab(self, e):
+        out = dict(e["data"])
+        out["received"] = int(e["received"] * 1000)
+        out["pinned"] = out["tab"] == self.pin
+        return out
+
+    # ---- long videos in parts (see the header): the plan is recomputed from the position and the cached parts every time
+    def known_parts(self, key):
+        if key not in self.parts:
+            self.parts[key] = scan_parts(key)
+        self.parts[key] = [p for p in self.parts[key] if os.path.isfile(p["file"])]
+        return self.parts[key]
+
+    def pos_now(self, key):
+        p = self.part_pos.get(key)
+        if not p:
+            return None
+        return min(p["duration"], p["pos"] + (0.0 if p["paused"] else (time.time() - p["t"]) * p["rate"])) if p["duration"] > 0 \
+            else p["pos"]
+
+    @staticmethod
+    def coverage(parts, pos):
+        """(the part that shows pos, the end of the contiguous range from pos): consecutive parts must overlap by >= 1 s so the
+        shell has time to swap; a part counts for pos only when it has >= 1 s left after it"""
+        cur = None
+        for p in parts:
+            if p["start"] <= pos + 0.05 and p["end"] > pos + 1.0 and (cur is None or p["end"] > cur["end"]):
+                cur = p
+        if not cur:
+            return None, pos
+        end, grew = cur["end"], True
+        while grew:
+            grew = False
+            for p in parts:
+                if p["start"] <= end - 1.0 and p["end"] > end:
+                    end, grew = p["end"], True
+        return cur, end
+
+    def plan_part(self, key):
+        """the part to fetch now for key: (start, end) nominal, or None (covered far enough, the end, a failure cooling down)"""
+        pos = self.pos_now(key)
+        if pos is None:
+            return None
+        dur = self.part_pos[key]["duration"]
+        parts = self.known_parts(key)
+        cur, end = self.coverage(parts, pos)
+        if cur is None:
+            start, length = max(0.0, pos - PART_LEAD), self.part_first_s
+        elif dur > 0 and end >= dur - 1.0:
+            return None
+        elif end - pos >= self.part_ahead_s:
+            return None
+        else:
+            start, length = max(0.0, end - PART_OVERLAP), self.part_s
+        stop = start + length
+        if dur > 0:
+            stop = min(stop, dur)
+            if stop - start < PART_MIN_LEN:   # near the end: reach further back instead of a tiny request
+                start = max(0.0, stop - PART_MIN_LEN)
+        start, stop = int(start), int(stop + 0.999)
+        # a part already on its way that starts in time and reaches further is good enough: no restart
+        if self.want_key == key and self.want_part and self.want_part[0] <= max(start, pos) + 0.5 \
+                and self.want_part[1] >= min(stop, start + PART_MIN_LEN):
+            return self.want_part
+        f = self.part_fail.get(key)
+        if f and time.time() - f["t"] < min(RETRY_FAILED, PART_RETRY * 2 ** (f["n"] - 1)):
+            return None
+        return (start, stop)
+
+    def drop_behind(self, key):
+        """delete parts that end more than PART_KEEP_BEHIND s behind the position (never the one that shows it)"""
+        pos = self.pos_now(key)
+        if pos is None:
+            return
+        keep = []
+        for p in self.known_parts(key):
+            if p["end"] < pos - PART_KEEP_BEHIND and not (p["start"] <= pos < p["end"]):
+                try:
+                    os.unlink(p["file"])
+                    self.log("dropped part %s %d-%d (behind)" % (key, p["start"], p["end"]))
+                    continue
+                except OSError:
+                    pass
+            keep.append(p)
+        self.parts[key] = keep
+
+    def update_parts(self, key, position=None, duration=0.0, paused=False, rate=1.0):
+        """a long YouTube video: note where it plays, drop old parts, fetch the next part if one is due (newest request wins)"""
+        if position is not None:
+            self.part_pos[key] = {"pos": clean_num(position), "t": time.time(), "paused": bool(paused),
+                                  "rate": clean_num(rate, 0.0625, 16.0, 1.0),
+                                  "duration": clean_num(duration) or (self.part_pos.get(key) or {}).get("duration", 0.0)}
+        if key not in self.part_pos:
+            return
+        self.part_key = key
+        self.drop_behind(key)
+        want = self.plan_part(key)
+        if want and (self.want_key != key or self.want_part != want):
+            self.want_key, self.want_part = key, want
+            self.log("part %s %d-%d wanted (position %.0f)" % (key, want[0], want[1], self.pos_now(key)))
+            self.want_cv.notify_all()
+        self.parts_video(key)
+
+    def parts_video(self, key):
+        """videos[key] for a long video: status ready when a part covers the position"""
+        parts = self.known_parts(key)
+        pos = self.pos_now(key)
+        cur, _ = self.coverage(parts, pos if pos is not None else 0.0)
+        out = [{"start": round(p["start"], 3), "dur": round(p["end"] - p["start"], 3), "file": p["file"], "status": "ready"} for p in parts]
+        fetching = self.want_key == key and self.want_part
+        if fetching:
+            out.append({"start": self.want_part[0], "dur": self.want_part[1] - self.want_part[0], "file": "", "status": "fetching"})
+        f = self.part_fail.get(key)
+        status = "ready" if cur else "fetching" if fetching else "failed" if f else "fetching"
+        old = self.videos.get(key) or {}
+        self.videos[key] = {"status": status, "file": "", "reason": "" if cur or fetching or not f else f["reason"],
+                            "width": old.get("width", 0), "height": old.get("height", 0),
+                            "duration": (self.part_pos.get(key) or {}).get("duration", 0.0), "t": old.get("t", time.time()),
+                            "soft": False, "mode": "parts", "parts": out}
+        self.evict(key)
+        return self.videos[key]
+
     def snapshot(self):
         sel = self.select()
         self.selected = sel
@@ -433,20 +781,26 @@ class Daemon:
         if sel:
             bridge = dict(sel["data"])
             bridge["received"] = int(sel["received"] * 1000)
+        tabs = [self.public_tab(e) for e in sorted(self.tabs.values(), key=self.rank, reverse=True)[:MAX_TABS]]
         key = bridge["key"] if bridge else ""
         cur = self.video_info(key) if key else {"status": "none", "file": ""}
         videos = {}
         for k, v in self.videos.items():
             videos[k] = {kk: v[kk] for kk in ("status", "file", "reason", "width", "height", "duration")}
+            if v.get("mode") == "parts":
+                videos[k].update({"mode": "parts", "parts": v["parts"]})
         return {
             "v": 1,
             "server": {"pid": os.getpid(), "port": self.port, "started": self.started, "version": VERSION},
             "updated": now_ms(),
             "bridge": bridge,
+            "tabs": tabs,
+            "pin": self.pin or None,
             "videoFile": cur.get("file", "") if cur.get("status") == "ready" else "",
             "videoStatus": cur.get("status", "none"),
             "videos": videos,
             "fetching": self.want_key,
+            "fetchingPart": list(self.want_part) if self.want_key and self.want_part else None,
             "action": self.public_action(self.last_action),
         }
 
@@ -485,27 +839,33 @@ class Daemon:
     def queue_action(self, d):
         tab = clean_str(d.get("tab"), 40)
         key = clean_str(d.get("key"), 40)
-        action = d.get("action") if d.get("action") in ACTIONS else ""
+        action = d.get("action") if d.get("action") in ALL_ACTIONS else ""
         coll = clean_str(d.get("collection"), 60) or "Edits"
+        media = action in MEDIA_ACTIONS
         with self.lock:
             tab = tab if TAB_RE.match(tab) else ""
             key = key if KEY_RE.match(key) else ""
             if not action:
-                return self.record_refusal(tab, key, "", "unknown action (like, repost or save)")
-            if not tab or not key.startswith("tiktok-"):
+                return self.record_refusal(tab, key, "", "unknown action (like, repost, save, play, pause, toggle, next, previous)")
+            if media:
+                if not tab:
+                    return self.record_refusal(tab, key, action, "needs a browser tab")
+            elif not tab or not key.startswith("tiktok-"):
                 return self.record_refusal(tab, key, action, "needs a TikTok tab and clip")
             e = self.tabs.get(tab)
             if not e:
                 return self.record_refusal(tab, key, action, "that browser tab is gone")
-            if e["data"]["site"] != "tiktok" or e["data"]["key"] != key:
+            if media:
+                key = e["data"]["key"]   # whatever the tab plays now: the record names it
+            elif e["data"]["site"] != "tiktok" or e["data"]["key"] != key:
                 return self.record_refusal(tab, key, action, "that tab shows another clip now")
             cur = self.actions.get(tab)
             if cur and cur["status"] in ("queued", "sent"):
                 return {"ok": False, "error": "busy", "id": cur["id"]}   # one at a time: a second press is ignored
             self.action_seq += 1
             now = time.time()
-            rec = {"id": self.action_seq, "tab": tab, "key": key, "action": action, "collection": coll, "status": "queued",
-                   "error": "", "t": now, "t0": now, "sentAt": 0.0}
+            rec = {"id": self.action_seq, "tab": tab, "key": key, "action": action, "collection": "" if media else coll,
+                   "status": "queued", "error": "", "t": now, "t0": now, "sentAt": 0.0, "media": media}
             self.actions[tab] = rec
             self.last_action = rec
             self.write_state()
@@ -517,39 +877,50 @@ class Daemon:
         if not rec:
             return []
         tt = d.get("tt") or {}
-        last = tt.get("last")
-        if last and last["id"] == rec["id"] and (rec["status"] == "sent" or (rec["status"] == "expired" and rec["sentAt"])):
-            self.end_action(rec, "done" if last["ok"] else "failed", last["error"])
+        for last in (d.get("done"), tt.get("last")):
+            if last and last["id"] == rec["id"] and (rec["status"] == "sent" or (rec["status"] == "expired" and rec["sentAt"])):
+                self.end_action(rec, "done" if last["ok"] else "failed", last["error"])
         if rec["status"] != "queued":
             return []
-        if rec["key"] != d["key"]:
+        if not rec.get("media") and rec["key"] != d["key"]:
             self.end_action(rec, "failed", "the clip changed before the tab got the command")
             return []
         rec.update({"status": "sent", "sentAt": now, "t": now})
+        if rec.get("media"):
+            return [{"id": rec["id"], "key": d["key"], "action": rec["action"]}]
         return [{"id": rec["id"], "key": rec["key"], "action": rec["action"], "collection": rec["collection"]}]
 
     def on_state(self, d):
         with self.lock:
             if d.get("gone"):
-                self.tabs.pop(d["tab"], None)
+                self.drop_tab(d["tab"])
                 rec = self.actions.get(d["tab"])
                 if rec and rec["status"] in ("queued", "sent"):
                     self.end_action(rec, "failed", "the browser tab closed")
                 self.write_state()
-                return {"ok": True, "key": "", "wantVideo": False, "actions": [], "poll": False}
+                return {"ok": True, "key": "", "wantVideo": False, "actions": [], "poll": False, "keepalive": 0}
             now = time.time()
             old = self.tabs.get(d["tab"])
             since = now
             if old and not old["data"]["paused"] and old["data"]["key"] == d["key"]:
                 since = old["playingSince"]
             self.tabs[d["tab"]] = {"data": d, "received": now, "playingSince": since}
+            if d["tab"] == self.pin:
+                self.pin_seen = True
             sel = self.select()
             want = False
             key = d["key"]
             if sel is self.tabs[d["tab"]] and key and d["isVideo"] and not d["ad"]:
                 # an ad, audio only, or a picture not loaded yet: no decision now (the next report decides)
                 info = self.video_info(key)
-                if d["live"] or d["duration"] > self.max_s:
+                long_yt = d["site"] != "tiktok" and d["duration"] > self.max_s and not d["live"]
+                if key != self.part_key or not long_yt:
+                    self.part_key = ""   # another video (or no longer a long one): stop planning parts
+                if long_yt and not (info.get("mode") != "parts" and info["status"] == "ready"):   # a cached whole file wins
+                    self.update_parts(key, d["position"], d["duration"], d["paused"], d["rate"])
+                elif long_yt:
+                    pass
+                elif d["live"] or d["duration"] > self.max_s:
                     if info["status"] == "none" or (info["status"] == "skipped" and info.get("soft")):
                         self.set_video(key, "skipped", reason="live" if d["live"] else "longer than %d min" % (self.max_s // 60), soft=True)
                 elif d["site"] == "tiktok":
@@ -564,8 +935,11 @@ class Daemon:
                 else:
                     self.request_fetch(key, d["duration"])
             actions = self.tab_actions(d, now)
+            rec = self.actions.get(d["tab"])
+            # a 1 s heartbeat even while paused: TikTok (its like / repost / save), the pinned tab and a tab with a command on its way
+            poll = d["site"] == "tiktok" or d["tab"] == self.pin or bool(rec and rec["status"] in ("queued", "sent"))
             self.write_state()
-            return {"ok": True, "key": key, "wantVideo": want, "actions": actions, "poll": d["site"] == "tiktok"}
+            return {"ok": True, "key": key, "wantVideo": want, "actions": actions, "poll": poll, "keepalive": KEEPALIVE}
 
     def request_fetch(self, key, duration=0.0):
         """yt-dlp job for youtube-<id>; the newest request wins"""
@@ -574,18 +948,28 @@ class Daemon:
                 return False
             info = self.video_info(key)
             st = info.get("status")
-            if st == "ready" or (st == "fetching" and self.want_key == key):
+            if duration and duration > self.max_s and info.get("mode") == "parts":
+                pos = self.pos_now(key)
+                self.update_parts(key, 0.0 if pos is None else pos, duration)
+                self.write_state()
+                return True
+            if info.get("mode") == "parts":   # asked for the whole file after all (short after all, or the CLI)
+                st = "none"
+            if st == "ready" or (st == "fetching" and self.want_key == key and self.want_part is None):
                 return True
             age = time.time() - self.videos[key]["t"] if key in self.videos else 1e9
             if st == "failed" and age < RETRY_FAILED:
                 return True
             if st == "skipped" and not info.get("soft") and age < RETRY_SKIPPED:
                 return True
-            if duration and duration > self.max_s:
-                self.set_video(key, "skipped", reason="longer than %d min" % (self.max_s // 60), soft=True)
+            if duration and duration > self.max_s:   # long: in parts, from where it plays (or the start)
+                pos = self.pos_now(key)
+                self.update_parts(key, 0.0 if pos is None else pos, duration)
                 self.write_state()
                 return True
-            self.want_key = key
+            if key != self.part_key:
+                self.part_key = ""
+            self.want_key, self.want_part = key, None
             self.set_video(key, "fetching")
             self.want_cv.notify_all()
             self.write_state()
@@ -654,7 +1038,8 @@ class Daemon:
             with self.lock:
                 self.active_key = key if KEY_RE.match(key) else ""
                 f = cached_file(self.active_key) if self.active_key else ""
-                if f:
+                files = [f] if f else [p["file"] for p in self.known_parts(self.active_key)] if self.active_key else []
+                for f in files:   # the LRU keeps what is on screen
                     try:
                         os.utime(f)
                     except OSError:
@@ -672,10 +1057,19 @@ class Daemon:
                         self.set_video(key, "skipped", reason="live")
                     self.write_state()
                 return {"ok": True, "key": key}
-            self.request_fetch(key, clean_num(d.get("duration")))
+            dur = clean_num(d.get("duration"))
+            if dur > self.max_s and "position" in d:   # the shell's MPRIS-only video: it re-sends where it plays every few s
+                with self.lock:
+                    if not cached_file(key):
+                        self.update_parts(key, d.get("position"), dur, d.get("paused") is True, d.get("rate", 1.0))
+                        self.write_state()
+                        return {"ok": True, "key": key, "parts": True}
+            self.request_fetch(key, dur)
             return {"ok": True, "key": key}
         if cmd == "action":
             return self.queue_action(d)
+        if cmd == "pin":
+            return self.set_pin(d.get("tab"))
         if cmd == "quit":
             self.shutdown()
             return {"ok": True}
@@ -686,7 +1080,7 @@ class Daemon:
         """LRU by mtime (a shown video is touched); the active and the in-flight key are never removed"""
         entries = cache_entries()
         total = sum(e["size"] for e in entries)
-        keep = {self.active_key, self.want_key, self.selected["data"]["key"] if self.selected else ""}
+        keep = {self.active_key, self.want_key, self.part_key, self.selected["data"]["key"] if self.selected else ""}
         for e in entries:
             if total <= self.cache_bytes:
                 break
@@ -695,8 +1089,14 @@ class Daemon:
             try:
                 os.unlink(e["file"])
                 total -= e["size"]
-                self.videos.pop(e["key"], None)
-                self.log("pruned " + e["key"])
+                if "part" in e:
+                    self.parts.pop(e["key"], None)   # re-scanned when needed
+                    v = self.videos.get(e["key"])
+                    if v and v.get("mode") == "parts":
+                        self.parts_video(e["key"])
+                else:
+                    self.videos.pop(e["key"], None)
+                self.log("pruned " + os.path.basename(e["file"]))
             except OSError:
                 pass
         for p in glob.glob(os.path.join(CACHE_DIR, ".*.part")) + glob.glob(os.path.join(CACHE_DIR, ".ytdlp-*")):
@@ -714,7 +1114,14 @@ class Daemon:
             except Exception as e:   # never let the worker die: a stuck "fetching" would never clear
                 warn("fetch worker: %s" % e)
                 with self.lock:
-                    if self.want_key:
+                    if self.want_key and self.want_part:   # a part: wait before the next try, like any failed part
+                        f = self.part_fail.get(self.want_key) or {"n": 0}
+                        self.part_fail[self.want_key] = {"t": time.time(), "n": f["n"] + 1, "reason": str(e)[:200]}
+                        k = self.want_key
+                        self.want_key, self.want_part = "", None
+                        self.parts_video(k)
+                        self.write_state()
+                    elif self.want_key:
                         self.set_video(self.want_key, "failed", reason=str(e)[:200])
                         self.want_key = ""
                         self.write_state()
@@ -751,7 +1158,9 @@ class Daemon:
                 self.want_cv.wait(1.0)
             if self.stopping:
                 return
-            key = self.want_key
+            key, part = self.want_key, self.want_part
+        if part:
+            return self.fetch_part(ytdlp, key, part)
         vid = key[len("youtube-"):]
         if not ytdlp:
             with self.lock:
@@ -785,7 +1194,7 @@ class Daemon:
                 while proc.poll() is None:
                     time.sleep(0.2)
                     with self.lock:
-                        superseded = self.want_key != key or self.stopping
+                        superseded = self.want_key != key or self.want_part is not None or self.stopping
                     if superseded or time.time() - t0 > YTDLP_TIMEOUT:
                         os.killpg(proc.pid, signal.SIGTERM)
                         try:
@@ -826,18 +1235,125 @@ class Daemon:
                     self.videos.pop(key, None)
             else:
                 self.set_video(key, status, file=final, reason=reason, width=w, height=h, duration=dur)
-            if self.want_key == key:
+            if self.want_key == key and self.want_part is None:
                 self.want_key = ""
             if status == "ready":
                 self.prune()
             self.write_state()
         self.log("fetch %s -> %s %s" % (key, status, reason))
 
+    def run_ytdlp(self, cmd, still_wanted, t0):
+        """one yt-dlp run, killed when still_wanted() turns false or after YTDLP_TIMEOUT s since t0: (returncode, stderr, reason)"""
+        proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                start_new_session=True, text=True, preexec_fn=set_pdeathsig)
+        self.proc = proc
+        reason = ""
+        while proc.poll() is None:
+            time.sleep(0.2)
+            with self.lock:
+                superseded = not still_wanted() or self.stopping
+            if superseded or time.time() - t0 > YTDLP_TIMEOUT:
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    proc.wait(5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.wait()
+                reason = "superseded" if superseded else "timed out"
+                break
+        out, err = proc.communicate()
+        return proc.returncode, err or "", reason
+
+    def fetch_part(self, ytdlp, key, part):
+        """one part of a long video: yt-dlp --download-sections at the part height, then its true start (the keyframe before the
+        asked start, see first_video_pts), normalised to a video-only file named after its timeline range"""
+        vid = key[len("youtube-"):]
+        start, stop = part
+        status, reason, final, info = "failed", "", "", (0, 0, 0.0)
+        if not ytdlp:
+            reason = "yt-dlp is not installed"
+        else:
+            mkdir_private(CACHE_DIR)
+            work = tempfile.mkdtemp(prefix=".ytdlp-", dir=CACHE_DIR)
+            base = [ytdlp, "--ignore-config", "--no-playlist", "--no-progress", "--quiet", "--no-warnings", "--no-mtime",
+                    "--socket-timeout", "20", "--retries", "2", "--fragment-retries", "2", "--match-filter", "!is_live",
+                    "-f", YTDLP_PART_FORMAT.format(h=self.part_height), "--remux-video", "mp4",
+                    "--download-sections", "*%d-%d" % (int(start), int(stop)),
+                    "-o", os.path.join(work, "v.%(ext)s")] + self.js_runtime_args()
+            self.log("fetch %s part %d-%d" % (key, start, stop))
+            t0 = time.time()
+            try:
+                for attempt, clients in enumerate(YTDLP_CLIENTS):
+                    for p in glob.glob(os.path.join(work, "*")):
+                        os.unlink(p)
+                    rc, err, reason = self.run_ytdlp(base + ["--extractor-args", "youtube:player_client=" + clients,
+                                                             "https://www.youtube.com/watch?v=" + vid],
+                                                     lambda: self.want_key == key and self.want_part == part, t0)
+                    files = [p for p in glob.glob(os.path.join(work, "v.*")) if os.path.splitext(p)[1] in VIDEO_EXT]
+                    if reason:
+                        break
+                    if rc == 0 and files:
+                        norm = os.path.join(work, "n.mp4")
+                        normalised = normalise_part(files[0], norm)
+                        # the normalised file shows its pre-roll; an original (no ffmpeg) is played through its edit list
+                        pre = part_preroll(files[0]) if normalised else 0.0
+                        src = norm if normalised else files[0]
+                        info = probe(src)
+                        t_start = max(0.0, start - pre)
+                        t_end = t_start + (info[2] or (stop - start))
+                        if info[2] <= 0:
+                            reason = "the part has no video"
+                            break
+                        final = os.path.join(CACHE_DIR, "%s.part-%d-%d.mp4" % (key, round(t_start * 1000), round(t_end * 1000)))
+                        os.replace(src, final)
+                        status = "ready"
+                        break
+                    if rc == 0:
+                        reason = "no video in that range (live?)"
+                        break
+                    lines = [ln for ln in err.strip().splitlines() if ln.strip()]
+                    reason = (lines[-1] if lines else "yt-dlp exit %d" % rc)[:200]
+                    if attempt + 1 < len(YTDLP_CLIENTS):
+                        self.log("part %s: clients %s failed (%s), trying %s" % (key, clients, reason[:80], YTDLP_CLIENTS[attempt + 1]))
+            except OSError as e:
+                reason = str(e)[:200]
+            finally:
+                shutil.rmtree(work, ignore_errors=True)
+        with self.lock:
+            if status == "ready":
+                m = PART_RE.match(os.path.splitext(os.path.basename(final))[0])
+                self.known_parts(key)
+                self.parts[key] = sorted([p for p in self.parts[key] if p["file"] != final]
+                                         + [{"start": int(m.group(2)) / 1000.0, "end": int(m.group(3)) / 1000.0, "file": final}],
+                                         key=lambda x: (x["start"], x["end"]))
+                self.part_fail.pop(key, None)
+                v = self.videos.get(key)
+                if v and info[0]:
+                    v["width"], v["height"] = info[0], info[1]
+            elif reason != "superseded":
+                f = self.part_fail.get(key) or {"n": 0}
+                self.part_fail[key] = {"t": time.time(), "n": f["n"] + 1, "reason": reason}
+            if self.want_key == key and self.want_part == part:
+                self.want_key, self.want_part = "", None
+            if key == self.part_key:
+                self.update_parts(key)   # the next part, if one is due already
+            elif key in self.videos and self.videos[key].get("mode") == "parts":
+                self.parts_video(key)
+            if status == "ready":
+                self.prune()
+            self.write_state()
+        self.log("part %s %d-%d -> %s %s %s" % (key, start, stop, status, final and os.path.basename(final), reason))
+
     def housekeeping(self):
         while not self.stopping:
             time.sleep(1.0)
             with self.lock:
-                if self.expire():
+                changed = self.expire()
+                k = self.part_key
+                if k and (k == self.active_key or (self.selected and self.selected["data"]["key"] == k)):
+                    self.update_parts(k)
+                    changed = True
+                if changed:
                     self.write_state()
 
     def stdin_reader(self):
@@ -856,7 +1372,7 @@ class Daemon:
             if self.stopping:
                 return
             self.stopping = True
-            self.want_key = ""
+            self.want_key, self.want_part = "", None
             self.want_cv.notify_all()
         srv = getattr(self, "httpd", None)
         if srv:
@@ -984,6 +1500,10 @@ def cmd_serve(args):
     cache_mb = float(opt(args, "--cache-mb", 400))
     max_min = float(opt(args, "--max-min", 20))
     upload_mb = float(opt(args, "--upload-mb", 60))
+    part_first = float(opt(args, "--part-first-min", 5))
+    part_min = float(opt(args, "--part-min", 40))
+    part_ahead = float(opt(args, "--part-ahead-min", 5))
+    part_height = int(float(opt(args, "--part-height", 360)))
     verbose = flag(args, "-v") or flag(args, "--verbose")
     use_stdin = flag(args, "--stdin")
     keep = flag(args, "--keep")
@@ -1014,7 +1534,7 @@ def cmd_serve(args):
             pass
         warn("already running (pid %s)" % (pid or "?"))
         sys.exit(3)
-    d = Daemon(port, cache_mb, max_min, upload_mb, verbose)
+    d = Daemon(port, cache_mb, max_min, upload_mb, verbose, part_first, part_min, part_ahead, part_height)
     Handler.app = d
     try:
         httpd = Server(("127.0.0.1", port), Handler)
@@ -1044,8 +1564,8 @@ def cmd_serve(args):
         httpd.server_close()
         with d.lock:
             d.tabs.clear()
-            stopped = {"v": 1, "server": None, "updated": now_ms(), "bridge": None, "videoFile": "", "videoStatus": "none",
-                       "videos": {}, "fetching": "", "action": None}
+            stopped = {"v": 1, "server": None, "updated": now_ms(), "bridge": None, "tabs": [], "pin": None, "videoFile": "",
+                       "videoStatus": "none", "videos": {}, "fetching": "", "fetchingPart": None, "action": None}
             try:
                 write_in_place(STATE_FILE, json.dumps(stopped) + "\n")
                 os.unlink(PID_FILE)
@@ -1104,6 +1624,7 @@ def cmd_status(args):
         "videoFile": st.get("videoFile", "") if pid else "", "fetching": st.get("fetching", "") if pid else "",
         "cache": {"dir": CACHE_DIR, "files": len(entries), "bytes": sum(e["size"] for e in entries)},
         "token": bool(read_token()), "stateFile": STATE_FILE, "action": st.get("action") if pid else None,
+        "tabs": (st.get("tabs") or []) if pid else [], "pin": st.get("pin") if pid else None,
     }
     if as_json:
         print(json.dumps(info, ensure_ascii=False, indent=1))
@@ -1120,11 +1641,22 @@ def cmd_status(args):
                                                          b.get("duration", 0), b.get("rate", 1), ", live" if b.get("live") else "",
                                                          ", ad" if b.get("ad") else ""))
         print("  video:   %s %s" % (info["videoStatus"], info["videoFile"]))
+        v = (st.get("videos") or {}).get(b.get("key") or "") or {}
+        if v.get("mode") == "parts":
+            print("  parts:   " + (", ".join("%s-%s%s" % (fmt_clock(p["start"]), fmt_clock(p["start"] + p["dur"]),
+                                                       "" if p["status"] == "ready" else " (" + p["status"] + ")")
+                                             for p in v.get("parts") or []) or "none yet"))
         tt = b.get("tt")
         if tt:
             yn = lambda v: "?" if v is None else ("yes" if v else "no")
             print("  tiktok:  " + ("liked %s, saved %s, reposted %s" % (yn(tt.get("liked")), yn(tt.get("saved")), yn(tt.get("reposted")))
                                    if tt.get("bar") else "no action bar for this clip (logged out, or another layout)"))
+    tabs = (st.get("tabs") or []) if pid else []
+    if len(tabs) > 1 or (tabs and tabs[0].get("pinned")):
+        print("  tabs:    %d%s" % (len(tabs), "" if st.get("pin") else " (automatic choice)"))
+        for t in tabs:
+            print("    %s %-8s %s %s  \"%s\"" % ("*" if t.get("pinned") else " ", t.get("site"), "paused " if t.get("paused") else "playing",
+                                               t.get("tab"), (t.get("title") or "")[:60]))
     a = st.get("action") if pid else None
     if a:
         print("  action:  %s %s %s%s" % (a.get("action") or "?", a.get("key"), a.get("status"), (": " + a["error"]) if a.get("error") else ""))
@@ -1232,6 +1764,11 @@ def cmd_userscript(args):
     return 0
 
 
+def fmt_clock(t):
+    t = int(t)
+    return "%d:%02d:%02d" % (t // 3600, t // 60 % 60, t % 60) if t >= 3600 else "%d:%02d" % (t // 60, t % 60)
+
+
 def cmd_cache(args):
     sub = args.pop(0) if args else "list"
     entries = cache_entries()
@@ -1241,7 +1778,8 @@ def cmd_cache(args):
             return 0
         for e in reversed(entries):
             age = time.time() - e["mtime"]
-            print("%-34s %9s  %s ago" % (e["key"], human(e["size"]),
+            name = e["key"] + (" part %s-%s" % tuple(fmt_clock(x) for x in e["part"]) if "part" in e else "")
+            print("%-34s %9s  %s ago" % (name, human(e["size"]),
                                         ("%d min" % (age // 60)) if age < 7200 else ("%d h" % (age // 3600))))
         print("%d files, %s" % (len(entries), human(sum(e["size"] for e in entries))))
         return 0
@@ -1281,15 +1819,19 @@ def cmd_want(args):
 HELP = """hypr-nowplaying — the Now Playing bridge shared by every theme: the browser userscript reports what plays, this daemon
 keeps the state for the floating mini-player and a cache of silent mirror videos.
 
-  serve [--port N] [--cache-mb 400] [--max-min 20] [--upload-mb 60] [--stdin] [--keep] [-v]
+  serve [--port N] [--cache-mb 400] [--max-min 20] [--upload-mb 60] [--part-first-min 5] [--part-min 40]
+        [--part-ahead-min 5] [--part-height 360] [--stdin] [--keep] [-v]
                           the daemon on 127.0.0.1 (one instance). The theme shell runs it while its Now Playing PiP is on;
-                          it dies with its parent (--keep: it does not), --stdin takes JSON commands and exits on EOF
+                          it dies with its parent (--keep: it does not), --stdin takes JSON commands and exits on EOF.
+                          YouTube videos up to --max-min are fetched whole; longer ones in parts around the position
+                          (a --part-first-min part at the position, then --part-min parts, the next one when less than
+                          --part-ahead-min is fetched ahead; <= --part-height p)
   status [--json]         running?, what the browser reports, the video, the cache
   userscript [--port N] [--serve] [--print]
                           write the userscript with your token baked in to ~/.cache/hypr-nowplaying/userscript/;
                           --serve also offers it on a local URL for one install (Violentmonkey > Install)
   cache [list|clear]      the mirror videos (~/.cache/hypr-nowplaying, LRU, --cache-mb)
-  want <url|id>           ask the running daemon to fetch a YouTube video (yt-dlp, video only, <= 480p)
+  want <url|id>           ask the running daemon to fetch a YouTube video (yt-dlp, video only, <= 480p; a long one in parts)
   init                    create the token (~/.local/share/hypr-nowplaying/token) if it is missing
   path                    print the token, state and cache paths
 
@@ -1299,6 +1841,8 @@ live/ad flags, picture size, tab visibility, and on TikTok whether the clip is l
 Videos come from YouTube (yt-dlp) or from the TikTok tab itself.
 TikTok like / repost / save: only the theme shell can ask for them (stdin of `serve --stdin`, not HTTP); the daemon hands
 the command to the TikTok tab, whose userscript clicks TikTok's own button for the clip the PiP shows.
+Several tabs: the PiP lists every reporting tab and can pin one (stdin `pin`); play / pause / next / previous for a pinned tab
+that the browser's MPRIS does not follow go to that tab the same way (stdin `action`; bridge 1.4.0+).
 """
 
 

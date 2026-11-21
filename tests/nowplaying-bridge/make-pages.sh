@@ -192,4 +192,97 @@ setTimeout(() => finish({ scrolls: window.__scrolls.slice() }), 11500);'
 page tiktok-stall-paused "$TTLOC" "$TTFEED" "$TTMEDIA
 v2.__st.paused = true; v2.__st.readyState = 4;" '
 setTimeout(() => finish({ scrolls: window.__scrolls.slice() }), 11000);'
+# 11. (1.4.0) a paused YouTube tab the PiP is pinned to: slow keepalive while the daemon answers, 1 s once pinned (poll), play /
+#     pause / next / previous run on this tab's own player, a play() the autoplay policy refuses is reported once (no retry),
+#     PiP off (requests fail) = quiet
+page yt-media "$YTLOC" '
+<div id="movie_player" class="html5-video-player"><video id="main"></video><button class="ytp-prev-button" style="display:none"></button><button class="ytp-next-button">next</button></div>' '
+const main = document.getElementById("main");
+fakeMedia(main, { currentTime: 42 }); fakePlayable(main);
+document.getElementById("movie_player").getVideoData = () => ({ video_id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", author: "Rick Astley", isLive: false });
+window.__nextClicks = 0; document.querySelector(".ytp-next-button").addEventListener("click", () => window.__nextClicks++);
+window.__keepalive = 2;' '
+setTimeout(() => fire(main, "play"), 50);
+setTimeout(() => main.pause(), 300);
+(async () => {
+  const R = {};
+  await untilP(() => reports().some(x => x.paused), 3000);
+  R.first = reports().find(x => x.paused);
+  await waitMs(300);
+  let n = reports().length;
+  await waitMs(4500);
+  R.keepaliveReports = reports().length - n;
+  window.__poll = true;   // the shell pinned this tab
+  await waitMs(2200);
+  n = reports().length;
+  await waitMs(3000);
+  R.pinnedReports = reports().length - n;
+  R.play = await mediaAct(1, "play", "youtube-dQw4w9WgXcQ");
+  R.playsAfterPlay = main.__plays;
+  R.pause = await mediaAct(2, "pause");
+  R.pausedAfter = main.__st.paused;
+  R.toggle = await mediaAct(3, "toggle");
+  R.toggledPlaying = !main.__st.paused;
+  main.pause();
+  R.next = await mediaAct(4, "next");
+  R.nextClicks = window.__nextClicks;
+  main.__st.currentTime = 50;
+  R.prev = await mediaAct(5, "previous");
+  R.prevTime = main.currentTime;
+  fakePlayable(main, { refuse: true });
+  R.refused = await mediaAct(6, "play");
+  await waitMs(2500);
+  R.refusedPlays = main.__plays;
+  window.__down = true; window.__poll = false; window.__keepalive = 0;   // the PiP goes off
+  n = window.__calls.length;
+  await waitMs(11500);
+  R.retriesAfterOff = window.__calls.length - n;   // the failing report + 2 reconnect checks (a shell reload restarts the daemon)
+  n = window.__calls.length;
+  await waitMs(3000);
+  R.quietAfterOff = window.__calls.length - n;
+  finish(R);
+})();'
+# 11b. (1.4.0) the daemon restarts (a shell reload) while a linked tab is paused: it checks again after 3 s and reappears
+page yt-reconnect "$YTLOC" '
+<div id="movie_player" class="html5-video-player"><video id="main"></video></div>' '
+const main = document.getElementById("main");
+fakeMedia(main, { currentTime: 42 }); fakePlayable(main);
+window.__keepalive = 2;' '
+setTimeout(() => fire(main, "play"), 50);
+setTimeout(() => main.pause(), 300);
+(async () => {
+  const R = {};
+  await untilP(() => reports().some(x => x.paused), 3000);
+  await waitMs(2500);
+  window.__down = true;                           // the old daemon is gone ...
+  await untilP(() => window.__calls.length && window.__lastFailed, 4000);
+  const n = window.__calls.length;
+  await waitMs(1500);
+  window.__down = false;                          // ... the new one listens 1.5 s later
+  R.back = !!(await untilP(() => window.__calls.length > n, 5000));
+  R.backMs = R.back ? Date.now() : 0;
+  await waitMs(2500);
+  R.keepaliveAgain = window.__calls.length - n >= 2;
+  finish(R);
+})();'
+# 12. (1.4.0) a second tab: TikTok, paused, pinned; play, next (the feed button), a TikTok like still works next to them
+page tiktok-media "$TTLOC" "$TTFEED
+<button data-e2e=\"feed-navigation-prev\" aria-label=\"Go to previous video\"></button><button data-e2e=\"feed-navigation-next\" aria-label=\"Go to next video\"></button>" "$TTMEDIA
+fakePlayable(v2);
+document.body.insertAdjacentHTML(\"beforeend\", TT_BAR); fakeTikTok();
+window.__nav = []; for (const b of document.querySelectorAll(\"[data-e2e^=feed-navigation]\")) b.addEventListener(\"click\", () => window.__nav.push(b.getAttribute(\"data-e2e\")));
+window.__poll = true; window.__keepalive = 2;" '
+setTimeout(() => fire(v2, "play"), 50);
+setTimeout(() => v2.pause(), 300);
+(async () => {
+  const R = {};
+  await untilP(() => reports().some(x => x.paused), 3000);
+  R.first = reports().find(x => x.paused);
+  R.play = await mediaAct(1, "play", "tiktok-7400000000000000002");
+  R.playing = !v2.__st.paused;
+  R.next = await mediaAct(2, "next");
+  R.nav = window.__nav.slice();
+  R.like = await ttAct(3, "like");
+  finish(R);
+})();'
 # 5. the template (no token baked in) stays idle

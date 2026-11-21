@@ -24,7 +24,7 @@ PY
 # in parallel (each page its own headless Chromium); the TikTok action pages run ~30 s of scripted steps
 for f in "$T"/pages/*.html; do
     n="$(basename "$f" .html)"
-    w=12000; [[ "$n" == tiktok-act* ]] && w=50000
+    w=12000; [[ "$n" == tiktok-act* || "$n" == yt-media || "$n" == yt-reconnect ]] && w=50000
     nice -n 10 node "$REPO/tests/nowplaying-bridge/run.js" "$CHROME" "$T/profile-$n" "$f" "$w" >"$T/$n.json" 2>/dev/null &
 done
 wait
@@ -159,6 +159,39 @@ if (r) ok("watchdog: a stuck clip is bounced away and back", JSON.stringify(r.ex
 r = load("tiktok-stall-paused");
 ok("tiktok-stall-paused: page ran", !!r);
 if (r) ok("watchdog: a clip the user paused is left alone", JSON.stringify(r.extra.scrolls) === "[]", r.extra.scrolls);
+// ------------------------------------------------------------------ 1.4.0: several tabs, per-tab play / pause / next / previous
+r = load("yt-media");
+ok("yt-media: page ran", !!r);
+if (r) {
+  const R = r.extra;
+  ok("media: reports carry the bridge version", R.first && /^1\.4\.\d+$/.test(R.first.bv) && R.first.paused === true, R.first);
+  ok("media: paused + keepalive 2 s -> a slow heartbeat (4.5 s: 2..3 reports)", R.keepaliveReports >= 2 && R.keepaliveReports <= 3, R.keepaliveReports);
+  ok("media: pinned (poll) -> 1 s heartbeat while paused (3 s: 2..4)", R.pinnedReports >= 2 && R.pinnedReports <= 4, R.pinnedReports);
+  ok("media: play reaches the paused pinned tab within 1.5 s, done ok, reported playing", R.play.done && R.play.done.ok === true && R.play.done.action === "play"
+     && R.play.ms <= 1500 && R.playsAfterPlay === 1, R.play);
+  ok("media: pause", R.pause.done && R.pause.done.ok === true && R.pausedAfter === true, R.pause);
+  ok("media: toggle (paused -> plays)", R.toggle.done && R.toggle.done.ok === true && R.toggledPlaying === true, R.toggle);
+  ok("media: next -> the player's next button", R.next.done && R.next.done.ok === true && R.nextClicks === 1, { next: R.next, clicks: R.nextClicks });
+  ok("media: previous without a (visible) previous button -> back to the start", R.prev.done && R.prev.done.ok === true && R.prevTime === 0, R.prev);
+  ok("media: play refused by the autoplay policy -> an error, not retried", R.refused.done && R.refused.done.ok === false
+     && /autoplay/.test(R.refused.done.error) && R.refusedPlays === 1, { refused: R.refused, plays: R.refusedPlays });
+  ok("media: PiP off -> the failing report + at most 2 reconnect checks, then nothing while paused", R.retriesAfterOff >= 1 && R.retriesAfterOff <= 3
+     && R.quietAfterOff === 0, { retries: R.retriesAfterOff, quiet: R.quietAfterOff });
+  ok("media: only 127.0.0.1 contacted", r.calls.every(c => /^http:\/\/127\.0\.0\.1:47999\//.test(c.url)));
+}
+r = load("yt-reconnect");
+ok("yt-reconnect: page ran", !!r);
+if (r) ok("a paused linked tab finds a restarted daemon by itself (shell reload), keepalive resumes", r.extra.back === true && r.extra.keepaliveAgain === true, r.extra);
+r = load("tiktok-media");
+ok("tiktok-media: page ran", !!r);
+if (r) {
+  const R = r.extra;
+  const ya = load("yt-media");
+  ok("two tabs report with different tab ids", ya && R.first && R.first.tab !== ya.extra.first.tab && R.first.site === "tiktok", [R.first && R.first.tab, ya && ya.extra.first.tab]);
+  ok("tiktok-media: play on the paused clip", R.play.done && R.play.done.ok === true && R.playing === true, R.play);
+  ok("tiktok-media: next -> the feed's next button", R.next.done && R.next.done.ok === true && JSON.stringify(R.nav) === '["feed-navigation-next"]', { next: R.next, nav: R.nav });
+  ok("tiktok-media: like still works (result in tt.last and done)", R.like.last && R.like.last.ok === true && R.like.tt.liked === true, R.like);
+}
 r = load("template");
 ok("template: idle without a token", r && r.calls.length === 0, r && r.calls.length);
 console.log("----\n" + pass + " passed, " + fail + " failed");

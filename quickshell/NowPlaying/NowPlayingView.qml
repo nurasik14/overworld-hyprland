@@ -9,6 +9,8 @@ import qs.NowPlaying
  *    │ │  video    │  thumbnail (fit, with a blurred copy behind for the bars)  │
  *    │ └───────────┘  hover: ⏮ ⏯ ⏭ at the bottom, focus + ✕ top right;         │
  *    │                TikTok (logged in): ♥ ⟲ 🔖 (like / repost / save) above ⏮ ⏯ ⏭  │
+ *    │                2+ sources: a chip top left "YouTube 2/3" (wheel = next / previous;   │
+ *    │                click = the list: Auto + one row per source, inside the picture)     │
  *    │ ▬▬▬▬▬▬ XP-bar progress ▬▬▬▬▬▬                                           │
  *    │ Title (one line)                                                       │
  *    │ 󰗃 Channel / artist                                      1:23 / 4:56 ◢│  ◢ = resize grip (hover)
@@ -26,6 +28,10 @@ Item {
     property bool forceHover: false
     property string frameStill: ""
     property bool mirrorEnabled: true
+    property bool forceList: false          // renders: the source list open
+    property bool listOpen: false
+    readonly property bool listShown: (listOpen || forceList) && chip.visible
+    onHoveredChanged: if (!hovered) listOpen = false
     readonly property bool hovered: hover.hovered || forceHover || dragH.active || grip.active
     readonly property bool interacting: dragH.active || grip.active
     signal dragFinished()
@@ -151,19 +157,18 @@ Item {
                     name: "jukebox"
                 }
 
-                VideoMirror {
+                MirrorStack {   // the whole file, or a long video's parts (two players, the next part preloaded)
                     id: mirror
                     anchors.fill: parent
-                    active: root.mirrorEnabled && root.visible && root.np.videoFile.length > 0 && !root.np.ad
-                    source: active ? root.np.videoFile : ""
+                    active: root.mirrorEnabled && root.visible && (root.np.mirrorParts || []).length > 0 && !root.np.ad
+                    parts: active ? root.np.mirrorParts : []
                     clock: root.np.clock
-                    opacity: ready ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: Theme.ms(250) } }
+                    fadeMs: Theme.ms(250)
                 }
 
                 // badges
                 Rectangle {
-                    visible: root.np.live || root.np.ad
+                    visible: (root.np.live || root.np.ad) && !(root.hovered && chip.visible)
                     x: Theme.px(3); y: Theme.px(3)
                     width: badge.implicitWidth + Theme.px(4); height: Theme.px(11)
                     color: root.np.ad ? "#C0A000" : "#C01010"
@@ -171,9 +176,9 @@ Item {
                 }
                 McText {   // a TikTok like / repost / save just failed: say why for a few seconds (also in the button's tooltip)
                     id: actErrText
-                    visible: root.np.actionErrorFresh === true && root.np.canLike === true
+                    visible: root.np.actionErrorFresh === true && (root.np.canLike === true || root.np.route === "tab") && !root.listShown
                     x: Theme.px(3); width: parent.width - Theme.px(6)
-                    anchors.bottom: parent.bottom; anchors.bottomMargin: Theme.px(35)   // just above the like / repost / save row
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: Theme.px(root.np.canLike === true ? 35 : 19)   // above the button rows
                     codes: "§c! §f" + String(root.np.actionError || "")
                     darkGround: true
                     color: "#FFFFFF"
@@ -218,7 +223,42 @@ Item {
                         height: Theme.px(20)
                         gradient: Gradient { GradientStop { position: 0; color: "#90000000" } GradientStop { position: 1; color: "#00000000" } }
                     }
+                    McButton {   // the source chip: what is shown out of how many; click = the list, wheel = next / previous
+                        id: chip
+                        objectName: "sourceChip"
+                        readonly property int n: Number(root.np.sourceCount) || 0
+                        readonly property bool pinned: root.np.auto === false
+                        readonly property string count: (Number(root.np.shownIndex) > 0 ? root.np.shownIndex : "–") + "/" + n
+                        readonly property int room: parent.width - topRight.width - Theme.px(6)
+                        readonly property string full: String(root.np.sourceLabel || "") + " " + count
+                        visible: n >= 2 || (pinned && n >= 1)
+                        anchors.left: parent.left; anchors.top: parent.top; anchors.margins: Theme.px(2)
+                        height: Theme.px(14)
+                        horizontalPadding: Theme.px(3)
+                        width: Math.min(room, (chipFull.implicitWidth <= room - Theme.px(18) ? chipFull.implicitWidth : chipShort.implicitWidth) + Theme.px(18))
+                        glyph: pinned ? "󰐃" : ""
+                        text: chipFull.implicitWidth <= room - Theme.px(18) ? full : count
+                        highlighted: root.listShown
+                        tooltip: pinned ? "Pinned: " + String(root.np.sourceLabel || "") : "Auto: " + String(root.np.sourceLabel || "")
+                        tooltipDescription: (pinned ? "Shown until it goes away, then Auto again." : "Follows what plays (the newest playing tab first).")
+                                            + "\nClick: choose. Wheel: next / previous."
+                        tooltipCategory: n + " sources"
+                        onClicked: root.listOpen = !root.listOpen
+                        McText { id: chipFull; visible: false; text: chip.full }
+                        McText { id: chipShort; visible: false; text: chip.count }
+                        WheelHandler {
+                            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                            property real acc: 0
+                            onWheel: event => {
+                                acc += event.angleDelta.y;
+                                if (Math.abs(acc) < 60) return;
+                                root.np.pick(acc < 0 ? "next" : "prev");
+                                acc = 0;
+                            }
+                        }
+                    }
                     Row {
+                        id: topRight
                         anchors.right: parent.right; anchors.top: parent.top
                         anchors.margins: Theme.px(2)
                         spacing: Theme.px(1)
@@ -267,15 +307,91 @@ Item {
                         anchors.bottom: parent.bottom; anchors.bottomMargin: Theme.px(2)
                         spacing: Theme.px(2)
                         readonly property int bw: root.vidW >= Theme.px(90) ? Theme.px(22) : Theme.px(16)
-                        McButton { width: parent.bw; height: Theme.px(14); glyph: "󰒮"; tooltip: "Previous"; enabled: root.np.canPrevious; onClicked: root.np.previous() }
+                        readonly property string note: String(root.np.controlsNote || "")
+                        McButton { width: parent.bw; height: Theme.px(14); glyph: "󰒮"; tooltip: "Previous"; tooltipDescription: transport.note; enabled: root.np.canPrevious; onClicked: root.np.previous() }
                         McButton {
                             width: parent.bw; height: Theme.px(14)
                             glyph: root.np.paused ? "󰐊" : "󰏤"
                             tooltip: root.np.paused ? "Play" : "Pause"
+                            tooltipDescription: transport.note
                             enabled: root.np.canToggle
                             onClicked: root.np.togglePlaying()
                         }
-                        McButton { width: parent.bw; height: Theme.px(14); glyph: "󰒭"; tooltip: "Next"; enabled: root.np.canNext; onClicked: root.np.next() }
+                        McButton { width: parent.bw; height: Theme.px(14); glyph: "󰒭"; tooltip: "Next"; tooltipDescription: transport.note; enabled: root.np.canNext; onClicked: root.np.next() }
+                    }
+                }
+
+                // ---------------------------------------------------------------- the source list (mouse only: the PiP has no keyboard)
+                Rectangle {
+                    id: sourceList
+                    objectName: "sourceList"
+                    visible: root.listShown
+                    z: 2
+                    x: Theme.px(2); y: Theme.px(18)
+                    width: parent.width - Theme.px(4); height: parent.height - y - Theme.px(2)
+                    color: "#F0100010"                     // the game's tooltip / list fill, dark in Day and Night
+                    border.width: Theme.gui; border.color: "#50287A"
+                    MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: wheel => wheel.accepted = false }   // no drag / click-through
+                    ListView {
+                        id: rows
+                        anchors.fill: parent; anchors.margins: Theme.gui * 2
+                        anchors.rightMargin: contentHeight > height ? Theme.px(8) : Theme.gui * 2   // room for the scrollbar
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: [{ id: "", auto: true }].concat(root.np.sources || [])
+                        delegate: Item {
+                            id: row
+                            required property var modelData
+                            required property int index
+                            readonly property bool isAuto: modelData.auto === true
+                            readonly property bool chosen: isAuto ? root.np.auto === true : modelData.id === root.np.pinnedId
+                            readonly property bool shownNow: !isAuto && modelData.id === root.np.shownId
+                            width: rows.width; height: Theme.px(12)
+                            Rectangle {
+                                anchors.fill: parent
+                                color: rowMouse.containsMouse ? "#40FFFFFF" : "transparent"
+                                border.width: row.chosen ? Theme.gui : 0
+                                border.color: "#FFFFFF"            // the game's selected-row frame (server / world lists)
+                            }
+                            McText {
+                                id: mark
+                                x: Theme.px(2); anchors.verticalCenter: parent.verticalCenter
+                                mono: true
+                                text: row.isAuto ? "󰁨" : row.modelData.paused ? "󰏤" : "󰐊"
+                                color: row.isAuto ? "#FFFF55" : row.modelData.paused ? "#AAAAAA" : "#55FF55"
+                            }
+                            McText {
+                                id: rowLabel
+                                x: mark.x + Theme.px(10); anchors.verticalCenter: parent.verticalCenter
+                                width: Math.min(implicitWidth, parent.width - x - Theme.px(2))
+                                elide: Text.ElideRight
+                                text: row.isAuto ? "Auto" : String(row.modelData.label || "")
+                                color: row.isAuto ? "#FFFF55" : (({ youtube: "#FF5555", ytmusic: "#FF5555", spotify: "#55FF55", tiktok: "#55FFFF" })[row.modelData.site] || "#FFFFFF")
+                                darkGround: true
+                            }
+                            McText {
+                                x: rowLabel.x + rowLabel.width + Theme.px(3); anchors.verticalCenter: parent.verticalCenter
+                                width: Math.max(0, parent.width - x - Theme.px(2))
+                                visible: width > Theme.px(8)
+                                elide: Text.ElideRight
+                                text: row.isAuto ? (root.np.auto === true && Number(root.np.shownIndex) > 0 ? "→ " + root.np.shownIndex : "")
+                                                 : String(row.modelData.title || "")
+                                color: row.shownNow ? "#FFFFFF" : "#AAAAAA"
+                                darkGround: true
+                            }
+                            MouseArea {
+                                id: rowMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: { Theme.playSound("ui.click"); root.np.choose(row.isAuto ? "" : row.modelData.id); root.listOpen = false; }
+                            }
+                        }
+                    }
+                    McScrollbar {
+                        visible: rows.contentHeight > rows.height
+                        anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom
+                        anchors.margins: Theme.gui
+                        flickable: rows
                     }
                 }
             }

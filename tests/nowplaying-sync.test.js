@@ -1,7 +1,7 @@
 // node tests/nowplaying-sync.test.js — the mirror's sync rules (quickshell/NowPlaying/sync.js), pure.
 const fs = require("fs"), path = require("path");
 const src = fs.readFileSync(path.join(__dirname, "../quickshell/NowPlaying/sync.js"), "utf8").replace(/^\.pragma library.*$/m, "");
-const S = new Function(src + "; return { target, decide, cooldown, SEEK, NUDGE, COOLDOWN, LEAD };")();
+const S = new Function(src + "; return { target, decide, cooldown, SEEK, NUDGE, COOLDOWN, LEAD, partClock, pickPart, nextPart, SWAP };")();
 let pass = 0, fail = 0;
 const ok = (n, c, x) => { if (c) { pass++; console.log("PASS " + n); } else { fail++; console.log("FAIL " + n + (x !== undefined ? "  [" + JSON.stringify(x) + "]" : "")); } };
 const base = o => Object.assign({ loaded: true, target: 10, mirrorPos: 10, mirrorDuration: 100, buffering: false, playing: true, rate: 1,
@@ -44,5 +44,40 @@ for (let t = 1; t <= 60; t++) {
 }
 ok("simulated minute: few seeks (" + seeks + ")", seeks <= 4, seeks);
 ok("simulated minute: drift at decisions stays under 0.45 s (" + maxDrift.toFixed(2) + " s)", maxDrift < 0.45, maxDrift);
+// ---- long videos in parts. Starts as the daemon records them: the asked start minus the keyframe pre-roll (measured live:
+// a cut asked at 50:00 began 3.737 s earlier), parts overlapping by the 8 s the daemon asks for plus that pre-roll
+const P = [{ start: 3000 - 3.737, dur: 63.86, file: "p1" }, { start: 3051 - 2.1, dur: 181, file: "p2" }, { start: 5000 - 1.2, dur: 61, file: "p3" }];
+const clk = (pos, o) => Object.assign({ valid: true, position: pos, ts: 50000, paused: false, rate: 1, duration: 6377.9 }, o);
+let pc = S.partClock(clk(3000), P[0], 50000);
+ok("partClock: position inside the part = timeline - true start (the pre-roll counted)", Math.abs(pc.position - 3.737) < 1e-9 && !pc.paused && pc.duration === 63.86, pc);
+pc = S.partClock(clk(3000), P[0], 52000);
+ok("partClock: still extrapolates with the browser clock", Math.abs(S.target(pc, 52000) - 5.737) < 1e-9, pc);
+pc = S.partClock(clk(3040), P[1], 50000);
+ok("partClock: before the part starts -> paused at frame 0 (the preload waits)", pc.paused && pc.position === 0, pc);
+pc = S.partClock(clk(3060, { paused: true }), P[1], 50000);
+ok("partClock: paused stays paused", pc.paused && Math.abs(pc.position - 11.1) < 1e-9, pc);
+pc = S.partClock(clk(30), { start: 0, dur: 0, file: "whole" }, 50000);
+ok("partClock: a whole file (start 0, dur 0) = the browser clock", pc.position === 30 && pc.duration === 6377.9 && !pc.paused, pc);
+ok("partClock: no clock -> invalid", S.partClock({ valid: false }, P[0], 0).valid === false);
+ok("pickPart: the part covering the position", S.pickPart(P, 3000, -1) === 0);
+ok("pickPart: the measured start offset counts (2997 is in part 1, before the asked 3000)", S.pickPart(P, 2997, -1) === 0);
+ok("pickPart: in the overlap the current part stays", S.pickPart(P, 3055, 0) === 0);
+ok("pickPart: SWAP s before its end the next part takes over", S.pickPart(P, 3000 - 3.737 + 63.86 - S.SWAP + 0.01, 0) === 1);
+ok("pickPart: no current -> the covering part that reaches furthest", S.pickPart(P, 3055, -1) === 1);
+ok("pickPart: a gap (nothing covers) -> -1 (the cover shows)", S.pickPart(P, 4000, -1) === -1 && S.pickPart(P, 100, -1) === -1);
+ok("pickPart: nothing to take over -> keep the current one to its end", S.pickPart([P[0]], 3059.8, 0) === 0);
+ok("pickPart: a seek far away drops the current part", S.pickPart(P, 5010, 1) === 2);
+ok("pickPart: a whole file covers everything", S.pickPart([{ start: 0, dur: 0, file: "w" }], 9999, -1) === 0);
+ok("nextPart: the overlapping follower is preloaded", S.nextPart(P, 0) === 1);
+ok("nextPart: none after the last / not contiguous", S.nextPart(P, 1) === -1 && S.nextPart(P, 2) === -1);
+ok("nextPart: a whole file has none", S.nextPart([{ start: 0, dur: 0, file: "w" }], 0) === -1);
+// a simulated hand-over: play from 3000 to 3100 with a 0.25 s step, as the mirror would decide every tick
+let cur = -1, swaps = 0, gap = false;
+for (let t = 3000; t <= 3100; t += 0.25) {
+    const n = S.pickPart(P, t, cur);
+    if (n < 0) gap = true;
+    if (n !== cur) { if (cur >= 0) swaps++; cur = n; }
+}
+ok("simulated 100 s across a boundary: one swap, never without a part", swaps === 1 && !gap && cur === 1, { swaps, gap, cur });
 console.log("----\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

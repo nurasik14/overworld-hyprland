@@ -11,6 +11,13 @@
 // never while buffering; paused = pause and seek to the exact frame; 0.12–0.35 s drift = ±rate nudge (no seek, no stutter);
 // past the end of the mirror file = hold the last frame.
 
+// Long videos come in PARTS (the daemon's videos[key].parts: {start, dur, file} on the video's timeline, overlapping by a few s):
+//   partClock(c, part, nowMs)   the browser clock seen from inside a part (position - start; before the part starts: paused at 0)
+//   pickPart(parts, t, cur)     the part to show at timeline t (-1 = none covers t): keep the current one until SWAP s before
+//                               its end, then the covering part that reaches furthest
+//   nextPart(parts, cur)        the part that follows cur (starts before cur ends, ends later): preloaded in the second player
+// A whole file is one part {start: 0, dur: 0 (= unknown, runs to the file's end)}.
+
 var SEEK = 0.35;
 var NUDGE = 0.12;
 var COOLDOWN = 2000;
@@ -67,4 +74,44 @@ function decide(s) {
     }
     out.reason = "in sync";
     return out;
+}
+
+var SWAP = 1.0;         // s before a part's end the next (preloaded, already running in sync) part takes over
+var EDGE = 0.05;
+
+function partEnd(p) { return p.dur > 0 ? p.start + p.dur : Infinity; }
+
+function covers(p, t) { return !!p && p.start <= t + EDGE && t < partEnd(p) - EDGE; }
+
+function partClock(c, p, nowMs) {
+    if (!c || !c.valid || !p) return { valid: false };
+    var dur = p.dur > 0 ? p.dur : (c.duration > 0 ? Math.max(0, c.duration - p.start) : 0);
+    var local = target(c, nowMs) - p.start;
+    if (local < 0) return { valid: true, position: 0, ts: nowMs, paused: true, rate: c.rate, duration: dur };   // not there yet: frame 0
+    return { valid: true, position: c.position - p.start, ts: c.ts, paused: c.paused, rate: c.rate, duration: dur };
+}
+
+function pickPart(parts, t, cur) {
+    if (!parts || !parts.length || !(t >= 0)) return -1;
+    var c = cur >= 0 && cur < parts.length ? parts[cur] : null;
+    if (c && covers(c, t) && t < partEnd(c) - SWAP) return cur;
+    var best = -1;
+    for (var i = 0; i < parts.length; i++) {
+        if (i === cur || !covers(parts[i], t)) continue;
+        if (best < 0 || partEnd(parts[i]) > partEnd(parts[best])) best = i;
+    }
+    if (best < 0 && c && covers(c, t)) return cur;   // nothing takes over yet: keep it to its very end
+    return best;
+}
+
+function nextPart(parts, cur) {
+    if (!parts || cur < 0 || cur >= parts.length) return -1;
+    var end = partEnd(parts[cur]), best = -1;
+    if (end === Infinity) return -1;
+    for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (i === cur || p.start > end - SWAP - EDGE || partEnd(p) <= end) continue;
+        if (best < 0 || partEnd(p) > partEnd(parts[best])) best = i;
+    }
+    return best;
 }
