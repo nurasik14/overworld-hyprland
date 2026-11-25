@@ -69,13 +69,13 @@ files lists), `~/.config/overworld/apps-mode` (`light|dark|off`).
 
 ## Verification
 
-See `docs/agent-reports/app-theming.md` for the exact list of what was run, screenshots and what was not verified.
+See `qa/REPORT.md` for what was tested and what was not verified.
 
 ## Known gaps
 
 * Running GTK/Qt apps and Zen keep their old look until restarted (apply-mode restarts nothing).
 * Starship, spicetify are not installed on this machine → configs only validated syntactically.
-* `tokens/out/*/fastfetch-colors.jsonc` and `nvim-palette.lua` have generator bugs (see REQUESTS.md); install.sh works around them.
+* `tokens/out/*/fastfetch-colors.jsonc` and `nvim-palette.lua` have generator bugs ; install.sh works around them.
 
 ## Zen / Firefox: YouTube progress for the Now Playing boss bar
 

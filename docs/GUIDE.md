@@ -60,7 +60,7 @@ How the pieces connect, one at a time:
    (`import qs.Common`, `import qs.Services`).
 5. **Common → modules → services.** Modules draw with Common components and read state from Services singletons.
    `Theme.qml` is the one place that knows colours, the GUI scale (`Theme.gui`, default 2) and how to find a texture (`Theme.tex("gui/sprites/hud/heart/full")`).
-   Common deliberately does not import Services (see `docs/agent-reports/design-director.md`), so it stays previewable on its own.
+   Common deliberately does not import Services, so it stays previewable on its own.
 6. **Event bus.** `Services/GameEvents.qml` is how unrelated modules talk. Emit with `GameEvents.emit("window.kill", {cls: "kitty"})`;
    listen with a `Connections { target: GameEvents; function onEvent(name, data) {...} }`. The same bus is reachable from bash:
    `overworld event <name> '<json>'`. Every event is one JSON line in `$XDG_RUNTIME_DIR/overworld/events.jsonl`, and listeners hear
