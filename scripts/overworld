@@ -3,7 +3,7 @@
 #
 #   overworld on | off | status | toggle | light | dark | reload | repair | session-start | prepare on|off
 #   overworld wallpaper … | world new … | gamemode … | weather … | daycycle … | f3 | chat … | kill …
-#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | projects … | notes … | nowplaying … | event …
+#   overworld advancements | stats | options | sound <id> | screenshot [mode] | ws … | brew … | projects … | notes … | calendar … | nowplaying … | event …
 #   overworld help [verb]
 #
 # Installed as ~/.local/bin/overworld -> <repo>/scripts/overworld by scripts/install.sh.
@@ -691,6 +691,7 @@ Playing
   brew …          the brewing stand timer (overworld brew help)
   projects …      the Projects card: your built / in-progress to-do list (overworld projects help)
   notes …         the Notes card: sticky notes for raw, stray thoughts (overworld notes help)
+  calendar …      Google Calendar events on the Clock & Calendar card (overworld help calendar)
   nowplaying …    the floating Now Playing mini-player with the video (overworld nowplaying help)
   event <name> ['<json>']                                       post to the game event bus
 
@@ -806,6 +807,7 @@ EOF
         brew) cmd_brew_help ;;
         projects|project) cmd_projects_help ;;
         notes|note) cmd_notes_help ;;
+        calendar|cal|gcal) cmd_calendar_help ;;
         nowplaying|pip) cmd_nowplaying_help ;;
         event) cat <<'EOF'
 overworld event <name> ['<json object>']   appends to $XDG_RUNTIME_DIR/overworld/events.jsonl (the GameEvents bus).
@@ -1220,6 +1222,49 @@ cmd_notes() {
     esac
 }
 
+# ---------------------------------------------------------------------------------------------- calendar (Google Calendar on the Clock & Calendar card)
+# The events come from Google (read-only) into ~/.cache/hypr-gcal/events.json, written by the shared scripts/hypr-gcal; the card's service
+# (quickshell/Widgets/Services/CalendarService.qml) watches that file.  `overworld calendar …` is that CLI plus `card …` for the shell.
+HYPR_GCAL="$REPO/scripts/hypr-gcal"
+
+cmd_calendar_help() {
+    cat <<'EOF'
+overworld calendar — Google Calendar events on the Clock & Calendar card (also `overworld gcal …`, or `hypr-gcal …` anywhere)
+
+  calendar sync                 fetch the events now (the card does it on its own every 10 min, after resume and after an add)
+  calendar today | next         today's events; the next one on a single line (for a bar)
+  calendar list [--day D | --upcoming N] [--json]     D = YYYY-MM-DD, MM-DD, today, tomorrow, +N, mon … sun
+  calendar add "<title>" <date> [<HH:MM> [<HH:MM>|<dur>]] [--location L]     all day without a time; dur = 90m, 1h30
+  calendar add --parse "14:00 Meeting @MMW2450" --date tomorrow       also "all day Exam", "9:30-11 Lab"
+  calendar status               ok / stale / offline / not-configured (exit 0 / 0 / 1 / 2)
+  calendar open <id>            open an event in the browser
+  calendar card <fn> [arg]      drive the card in the shell: day <D> | today | next | prev (month) | open | close (expanded agenda) |
+                                add <line> (add to the selected day) | status | list
+
+On the card: hover a day for its events, click a day for its agenda, click an event to open it, double-click a day (or the +) to add one.
+
+Connect Google Calendar: `hypr-gcal` needs a backend, the command that talks to Google (read events, create events):
+  - it uses ~/.hermes/skills/productivity/google-workspace/scripts/google_api.py when that exists, or
+  - HYPR_GCAL_BACKEND=<command>, or ~/.config/hypr-gcal/config.json  {"backend": "<command>"}
+  called as `<backend> calendar list --start ISO --end ISO --max N` (prints a JSON array of {id, summary, start, end, location,
+  description, status, htmlLink}) and `<backend> calendar create --summary S --start ISO --end ISO [--location L]`.
+Reading never changes anything; the only write is `add`.  HYPR_GCAL_DRYRUN=1 makes `add` print the command instead of running it.
+Privacy: event titles are read from Google and cached locally in ~/.cache/hypr-gcal/events.json only; nothing is sent anywhere else.
+EOF
+}
+cmd_calendar() {
+    [[ -x "$HYPR_GCAL" ]] || die "scripts/hypr-gcal is missing"
+    local sub="${1:-}"; shift || true
+    case "$sub" in
+        "") exec "$HYPR_GCAL" today ;;
+        sync|list|ls|today|next|status|add|parse|open|path) exec "$HYPR_GCAL" "$sub" "$@" ;;
+        card) local fn="${1:-status}"; shift || true
+              local answer; answer="$(qs_need calendar "$fn" "$@")" || exit 1; [[ -n "$answer" ]] && say "$answer" ;;
+        help|-h|--help) cmd_calendar_help ;;
+        *) warn "unknown: calendar $sub"; cmd_calendar_help >&2; exit 1 ;;
+    esac
+}
+
 # ---------------------------------------------------------------------------------------------- nowplaying (the PiP mini-player)
 # The surface is quickshell/NowPlaying (IPC target `nowplaying`); the browser bridge + video cache is the shared scripts/hypr-nowplaying.
 HYPR_NOWPLAYING="$REPO/scripts/hypr-nowplaying"
@@ -1321,6 +1366,7 @@ case "${1:-help}" in
     brew)          shift; cmd_brew "$@" ;;
     projects|project) shift; cmd_projects "$@" ;;
     notes|note) shift; cmd_notes "$@" ;;
+    calendar|cal|gcal) shift; cmd_calendar "$@" ;;
     nowplaying|pip) shift; cmd_nowplaying "$@" ;;
     event)         shift; cmd_event "$@" ;;
     help|-h|--help) shift || true; cmd_help "${1:-}" ;;

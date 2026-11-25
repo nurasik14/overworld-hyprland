@@ -1,0 +1,844 @@
+#!/usr/bin/env python3
+"""hypr-gcal — Google Calendar events for the desktop: one cached copy, shared by every theme (Overworld, Apothecary) and the terminal.
+
+  hypr-gcal sync [--days-back 7] [--days-ahead 60]   fetch the events from Google (READ ONLY) into the cache
+  hypr-gcal list [--day D | --upcoming N] [--json]   events from the cache (default: the next 7 days)
+  hypr-gcal today                                    today's events, one per line
+  hypr-gcal next                                     the next event on one line (empty when there is none; for bars)
+  hypr-gcal status [--json]                          ok / stale / offline / not-configured (exit 0 / 0 / 1 / 2)
+  hypr-gcal add "<title>" <date> [<HH:MM> [<HH:MM>|<dur>]] [--location L] [--description D]
+  hypr-gcal add --parse "<line>" --date <day>        one natural line: "14:00 Meeting @MMW2450", "all day Exam", "9:30-11 Lab"
+  hypr-gcal parse "<line>" [--date D]                show what a line would become (JSON); nothing is created
+  hypr-gcal open <id>                                open the event in the browser (xdg-open)
+  hypr-gcal path | help
+
+Dates D: YYYY-MM-DD, MM-DD, D.M, today, tomorrow, yesterday, +N / -N (days), mon … sun (the next one, today counts).
+Durations: 90m, 1h, 1h30, 1.5h.  An add without a time is an all-day event.
+
+Backend (the command that talks to Google; it is called as `<backend> calendar list --start ISO --end ISO --max N` and
+`<backend> calendar create --summary S --start ISO --end ISO [--location L] [--description D]`), first that exists:
+  $HYPR_GCAL_BACKEND  ·  ~/.config/hypr-gcal/config.json {"backend": "<command>"}  ·  ~/.hermes/skills/productivity/google-workspace/scripts/google_api.py
+The default one runs with a Python that has the Google client libraries (the Hermes venv; $HYPR_GCAL_PYTHON or config "python" override).
+Without a backend the status is `not-configured`.
+
+Cache: ~/.cache/hypr-gcal/events.json (env HYPR_GCAL_CACHE).  Event titles are read from Google and stored there, nowhere else.
+  {"updated": ISO of the last good sync, "ok": bool, "error": str|null, "lastError": ISO|null, "range": {...},
+   "events": [{"id","title","tag","start","end","allDay","day","lastDay","location","description","link"}]}
+Timed events: start/end are local ISO with offset.  All-day: start/end are dates, end exclusive like Google's; day / lastDay are the
+first and last (inclusive) local day, for timed and all-day alike.  A failed sync keeps the events of the last good one.
+Other env: HYPR_GCAL_DRYRUN=1 (add / open print the command instead of running it), HYPR_GCAL_NOW=<ISO> (pretend it is now),
+HYPR_GCAL_OPENER (instead of xdg-open), HYPR_GCAL_CONFIG.
+Every write goes through `add` only; nothing here edits or deletes an event.
+"""
+import fcntl
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+from datetime import date, datetime, timedelta, timezone
+
+HOME = os.path.expanduser("~")
+CACHE = os.environ.get("HYPR_GCAL_CACHE") or os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.join(HOME, ".cache"), "hypr-gcal", "events.json")
+CONFIG = os.environ.get("HYPR_GCAL_CONFIG") or os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config"), "hypr-gcal", "config.json")
+DEFAULT_BACKEND = os.path.join(HOME, ".hermes/skills/productivity/google-workspace/scripts/google_api.py")
+STALE_AFTER = timedelta(minutes=30)
+MAX_EVENTS = 500
+DESC_MAX = 400
+TITLE_MAX = 200
+DOW = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+class Fail(Exception):
+    def __init__(self, msg, code=1):
+        super().__init__(msg)
+        self.code = code
+
+
+def die(msg, code=1):
+    raise Fail(msg, code)
+
+
+# ------------------------------------------------------------------------------------------------ time helpers
+def now():
+    v = os.environ.get("HYPR_GCAL_NOW")
+    if v:
+        d = parse_iso(v)
+        if d:
+            return d.astimezone()
+    return datetime.now().astimezone()
+
+
+def parse_iso(s):
+    """ISO date-time (with or without offset, with Z) -> aware datetime in the local zone; None when it is not one."""
+    if not isinstance(s, str) or "T" not in s:
+        return None
+    t = s.strip()
+    if t.endswith(("Z", "z")):
+        t = t[:-1] + "+00:00"
+    try:
+        d = datetime.fromisoformat(t)
+    except ValueError:
+        return None
+    return d.astimezone()                                  # naive = local
+
+
+def parse_day(s):
+    try:
+        return date.fromisoformat(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def iso(d):
+    return d.astimezone().isoformat(timespec="seconds")
+
+
+def local_midnight(day):
+    return datetime(day.year, day.month, day.day).astimezone()
+
+
+def parse_date_word(word, today=None):
+    """User date words -> date (see the usage text)."""
+    w = (word or "").strip().lower()
+    today = today or now().date()
+    if not w:
+        raise Fail("no date given", 2)
+    if w in ("today", "now"):
+        return today
+    if w in ("tomorrow", "tmr", "tom"):
+        return today + timedelta(days=1)
+    if w == "yesterday":
+        return today - timedelta(days=1)
+    if re.fullmatch(r"[+-]\d{1,4}", w):
+        return today + timedelta(days=int(w))
+    m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", w)
+    if m:
+        try:
+            return date(int(m[1]), int(m[2]), int(m[3]))
+        except ValueError:
+            raise Fail("not a date: " + word, 2)
+    m = re.fullmatch(r"(\d{1,2})[-./](\d{1,2})", w)        # MM-DD (ISO order) or D.M / D/M (day first when the first number is above 12)
+    if m:
+        a, b = int(m[1]), int(m[2])
+        month, day = (a, b) if "-" in w else (b, a)
+        for yr in (today.year, today.year + 1):
+            try:
+                d = date(yr, month, day)
+            except ValueError:
+                raise Fail("not a date: " + word, 2)
+            if d >= today - timedelta(days=180):
+                return d
+        return d
+    if w[:3] in DOW and w in (w[:3], "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "tues", "thur", "thurs", "weds"):
+        k = DOW.index(w[:3])
+        return today + timedelta(days=(k - today.weekday()) % 7)
+    raise Fail("not a date: " + word, 2)
+
+
+# ------------------------------------------------------------------------------------------------ the natural-line parser
+_T = r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?"
+
+
+def _time(h, m, ap):
+    h = int(h)
+    m = int(m) if m else 0
+    ap = (ap or "").lower().replace(".", "")
+    if ap:
+        if not 1 <= h <= 12:
+            return None
+        h = h % 12 + (12 if ap == "pm" else 0)
+    if not (0 <= h <= 24 and 0 <= m <= 59) or (h == 24 and m):
+        return None
+    return h * 60 + m
+
+
+def parse_duration(tok):
+    """'90m' '1h' '1h30' '1h30m' '1.5h' '45min' -> minutes, else None."""
+    t = (tok or "").strip().lower()
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?\s*(?:(\d{1,2})\s*m?(?:in)?)?", t)
+    if m:
+        return round(float(m[1]) * 60) + (int(m[2]) if m[2] else 0)
+    m = re.fullmatch(r"(\d+)\s*m(?:in(?:s|utes?)?)?", t)
+    if m:
+        return int(m[1])
+    return None
+
+
+def parse_line(line):
+    """'14:00 Meeting @MMW2450' -> {title, location, allDay, start: minutes|None, end: minutes|None, dur: minutes|None}
+       Forms: 'all day|allday|all-day <title>' · 'H[:MM][am|pm] <title>' · 'a-b <title>' (a–b too) · 'a +1h30 <title>' · 'a for 90m <title>' · 'at 9 <title>'
+       '@place' (to the end of the line) is the location.  Raises Fail when there is no title."""
+    s = re.sub(r"\s+", " ", (line or "").strip())
+    if not s:
+        die("nothing to add", 2)
+    loc = ""
+    m = re.search(r"(?:^|\s)@(\S.*)$", s)
+    if m:
+        loc = m[1].strip()
+        s = s[:m.start()].strip()
+    out = {"title": "", "location": loc, "allDay": True, "start": None, "end": None, "dur": None}
+    rest = s
+    m = re.match(r"(?i)all[ -]?day\b[:,-]?\s*(.*)$", s)
+    if m:
+        rest = m[1]
+    else:
+        rest0 = s
+        m = re.match(r"(?i)(?:at\s+)?" + _T + r"\s*(?:[-–—~]|to)\s*" + _T + r"(?=\s|$|[:,])[:,]?\s*(.*)$", s)       # a-b
+        if m and _time(m[1], m[2], m[3]) is not None and _time(m[4], m[5], m[6]) is not None:
+            out.update(allDay=False, start=_time(m[1], m[2], m[3]), end=_time(m[4], m[5], m[6]))
+            rest = m[7]
+        else:
+            m = re.match(r"(?i)(?:at\s+)?(\d{1,2}:\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?|\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.))(?=\s|$|[:,+])[:,]?\s*(?:(?:\+|for\s+)\s*(\d+(?:\.\d+)?\s*h(?:ours?|rs?)?(?:\s*\d{1,2}\s*m?(?:in)?)?|\d+\s*m(?:in(?:s|utes?)?)?)(?=\s|$)\s*)?(.*)$", s)
+            m2 = None
+            if not m:                                                                    # 'at 9 Lab' — a bare hour needs the 'at'
+                m2 = re.match(r"(?i)at\s+(\d{1,2})(?=\s|$)\s*(?:(?:\+|for\s+)\s*(\d+(?:\.\d+)?\s*h(?:ours?|rs?)?(?:\s*\d{1,2}\s*m?(?:in)?)?|\d+\s*m(?:in(?:s|utes?)?)?)(?=\s|$)\s*)?(.*)$", s)
+            if m or m2:
+                g = m or m2
+                if m:
+                    t = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?", g[1].strip(), re.I)
+                    mins = _time(t[1], t[2], t[3])
+                else:
+                    mins = _time(g[1], None, None)
+                if mins is not None:
+                    out.update(allDay=False, start=mins)
+                    if g[2]:
+                        out["dur"] = parse_duration(g[2])
+                    rest = g[3]
+            if out["allDay"]:
+                rest = rest0
+    title = re.sub(r"\s+", " ", rest).strip(" ,;")
+    if not title:
+        die("missing title", 2)
+    out["title"] = title[:TITLE_MAX]
+    return out
+
+
+def resolve(parsed, day):
+    """parse_line() result + a date -> {title, location, allDay, start: aware datetime, end: aware datetime, day}"""
+    base = local_midnight(day)
+    if parsed["allDay"]:
+        return {"title": parsed["title"], "location": parsed["location"], "allDay": True, "day": day, "start": base, "end": local_midnight(day + timedelta(days=1))}
+    s = parsed["start"]
+    if parsed["end"] is not None:
+        e = parsed["end"]
+        if e <= s:
+            e += 24 * 60
+    else:
+        e = s + (parsed["dur"] if parsed["dur"] else 60)
+    if parsed["dur"] is not None and parsed["dur"] <= 0:
+        die("the duration must be above zero", 2)
+    return {"title": parsed["title"], "location": parsed["location"], "allDay": False, "day": day,
+            "start": local_midnight(day) + timedelta(minutes=s), "end": local_midnight(day) + timedelta(minutes=e)}
+
+
+def positional_to_line(title, tok_start, tok_end):
+    """add "<title>" <date> [<HH:MM> [<HH:MM>|<dur>]] -> the parse_line() structure."""
+    t = re.sub(r"\s+", " ", (title or "").strip())
+    if not t:
+        die("missing title", 2)
+    out = {"title": t[:TITLE_MAX], "location": "", "allDay": True, "start": None, "end": None, "dur": None}
+    if tok_start:
+        m = re.fullmatch(_T, tok_start.strip(), re.I)
+        mins = _time(m[1], m[2], m[3]) if m else None
+        if mins is None:
+            die("not a time: " + tok_start, 2)
+        out.update(allDay=False, start=mins)
+        if tok_end:
+            d = parse_duration(tok_end)
+            if d is not None:
+                out["dur"] = d
+            else:
+                m = re.fullmatch(_T, tok_end.strip(), re.I)
+                e = _time(m[1], m[2], m[3]) if m else None
+                if e is None:
+                    die("not a time or a duration: " + tok_end, 2)
+                out["end"] = e
+    return out
+
+
+# ------------------------------------------------------------------------------------------------ cache
+def _lock_path():
+    return CACHE + ".lock"
+
+
+class Lock:
+    def __init__(self, path, shared=False, blocking=True):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        self.f = open(path, "a+")
+        self.got = True
+        try:
+            fcntl.flock(self.f, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | (0 if blocking else fcntl.LOCK_NB))
+        except OSError:
+            self.got = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        if self.got:
+            fcntl.flock(self.f, fcntl.LOCK_UN)
+        self.f.close()
+
+
+def read_cache():
+    """The cache dict, or None when it is missing / not one JSON object with an events list."""
+    try:
+        with Lock(_lock_path(), shared=True):
+            with open(CACHE, encoding="utf-8") as f:
+                d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return d if isinstance(d, dict) and isinstance(d.get("events"), list) else None
+
+
+def write_cache(d):
+    """Written IN PLACE under the lock (never renamed over): the shells watch the inode."""
+    text = json.dumps(d, ensure_ascii=False, indent=1) + "\n"
+    with Lock(_lock_path()):
+        os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+        fd = os.open(CACHE, os.O_RDWR | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "r+", encoding="utf-8") as f:
+            f.seek(0)
+            f.write(text)
+            f.truncate()
+            f.flush()
+
+
+# ------------------------------------------------------------------------------------------------ normalising Google's events
+TAG_RE = re.compile(r"^\s*\[([^\[\]]{1,24})\]\s*")
+
+
+def split_tag(summary):
+    """'[opp] [email] Reply' -> ('opp', 'Reply'); the first prefix is the tag, further prefixes are dropped."""
+    s = summary if isinstance(summary, str) else ""
+    tag = ""
+    rest = s
+    while True:
+        m = TAG_RE.match(rest)
+        if not m:
+            break
+        if not tag:
+            tag = re.sub(r"\s+", " ", m[1].strip().lower())
+        rest = rest[m.end():]
+    rest = rest.strip()
+    if not rest:
+        return "", s.strip() or "(no title)"
+    return tag, rest
+
+
+def normalize(raw):
+    """One record of the backend -> a cache event, or None (cancelled, no start, unreadable)."""
+    if not isinstance(raw, dict) or raw.get("status") == "cancelled":
+        return None
+    sid = raw.get("id")
+    if not isinstance(sid, str) or not sid:
+        return None
+    st, en = raw.get("start"), raw.get("end")
+    tag, title = split_tag(raw.get("summary"))
+    desc = re.sub(r"\r\n?", "\n", raw.get("description") or "").strip()
+    desc = re.sub(r"<[^>]{1,80}>", "", desc) if "<" in desc else desc
+    if len(desc) > DESC_MAX:
+        desc = desc[:DESC_MAX - 1].rstrip() + "…"
+    ev = {"id": sid, "title": title[:TITLE_MAX], "tag": tag}
+    ds = parse_day(st) if isinstance(st, str) and "T" not in st else None
+    if ds is not None:                                              # all day (end is exclusive)
+        de = parse_day(en) if isinstance(en, str) and "T" not in en else None
+        if de is None or de <= ds:
+            de = ds + timedelta(days=1)
+        ev.update(start=ds.isoformat(), end=de.isoformat(), allDay=True, day=ds.isoformat(), lastDay=(de - timedelta(days=1)).isoformat())
+    else:
+        s = parse_iso(st)
+        if s is None:
+            return None
+        e = parse_iso(en) or s
+        if e < s:
+            e = s
+        mid = lambda d: d.hour == 0 and d.minute == 0 and d.second == 0
+        if mid(s) and mid(e) and e > s and (e - s) % timedelta(days=1) == timedelta(0):      # midnight to midnight = an all-day event made by `add`
+            ev.update(start=s.date().isoformat(), end=e.date().isoformat(), allDay=True, day=s.date().isoformat(), lastDay=(e.date() - timedelta(days=1)).isoformat())
+        else:
+            last = (e - timedelta(seconds=1)).date() if (e > s and mid(e)) else e.date()     # ending exactly at midnight belongs to the day before
+            ev.update(start=iso(s), end=iso(e), allDay=False, day=s.date().isoformat(), lastDay=last.isoformat())
+    ev.update(location=(raw.get("location") or "").strip()[:200], description=desc, link=raw.get("htmlLink") if isinstance(raw.get("htmlLink"), str) else "")
+    return ev
+
+
+def sort_key(e):
+    return (e["day"], 0 if e["allDay"] else 1, e["start"], e["title"].lower())
+
+
+# ------------------------------------------------------------------------------------------------ backend
+_PY = []
+
+
+def google_python():
+    """The interpreter that runs google_api.py: one that can import the Google client libraries.  The shell and Hyprland start us with the system
+    python3, which has none; Hermes keeps them in a venv (~/.hermes/installs/*/environments/*/venv, newest first).  Order: $HYPR_GCAL_PYTHON,
+    config "python", the interpreter running this script, the Hermes venvs, /usr/bin/python3; the first that imports them wins (probed once)."""
+    if _PY:
+        return _PY[0]
+    cands = []
+    env = os.environ.get("HYPR_GCAL_PYTHON")
+    if env:
+        cands.append(env)
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            c = json.load(f).get("python")
+        if isinstance(c, str) and c:
+            cands.append(c)
+    except (OSError, ValueError, AttributeError):
+        pass
+    cands.append(sys.executable or "python3")
+    try:
+        import glob
+        venvs = glob.glob(os.path.join(HOME, ".hermes/installs/*/environments/*/venv/bin/python3"))
+        cands += sorted(venvs, key=lambda p: os.path.getmtime(p), reverse=True)
+    except OSError:
+        pass
+    cands.append("/usr/bin/python3")
+    mod = os.environ.get("HYPR_GCAL_PROBE") or "googleapiclient"
+    for cand in cands:
+        try:
+            r = subprocess.run([cand, "-c", "import " + mod], capture_output=True, timeout=15, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if r.returncode == 0:
+            _PY.append(cand)
+            return cand
+    _PY.append(sys.executable or "python3")
+    return _PY[0]
+
+
+def backend(probe=True):
+    """The backend command as an argv list, or None.  probe=False: don't look for a Python (only asking whether there is one)."""
+    env = os.environ.get("HYPR_GCAL_BACKEND")
+    if env and env.strip():
+        return shlex.split(env)
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            c = json.load(f).get("backend")
+        if isinstance(c, str) and c.strip():
+            return shlex.split(c)
+        if isinstance(c, list) and c and all(isinstance(x, str) for x in c):
+            return c
+    except (OSError, ValueError, AttributeError):
+        pass
+    if os.path.isfile(DEFAULT_BACKEND):
+        return [google_python() if probe else "python3", DEFAULT_BACKEND]
+    return None
+
+
+def clean_err(text):
+    t = re.sub(r"\s+", " ", (text or "").strip())
+    return (t[:157] + "…") if len(t) > 160 else t
+
+
+def run_backend(args, timeout=60):
+    be = backend()
+    if be is None:
+        raise Fail("not-configured", 2)
+    try:
+        p = subprocess.run(be + args, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        raise Fail("timed out", 1)
+    except OSError as e:
+        raise Fail("backend failed to start: " + clean_err(str(e)), 1)
+    if p.returncode != 0:
+        last = [l for l in (p.stderr or p.stdout or "").strip().splitlines() if l.strip()]
+        raise Fail(clean_err(last[-1] if last else "backend exited %d" % p.returncode), 1)
+    return p.stdout
+
+
+def cmd_sync(argv):
+    back, ahead = 7, 60
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--days-back", "--days-ahead") and i + 1 < len(argv):
+            try:
+                v = int(argv[i + 1])
+            except ValueError:
+                die("%s needs a number" % a, 2)
+            if a == "--days-back":
+                back = max(0, min(v, 365))
+            else:
+                ahead = max(1, min(v, 366))
+            i += 2
+        elif a in ("-q", "--quiet"):
+            i += 1
+        else:
+            die("sync: unknown argument " + a, 2)
+    quiet = "-q" in argv or "--quiet" in argv
+    with Lock(CACHE + ".sync", blocking=False) as sl:
+        if not sl.got:
+            if not quiet:
+                print("another sync is running")
+            return 0
+        t = now()
+        today = t.date()
+        d0, d1 = today - timedelta(days=back), today + timedelta(days=ahead + 1)
+        prev = read_cache() or {}
+        rng = {"from": d0.isoformat(), "to": (d1 - timedelta(days=1)).isoformat(), "start": iso(local_midnight(d0)), "end": iso(local_midnight(d1))}
+        try:
+            out = run_backend(["calendar", "list", "--start", rng["start"], "--end", rng["end"], "--max", str(MAX_EVENTS)])
+            try:
+                raw = json.loads(out)
+            except ValueError:
+                raise Fail("the backend did not return JSON", 1)
+            if not isinstance(raw, list):
+                raise Fail("the backend did not return a list", 1)
+        except Fail as e:
+            err = str(e)
+            d = {"updated": prev.get("updated"), "ok": False, "error": err, "lastError": iso(t),
+                 "range": prev.get("range") or rng, "events": prev.get("events") or []}
+            if err == "not-configured":                    # nothing was ever fetched: drop what an older backend left
+                d["updated"], d["events"] = None, []
+            write_cache(d)
+            if not quiet:
+                print("hypr-gcal: sync failed: " + err, file=sys.stderr)
+            return 2 if err == "not-configured" else 1
+        seen, events = set(), []
+        for r in raw:
+            e = normalize(r)
+            if e and e["id"] not in seen:
+                seen.add(e["id"])
+                events.append(e)
+        events.sort(key=sort_key)
+        write_cache({"updated": iso(t), "ok": True, "error": None, "lastError": prev.get("lastError"), "range": rng, "events": events})
+        if not quiet:
+            print("synced %d events" % len(events))
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ reading commands
+def state_of(c):
+    """('ok'|'stale'|'offline'|'not-configured'|'empty', text) from a cache dict (None = never synced)."""
+    if c is None:
+        return ("not-configured", "not configured") if backend(False) is None else ("empty", "no data yet: run hypr-gcal sync")
+    if c.get("error") == "not-configured":
+        return "not-configured", "not configured"
+    upd = parse_iso(c.get("updated") or "")
+    if not c.get("ok"):
+        return "offline", "offline: " + (c.get("error") or "sync failed")
+    if upd and now() - upd > STALE_AFTER:
+        return "stale", "stale (last sync %s)" % upd.strftime("%H:%M")
+    return "ok", "ok"
+
+
+def events_on(c, day):
+    k = day.isoformat()
+    return [e for e in (c or {}).get("events", []) if e.get("day", "") <= k <= e.get("lastDay", "")]
+
+
+def hm(d):
+    return d.strftime("%H:%M")
+
+
+def when_label(e, day):
+    """The time column for one day: 'all day', '09:30-11:00', '14:00→', '…-18:00', '…'."""
+    if e["allDay"]:
+        return "all day"
+    s, en = parse_iso(e["start"]), parse_iso(e["end"])
+    k = day.isoformat()
+    if e["day"] == e["lastDay"]:
+        return hm(s) + ("" if en == s else "-" + hm(en))
+    if k == e["day"]:
+        return hm(s) + "→"
+    if k == e["lastDay"]:
+        return "…-" + hm(en)
+    return "…"
+
+
+def line_of(e, day, with_date=False):
+    w = when_label(e, day)
+    s = "%-12s " % w
+    if with_date:
+        s = day.strftime("%a %d %b  ") + s
+    s += ("[%s] " % e["tag"] if e["tag"] else "") + e["title"]
+    if e["location"]:
+        s += "  @" + e["location"]
+    return s.rstrip()
+
+
+def need_cache():
+    c = read_cache()
+    if c is None:
+        raise Fail("no events yet" + (" (not configured: see `hypr-gcal help`)" if backend(False) is None else " (run `hypr-gcal sync`)"), 1)
+    return c
+
+
+def cmd_list(argv):
+    day = up = None
+    as_json = False
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--day" and i + 1 < len(argv):
+            day = parse_date_word(argv[i + 1])
+            i += 2
+        elif a == "--upcoming" and i + 1 < len(argv):
+            try:
+                up = max(1, int(argv[i + 1]))
+            except ValueError:
+                die("--upcoming needs a number", 2)
+            i += 2
+        elif a == "--json":
+            as_json = True
+            i += 1
+        else:
+            die("list: unknown argument " + a, 2)
+    c = read_cache()
+    if c is None:
+        if as_json:
+            print("[]")
+            return 0
+        raise Fail("no events yet" + (" (not configured: see `hypr-gcal help`)" if backend(False) is None else " (run `hypr-gcal sync`)"), 1)
+    if day is not None:
+        evs = events_on(c, day)
+        rows = [(day, e) for e in evs]
+    else:
+        t = now()
+        today = t.date()
+        rows = []
+        n = 0
+        for k in range(0, 60 if up else 7):
+            d = today + timedelta(days=k)
+            for e in events_on(c, d):
+                if up and not e["allDay"] and d == today and parse_iso(e["end"]) <= t:
+                    continue
+                if up and e["day"] < d.isoformat() and k > 0:
+                    continue                                    # a multi-day event is listed once, on its first day shown
+                rows.append((d, e))
+                n += 1
+            if up and n >= up:
+                break
+        if up:
+            rows = rows[:up]
+    if as_json:
+        print(json.dumps([e for _, e in rows], ensure_ascii=False, indent=1))
+        return 0
+    if not rows:
+        print("no events")
+        return 0
+    last = None
+    for d, e in rows:
+        if day is None and d != last:
+            print(d.strftime("%a %d %b"))
+            last = d
+        print(("  " if day is None else "") + line_of(e, d))
+    return 0
+
+
+def cmd_today(argv):
+    c = need_cache()
+    t = now()
+    evs = events_on(c, t.date())
+    if not evs:
+        print("nothing today")
+        return 0
+    for e in evs:
+        print(line_of(e, t.date()))
+    return 0
+
+
+def next_event(c, t):
+    """The next event for a bar: timed events not yet over first, an all-day event after the timed ones of its day."""
+    today = t.date().isoformat()
+    best = None
+    for e in c.get("events", []):
+        if e["allDay"]:
+            if e["lastDay"] < today:
+                continue
+            key = (max(e["day"], today), 1, "")
+        else:
+            if parse_iso(e["end"]) <= t:
+                continue
+            key = (e["day"] if parse_iso(e["start"]) >= t else today, 0, e["start"])
+        if best is None or key < best[0]:
+            best = (key, e)
+    return best[1] if best else None
+
+
+def cmd_next(argv):
+    c = read_cache()
+    if c is None:
+        return 0
+    t = now()
+    e = next_event(c, t)
+    if not e:
+        return 0
+    today = t.date()
+    ds = parse_day(e["day"])
+    if e["allDay"]:
+        when = "today" if ds <= today else ("tomorrow" if ds == today + timedelta(days=1) else ds.strftime("%a %d %b"))
+        when = "all day " + when if ds <= today else when
+    else:
+        s = parse_iso(e["start"])
+        if s <= t:
+            when = "now"
+        else:
+            diff = int((s - t).total_seconds() // 60)
+            if ds == today:
+                when = hm(s) + (" (in %dm)" % diff if diff <= 90 else "")
+            elif ds == today + timedelta(days=1):
+                when = "tomorrow " + hm(s)
+            else:
+                when = ds.strftime("%a %d %b ") + hm(s)
+    print(when + " " + e["title"] + (" @" + e["location"] if e["location"] else ""))
+    return 0
+
+
+def cmd_status(argv):
+    as_json = "--json" in argv
+    c = read_cache()
+    st, text = state_of(c)
+    if as_json:
+        print(json.dumps({"state": st, "text": text, "updated": (c or {}).get("updated"), "lastError": (c or {}).get("lastError"),
+                          "error": (c or {}).get("error"), "count": len((c or {}).get("events", [])), "cache": CACHE}, ensure_ascii=False))
+    else:
+        n = len((c or {}).get("events", []))
+        upd = parse_iso((c or {}).get("updated") or "")
+        extra = "" if st == "not-configured" else (" · %d events" % n if c else "") + (" · synced " + upd.strftime("%a %H:%M") if upd else "")
+        print(text + extra)
+    return {"ok": 0, "stale": 0, "empty": 1, "offline": 1, "not-configured": 2}[st]
+
+
+# ------------------------------------------------------------------------------------------------ writing: add
+def create_args(r, description=""):
+    a = ["calendar", "create", "--summary", r["title"], "--start", iso(r["start"]), "--end", iso(r["end"])]
+    if r["location"]:
+        a += ["--location", r["location"]]
+    if description:
+        a += ["--description", description]
+    return a
+
+
+def cmd_parse(argv):
+    day = None
+    i = 0
+    rest = []
+    while i < len(argv):
+        if argv[i] == "--date" and i + 1 < len(argv):
+            day = parse_date_word(argv[i + 1])
+            i += 2
+        elif argv[i] == "--json":
+            i += 1
+        else:
+            rest.append(argv[i])
+            i += 1
+    line = " ".join(rest)
+    r = resolve(parse_line(line), day or now().date())
+    print(json.dumps({"title": r["title"], "location": r["location"], "allDay": r["allDay"], "date": r["day"].isoformat(),
+                      "start": iso(r["start"]), "end": iso(r["end"])}, ensure_ascii=False))
+    return 0
+
+
+def cmd_add(argv):
+    parse = None
+    day = None
+    loc = desc = ""
+    pos = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--parse" and i + 1 < len(argv):
+            parse = argv[i + 1]
+            i += 2
+        elif a == "--date" and i + 1 < len(argv):
+            day = parse_date_word(argv[i + 1])
+            i += 2
+        elif a in ("--location", "-l") and i + 1 < len(argv):
+            loc = argv[i + 1]
+            i += 2
+        elif a == "--description" and i + 1 < len(argv):
+            desc = argv[i + 1]
+            i += 2
+        else:
+            pos.append(a)
+            i += 1
+    if parse is not None:
+        if pos:
+            die("add --parse takes the line and --date only", 2)
+        r = resolve(parse_line(parse), day or now().date())
+    else:
+        if len(pos) < 2 or len(pos) > 4:
+            die('usage: hypr-gcal add "<title>" <date> [<HH:MM> [<HH:MM>|<dur>]] [--location L]', 2)
+        r = resolve(positional_to_line(pos[0], pos[2] if len(pos) > 2 else None, pos[3] if len(pos) > 3 else None), parse_date_word(pos[1]))
+    if loc.strip():
+        r["location"] = loc.strip()[:200]
+    args = create_args(r, desc.strip())
+    what = "%s on %s %s" % (r["title"], r["day"].isoformat(), "(all day)" if r["allDay"] else hm(r["start"]) + "-" + hm(r["end"]))
+    if os.environ.get("HYPR_GCAL_DRYRUN") == "1":
+        be = backend()
+        print("dry-run: " + shlex.join((be if be is not None else ["<no-backend>"]) + args))
+        return 0
+    run_backend(args, timeout=60)
+    print("added: " + what)
+    try:
+        cmd_sync(["-q"])
+    except Fail as e:
+        print("hypr-gcal: added, but the re-sync failed: " + str(e), file=sys.stderr)
+    return 0
+
+
+def cmd_open(argv):
+    if not argv:
+        die("usage: hypr-gcal open <id>", 2)
+    c = need_cache()
+    key = argv[0]
+    hits = [e for e in c["events"] if e["id"] == key] or [e for e in c["events"] if e["id"].startswith(key)]
+    if len(hits) != 1:
+        die("no such event" if not hits else "ambiguous id", 1)
+    link = hits[0].get("link") or ""
+    if not re.match(r"https?://", link):
+        die("this event has no link", 1)
+    opener = shlex.split(os.environ.get("HYPR_GCAL_OPENER") or "xdg-open")
+    if os.environ.get("HYPR_GCAL_DRYRUN") == "1":
+        print("dry-run: " + shlex.join(opener + [link]))
+        return 0
+    subprocess.Popen(opener + [link], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    return 0
+
+
+def usage():
+    print((__doc__ or "").strip("\n"))
+    return 0
+
+
+def main(argv):
+    if not argv or argv[0] == "help" or any(a in ("-h", "--help") for a in argv):
+        return usage()                                             # help anywhere on the line, e.g. `sync -h`: print, change nothing
+    cmd, rest = argv[0], argv[1:]
+    try:
+        if cmd == "sync":
+            return cmd_sync(rest)
+        if cmd in ("list", "ls"):
+            return cmd_list(rest)
+        if cmd == "today":
+            return cmd_today(rest)
+        if cmd == "next":
+            return cmd_next(rest)
+        if cmd == "status":
+            return cmd_status(rest)
+        if cmd == "add":
+            return cmd_add(rest)
+        if cmd == "parse":
+            return cmd_parse(rest)
+        if cmd == "open":
+            return cmd_open(rest)
+        if cmd == "path":
+            print(CACHE)
+            return 0
+        print("hypr-gcal: unknown command '%s' (hypr-gcal help)" % cmd, file=sys.stderr)
+        return 2
+    except Fail as e:
+        print("hypr-gcal: " + str(e), file=sys.stderr)
+        return e.code
+    except BrokenPipeError:
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

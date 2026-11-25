@@ -65,6 +65,12 @@ if [[ ! -e "$BIN/hypr-notes" ]]; then
     other="$(readlink -f "$BIN/apothecary" 2>/dev/null || true)"
     [[ -n "$other" && -x "$(dirname "$other")/hypr-notes" ]] && ln -sfn "$(dirname "$other")/hypr-notes" "$BIN/hypr-notes"
 fi
+# hypr-gcal likewise; its cache (~/.cache/hypr-gcal) and any backend config are left alone.
+unlink_ours "$BIN/hypr-gcal"
+if [[ ! -e "$BIN/hypr-gcal" ]]; then
+    other="$(readlink -f "$BIN/apothecary" 2>/dev/null || true)"
+    [[ -n "$other" && -x "$(dirname "$other")/hypr-gcal" ]] && ln -sfn "$(dirname "$other")/hypr-gcal" "$BIN/hypr-gcal"
+fi
 # hypr-nowplaying likewise; its token (~/.local/share/hypr-nowplaying) stays, so an installed userscript keeps working with Apothecary.
 unlink_ours "$BIN/hypr-nowplaying"
 if [[ ! -e "$BIN/hypr-nowplaying" ]]; then

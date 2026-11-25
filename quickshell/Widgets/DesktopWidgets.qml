@@ -5,6 +5,7 @@ import qs.Common
 import qs.Widgets.Services
 import qs.Widgets.Projects
 import qs.Widgets.Notes
+import qs.Widgets.Calendar
 
 /*  DesktopWidgets — the desktop widget layer: ten Minecraft objects on the wallpaper (one PanelWindow per screen,
  *  layer `bottom`, namespace overworld-widgets).
@@ -26,6 +27,7 @@ Scope {
 
     ProjectsDialog {}      // the add / edit screen of the Projects card (namespace overworld-projects, takes the keyboard)
     NotesEditor {}         // the sheet you type on, over the Notes card (namespace overworld-notes, takes the keyboard)
+    CalendarEditor {}      // the quick-add panel for a calendar event, over the Clock & Calendar card (namespace overworld-calendar, takes the keyboard)
 
     Variants {
         model: Quickshell.screens

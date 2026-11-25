@@ -69,6 +69,9 @@ chmod +x "$REPO/scripts/hypr-projects"
 # the sticky-notes CLI (+ rofi menu on SUPER+ALT+N while no theme is on); same arrangement: one script per theme repo, the data is shared
 link "$REPO/scripts/hypr-notes" "$BIN/hypr-notes"
 chmod +x "$REPO/scripts/hypr-notes"
+# the Google Calendar events CLI (cache for the Clock & Calendar card); same arrangement: one script per theme repo, the cache is shared
+link "$REPO/scripts/hypr-gcal" "$BIN/hypr-gcal"
+chmod +x "$REPO/scripts/hypr-gcal"
 # the Now Playing bridge daemon/CLI (the PiP's browser bridge + video cache); same arrangement, and its token is made once here
 link "$REPO/scripts/hypr-nowplaying" "$BIN/hypr-nowplaying"
 chmod +x "$REPO/scripts/hypr-nowplaying"

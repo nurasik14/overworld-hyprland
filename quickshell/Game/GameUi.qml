@@ -30,6 +30,10 @@ Singleton {
         target: NotesService
         function onEditorOpenChanged() { if (NotesService.editorOpen) root.closeAll(); }
     }
+    Connections {       // and the calendar's quick-add panel (Widgets/Calendar), which grabs the keyboard too
+        target: CalendarService
+        function onAddOpenChanged() { if (CalendarService.addOpen) root.closeAll(); }
+    }
 
     function isOpen(name) { return root[name + "Open"] === true; }
     function closeScreens() { for (let i = 0; i < names.length; i++) root[names[i] + "Open"] = false; }
@@ -39,6 +43,7 @@ Singleton {
         if (isOpen(name)) return;
         ShellState.closeAll();
         NotesService.closeEditor();
+        CalendarService.closeAdd();
         chatOpen = false;
         closeScreens();
         root[name + "Open"] = true;
@@ -48,6 +53,7 @@ Singleton {
     function openChat(prefill) {
         ShellState.closeAll();
         NotesService.closeEditor();
+        CalendarService.closeAdd();
         closeScreens();
         chatPrefill = prefill || "";
         chatOpen = true;
