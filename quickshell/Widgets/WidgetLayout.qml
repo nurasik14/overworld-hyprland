@@ -28,7 +28,7 @@ Item {
     property alias quote: quote
     property alias projects: projects
     property alias notes: notes
-    property string screenName: ""         // the output this layout is on: the Notes editor opens over that output's card
+    property string screenName: ""         // the output this layout is on: the Notes editor and the calendar's quick-add open over that output's card
     // Slots come from layout-plan.js (GUI px stacks that follow the GUI scale and the screen): two columns, flush to the
     // left / right edge; when a stack would run into the HUD chips (GUI scale 3+ at 1080p) the cards are re-dealt over up
     // to three columns, and a card with no room left gets fits = false (hidden until it is dragged somewhere).  The first 8 cards
@@ -38,7 +38,7 @@ Item {
                                                          : cards.map(c => ({ x: 0, y: 0, fits: true }))
 
     WeatherCard    { id: weather;  index: 0; cardId: "weather";  defaultX: root.slots[0].x; defaultY: root.slots[0].y; fits: root.slots[0].fits }
-    CalendarCard   { id: calendar; index: 1; cardId: "calendar"; defaultX: root.slots[1].x; defaultY: root.slots[1].y; fits: root.slots[1].fits }
+    CalendarCard   { id: calendar; index: 1; cardId: "calendar"; defaultX: root.slots[1].x; defaultY: root.slots[1].y; fits: root.slots[1].fits; screenName: root.screenName }
     MusicCard      { id: music;    index: 2; cardId: "music";    defaultX: root.slots[2].x; defaultY: root.slots[2].y; fits: root.slots[2].fits }
     SysInfoCard    { id: sysinfo;  index: 3; cardId: "sysinfo";  defaultX: root.slots[3].x; defaultY: root.slots[3].y; fits: root.slots[3].fits }
     BrewTimerCard  { id: brew;     index: 4; cardId: "brew";     defaultX: root.slots[4].x; defaultY: root.slots[4].y; fits: root.slots[4].fits }

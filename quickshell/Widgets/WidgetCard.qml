@@ -36,9 +36,11 @@ McPanel {
     property real rise: shown ? 0 : (reduced ? 0 : Theme.px(4))
 
     // ---- position: saved (dragged) position, else the layout slot
+    // A saved position stays valid when a card grows (the Notes card became the book page): it is kept on the screen, never reset.
+    function keepOn(v, size, room) { return room > 0 ? Math.max(0, Math.min(room - size, v)) : v; }
     function bindPosition() {
-        card.x = Qt.binding(() => WidgetsState.posX(card.cardId, card.defaultX));
-        card.y = Qt.binding(() => WidgetsState.posY(card.cardId, card.defaultY));
+        card.x = Qt.binding(() => card.keepOn(WidgetsState.posX(card.cardId, card.defaultX), card.width, card.parent ? card.parent.width : 0));
+        card.y = Qt.binding(() => card.keepOn(WidgetsState.posY(card.cardId, card.defaultY), card.height, card.parent ? card.parent.height : 0));
     }
     Component.onCompleted: if (cardId !== "") bindPosition()
     Connections {

@@ -2,8 +2,8 @@
 const fs = require("fs"), path = require("path");
 const src = fs.readFileSync(path.join(__dirname, "../quickshell/Widgets/layout-plan.js"), "utf8").replace(/^\.pragma.*$/m, "");
 const plan = new Function(src + "; return plan;")();
-// reading order of WidgetLayout.qml: weather, calendar, music, sysinfo, brew, cava, block, quote, projects, notes  (GUI px); the first 8 form the stacks
-const sizes = [150, 156, 106, 148, 84, 82, 138, 78, 150, 130].map(h => ({ w: 190, h }));
+// reading order of WidgetLayout.qml (calendar = 190 × 182 since the Google Calendar agenda): weather, calendar, music, sysinfo, brew, cava, block, quote, projects, notes  (GUI px); the first 8 form the stacks
+const sizes = [150, 182, 106, 148, 84, 82, 138, 78, 150, 204].map((h, i) => ({ w: i === 9 ? 160 : 190, h }));     // the Notes card is the open book page: 160 × 204
 const N = sizes.length, BASE = 8;
 let bad = 0;
 function check(W, H, gui) {
@@ -30,7 +30,7 @@ for (const p of [a, b]) if (!p[8].fits || p[8].x > p[1].x - 190 * (p === a ? 1 :
 // Notes goes below Projects in the same overflow column, clear of the HUD
 for (const p of [a, b]) if (!p[9].fits || p[9].x !== p[8].x || p[9].y <= p[8].y) { console.log("FAIL notes card not placed below the projects card"); bad++; }
 const g2 = 2;
-if (b[9].y + 130 * g2 > 1080 - 62 * g2) { console.log("FAIL notes card runs into the HUD at GUI 2"); bad++; }
+if (b[9].y + 204 * g2 > 1080 - 62 * g2) { console.log("FAIL notes card runs into the HUD at GUI 2"); bad++; }
 const nine = plan(1920, 1080, 2, sizes.slice(0, 9), BASE);
 if (JSON.stringify(nine) !== JSON.stringify(b.slice(0, 9))) { console.log("FAIL the first 9 slots changed when the Notes card was added"); bad++; }
 const only8 = plan(1920, 1080, 2, sizes.slice(0, 8));
@@ -54,4 +54,17 @@ near("kept on screen, right and bottom", place({ x: 1900, y: 1000, w: 344, h: 17
 near("kept on screen, top", place({ x: 800, y: 0, w: 344, h: 172, shown: true }, 1920, 1080, fw, fh, 2, 12), { x: 756, y: 12 });
 const odd = place({ x: 801, y: 301, w: 344, h: 172, shown: true }, 1920, 1080, fw, fh, 3, 12);
 if (odd.x % 3 || odd.y % 3) { console.log("FAIL place is not on the GUI grid"); bad++; }
+// the calendar's quick-add panel: centred over the card, on the screen, on the GUI grid; no card = the middle of the screen
+const calSrc = fs.readFileSync(path.join(__dirname, "../quickshell/Widgets/Calendar/CalendarPlace.js"), "utf8").replace(/^\.pragma.*$/m, "");
+const calPlace = new Function(calSrc + "; return place;")();
+const card = { x: b[1].x, y: b[1].y, w: 380, h: 364, shown: true };
+const cp = calPlace(card, 1920, 1080, 400, 236, 2, 12);
+if (!(cp.x < card.x + card.w && cp.x + 400 > card.x && cp.y < card.y + card.h && cp.y + 236 > card.y)) { console.log("FAIL the calendar panel is not over the card"); bad++; }
+near("calendar: centred over the card", cp, { x: Math.round((card.x + (card.w - 400) / 2) / 2) * 2, y: Math.round((card.y + (card.h - 236) / 2) / 2) * 2 });
+near("calendar: null rect = screen centre", calPlace(null, 1920, 1080, 400, 236, 2, 12), { x: 760, y: 422 });
+near("calendar: hidden card = screen centre", calPlace({ ...card, shown: false }, 1920, 1080, 400, 236, 2, 12), { x: 760, y: 422 });
+near("calendar: kept on screen, right edge", calPlace({ x: 1900, y: 400, w: 380, h: 364, shown: true }, 1920, 1080, 400, 236, 2, 12), { x: 1508, y: 464 });
+near("calendar: kept on screen, top left", calPlace({ x: -300, y: -300, w: 380, h: 364, shown: true }, 1920, 1080, 400, 236, 2, 12), { x: 12, y: 12 });
+const calOdd = calPlace({ x: 1001, y: 301, w: 380, h: 364, shown: true }, 1920, 1080, 400, 236, 3, 12);
+if (calOdd.x % 3 || calOdd.y % 3) { console.log("FAIL calendar place is not on the GUI grid"); bad++; }
 process.exit(bad ? 1 : 0);

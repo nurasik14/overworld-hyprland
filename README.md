@@ -320,11 +320,11 @@ Everything here lives in `quickshell/Bar/` and `quickshell/Common/`. Pinned to t
   (first terminal, first brew, 100 windows mined, 3 hours of uptime, Wi-Fi connected ...). Statistics are counts of shell and
   Hyprland events only, no keystrokes.
 - **Desktop widgets** (`SUPER+G`): ten cards on the wallpaper, draggable by the title bar: Weather (sky window), Jukebox
-  (media), Brewing Stand, Block of the Day, Clock and Calendar, System (F3 style), Note Block (cava), Sign (quote), and
+  (media), Brewing Stand, Block of the Day, Clock and Calendar (**interactive and showing your Google Calendar**: hover a day for its events, click it for the agenda, click an event to open it, double-click to add one; `hypr-gcal`, `overworld calendar`), System (F3 style), Note Block (cava), Sign (quote), and
   **Projects** (a Book-and-Quill to-do list of what you have built and what is in progress: tick, add, remove with undo;
   `SUPER+SHIFT+P`, chat `/project`, `overworld projects`; the list is shared with Apothecary and the stock desktop, `hypr-projects`,
-  with a rofi menu on `SUPER+SHIFT+P` while no theme is on), and **Notes** (a pad of Paper sticky notes for raw, stray thoughts: click the
-  sheet and type on it, it saves itself; flip, tear off with undo; `SUPER+ALT+N`, chat `/note <text>`, `hypr-notes`, shared the same way, with a
+  with a rofi menu on `SUPER+SHIFT+P` while no theme is on), and **Notes** (the open page of the Book and Quill for raw, stray thoughts: click the
+  page and type on it, it saves itself; page-turn arrows, tear out with undo, "Page 2 of 5" like the game's writing screen; `SUPER+ALT+N`, chat `/note <text>`, `hypr-notes`, shared the same way, with a
   rofi menu on `SUPER+ALT+N` while no theme is on).
   Opacity is `widgets.opacity` (default 0.72). See [docs/WIDGETS.md](docs/WIDGETS.md).
 - **Now Playing PiP** (`SUPER+ALT+P`, or the widgets menu): a small painting that floats above every window, fullscreen ones
@@ -437,13 +437,14 @@ Active only while the theme is on (`hypr/keybinds.conf`). The full table, with w
 | `overworld ws ...` | workspace titles and notes, Claude auto-labelling (`overworld help ws`) |
 | `overworld brew ...` | brew timer (`brew set 50 10`, `brew start`, `brew toggle`, `brew rest 0`; `overworld help brew`) |
 | `overworld projects ...` | the Projects card (`projects`, `add <title>`, `done <n>`, `undone <n>`, `rm <n>`, `open`; `overworld help projects`) |
+| `overworld calendar ...` | Google Calendar on the Clock & Calendar card (`sync`, `today`, `next`, `list`, `add "<title>" <date> [time]`, `add --parse "14:00 Meeting @room"`, `status`, `open <id>`, `card <fn>`; `overworld help calendar`; also plain `hypr-gcal`). Needs a Google backend, see the help page. Event titles are read from Google and cached locally in `~/.cache/hypr-gcal` only |
 | `overworld notes ...` | the Notes card (`notes`, `add <text>`, `add -` for stdin, `show [n]`, `rm <n>`, `edit [n]`, `open`, `new`; `overworld help notes`; also plain `hypr-notes`) |
 | `overworld nowplaying ...` | the Now Playing PiP (`on`, `off`, `toggle`, `status`, `reveal`, `reset`, `userscript --serve` installs the Zen bridge, `cache [list\|clear]`; `overworld help nowplaying`; the daemon itself is `hypr-nowplaying`) |
 | `overworld event <name> ['<json>']` | post to the event bus (`$XDG_RUNTIME_DIR/overworld/events.jsonl`) |
 
 Other tools: `scripts/ow-sound --list` (all sound ids), `scripts/fetch-minecraft-assets.sh [--build] [--sounds-only]
 [--force] [--download] [--version V]`. The shell's own commands go through `qs -c overworld ipc call <target> <function>`;
-the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects notes nowplaying widgets chat
+the targets are `launcher network power wallpapers notifications theme osd workspace hud shell brew projects notes calendar nowplaying widgets chat
 advancements stats options gamemode world interact` (see [docs/QUICKSHELL.md](docs/QUICKSHELL.md)).
 
 ## config.json keys
@@ -507,6 +508,6 @@ The project never uses the Minecraft logo: its wordmark is OVERWORLD, in our own
 (`assets/gen/wordmark/`). Fonts and other third-party assets are listed in [assets/CREDITS.md](assets/CREDITS.md).
 
 The theme was designed and implemented by a team of AI agents (Hermes and Claude) under the owner's direction, then
-QA-tested on real hardware; the process notes are in `docs/agent-prompts/`, `docs/agent-reports/` and `qa/`.
+QA-tested on real hardware; the QA report is in `qa/`.
 
 Code and configuration: MIT, see [LICENSE](LICENSE). Mojang's assets keep their owner's rights.

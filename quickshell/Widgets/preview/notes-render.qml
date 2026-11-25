@@ -20,8 +20,8 @@ ShellRoot {
     readonly property bool cardView: what === "card" || what === "undo"
     Window {
         id: win
-        width: root.cardView ? 460 : 640
-        height: root.cardView ? 320 : 480
+        width: root.cardView ? card.width + 40 : form.width + 80
+        height: root.cardView ? card.height + 40 : form.height + 60
         visible: true
         color: "#4E6B45"
         Image {
@@ -38,6 +38,7 @@ ShellRoot {
                 x: 20; y: 20
                 defaultX: 20; defaultY: 20
                 pinHover: Quickshell.env("OW_RENDER_PIN") === "1"
+                pinArrow: Quickshell.env("OW_RENDER_ARROW") === "1"
                 screenName: "render"
             }
             Rectangle { anchors.fill: parent; visible: NotesService.editorOpen; color: "#50101010" }
@@ -50,6 +51,7 @@ ShellRoot {
                 id: form
                 visible: NotesService.editorOpen
                 x: 40; y: 30
+                u: parseInt(Quickshell.env("OW_RENDER_U") || "0") || (Theme.gui + 1)
                 active: NotesService.editorOpen
                 onCloseAsked: NotesService.closeEditor()
             }
@@ -168,17 +170,17 @@ ShellRoot {
             },
             () => {
                 win.pass("hover on the card shows the ✕", card.hot);
-                win.clickOn(card.contentItem, Theme.px(172 - 7), Theme.px(8));
+                win.clickOn(card.contentItem, Theme.px(19), Theme.px(18));
             },
             () => {
                 win.pass("a click on the ✕ tears the sheet off, without opening the editor", win.svc.count === 3 && win.svc.undo !== null && !win.svc.editorOpen, win.svc.count);
             },
             () => {
-                win.pass("the Undo bar's button brings it back", (win.clickOn(card.contentItem, Theme.px(176 - 16), Theme.px(99)), true));
+                win.pass("the Undo bar's button brings it back", (win.clickOn(card.contentItem, Theme.px(114), Theme.px(162)), true));
             },
             () => {
                 win.pass("…count back", win.svc.count === 4 && win.svc.undo === null, win.svc.count);
-                win.clickOn(card.contentItem, Theme.px(169), Theme.px(99));
+                win.clickOn(card.contentItem, Theme.px(73), Theme.px(162));
             },
             () => {
                 win.pass("the + button opens a blank sheet", win.svc.editorOpen && win.svc.draftText === "" && !win.svc.draftInFile);
@@ -187,8 +189,8 @@ ShellRoot {
             () => {
                 win.pass("nothing typed: nothing added", win.svc.count === 4 && !win.svc.editorOpen);
                 const pos = win.svc.currentIndex;
-                win.clickOn(card.contentItem, Theme.px(7), Theme.px(99));
-                win.pass("the ◀ button (sync check next step)", true);
+                win.clickOn(card.contentItem, Theme.px(34), Theme.px(162));
+                win.pass("the ◀ arrow (sync check next step)", true);
                 win.flipFrom = pos;
             },
             () => {
@@ -197,12 +199,88 @@ ShellRoot {
             },
             () => {
                 const at = win.svc.currentIndex;
-                win.clickOn(card.contentItem, Theme.px(7), Theme.px(99));          // ◀ is under the Undo bar
+                win.clickOn(card.contentItem, Theme.px(34), Theme.px(162));         // ◀ is under the Undo bar
                 win.flipFrom = at;
             },
             () => {
                 win.pass("a click on the Undo bar does not reach the pager under it", win.svc.currentIndex === win.flipFrom, win.svc.currentIndex);
                 win.svc.undoRemove();
+            },
+            // ---- the book screen's own controls: arrows, PgUp/PgDn, Alt+arrows, New page / Tear out / Done
+            () => {
+                win.svc.goTo(win.svc.sheets[win.svc.count - 1].id);
+                win.svc.openEditor("current");
+            },
+            () => {
+                win.pass("book: opens on the last page", win.svc.draftPage === win.svc.count && win.svc.draftPages === win.svc.count, win.svc.draftPage + "/" + win.svc.draftPages);
+                win.pass("book: ◀ shown, ▶ shown on the last page of a written note (it starts a new page)", form.hasBack && form.hasForward);
+                win.clickOn(form.page, form.page.bx(107), form.page.bx(162));
+            },
+            () => {
+                win.pass("book: ▶ on the last page = a new blank page", win.svc.draftPage === win.svc.count + 1 && win.svc.draftText === "" && !win.svc.draftInFile, win.svc.draftPage + "/" + win.svc.draftPages);
+                win.pass("book: …a blank last page has no ▶", !form.hasForward);
+                win.clickOn(form.page, form.page.bx(34), form.page.bx(162));
+            },
+            () => {
+                win.pass("book: ◀ goes back, the blank page leaves nothing behind", win.svc.draftPage === win.svc.count && win.svc.draftPages === win.svc.count, win.svc.draftPage + "/" + win.svc.draftPages);
+                ev.keyClick(Qt.Key_PageUp, Qt.NoModifier, -1);
+            },
+            () => {
+                win.pass("book: PgUp flips back", win.svc.draftPage === win.svc.count - 1, win.svc.draftPage);
+                ev.keyClick(Qt.Key_Right, Qt.AltModifier, -1);
+            },
+            () => {
+                win.pass("book: Alt+→ flips forward", win.svc.draftPage === win.svc.count, win.svc.draftPage);
+                ev.keyClick(Qt.Key_PageDown, Qt.NoModifier, -1);
+            },
+            () => {
+                win.pass("book: PgDn on the last page = new page", win.svc.draftPage === win.svc.count + 1 && win.svc.draftText === "", win.svc.draftPage);
+                ev.keyClick(Qt.Key_Left, Qt.AltModifier, -1);
+            },
+            () => {
+                win.pass("book: Alt+← flips back", win.svc.draftPage === win.svc.count, win.svc.draftPage);
+                win.clickOn(form, form.u * 32, form.u * 198);                                   // New page
+            },
+            () => {
+                win.pass("book: New page button", win.svc.draftPage === win.svc.count + 1 && win.svc.draftText === "", win.svc.draftPage);
+                win.typeText("zz");
+            },
+            () => {
+                win.pass("book: typing on the new page", win.svc.draftText === "zz", win.svc.draftText);
+                win.clickOn(form, form.u * 100, form.u * 198);                                  // Tear out
+            },
+            () => {
+                win.pass("book: Tear out on an unsaved page keeps the typed text for Undo and moves on", win.svc.undo !== null && win.svc.undo.count === 1 && win.svc.draftText !== "zz" && win.svc.editorOpen, win.svc.draftText);
+                win.svc.undoRemove();
+            },
+            () => {
+                const n = win.svc.count;
+                win.flipFrom = n;
+                win.clickOn(form, form.u * 100, form.u * 198);                                  // Tear out the page shown
+            },
+            () => {
+                win.pass("book: Tear out removes a saved page (undo offered, still editing)", win.svc.count === win.flipFrom - 1 && win.svc.undo !== null && win.svc.editorOpen, win.svc.count);
+                win.svc.undoRemove();
+            },
+            () => {
+                win.pass("book: …and Undo brings it back", win.svc.count === win.flipFrom, win.svc.count);
+                win.clickOn(form, form.u * 168, form.u * 198);                                  // Done
+            },
+            () => {
+                win.pass("book: Done closes", !win.svc.editorOpen);
+            },
+            // ---- a saved position stays valid when the card grew: kept on the screen, not reset
+            () => {
+                WidgetsState.setPos("notes", 5000, 5000);
+            },
+            () => {
+                const par = card.parent;
+                win.pass("a saved position past the screen edge is clamped onto it (not reset)", card.x + card.width <= par.width && card.y + card.height <= par.height && card.x >= 0 && card.y >= 0 && card.x > 0 && card.y > 0, card.x + "," + card.y);
+                WidgetsState.setPos("notes", 20, 20);
+            },
+            () => {
+                win.pass("a saved position that fits is kept as it is", card.x === 20 && card.y === 20, card.x + "," + card.y);
+                WidgetsState.resetPos("notes");
             },
             () => {
                 win.svc.openEditor("new");

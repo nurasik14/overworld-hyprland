@@ -4,24 +4,35 @@ import qs.Widgets
 import qs.Widgets.Projects
 import qs.Widgets.Services
 
-/*  NotesCard — "Notes" (190 × 130 GUI px): a pad of Paper sheets pinned to the desk, for raw, stray thoughts.  No titles, no structure.
- *  The sheet shows the current note (wrapped, fading out at the bottom when long); click it to write (NotesEditor, the same sheet
- *  on a layer that takes the keyboard, because this widget layer never does).  Footer: ◀ 2/5 ▶ (also the mouse wheel over the card), when it was
- *  last touched, + for a new sheet.  Hover the sheet: ✕ tears it off, with crumbs and "Undo" for 5 s.  Empty: "Click to scribble
- *  a thought…"; it never invents notes.  Every other way in (chat /note, `hypr-notes`, `overworld notes`, IPC target notes): NotesService.
+/*  NotesCard — "Notes" (160 × 204 GUI px): the open page of Minecraft's Book and Quill, one note per page.  The page is gui/book.png at the GUI
+ *  scale (BookPage.qml), the note is written on it in the game's black Mojangles inside the game's 114-texel text box (12 lines of the shell's 10-texel pitch; a longer note
+ *  ends in "…" here and scrolls in the editor), "Page 2 of 5" top right, the real page-turn arrows at the bottom (hover = the highlighted sprite;
+ *  the wheel over the card flips too).  Click the page to write (NotesEditor: the same page, bigger, on a layer that takes the keyboard, because
+ *  this widget layer never does).  Hover: ✕ tears the page out (paper crumbs, "Undo" for 5 s).  Between the arrows: + for a new page.  Empty:
+ *  an empty page with a hint; it never invents notes.  Every other way in (chat /note, `hypr-notes`, `overworld notes`, IPC target notes): NotesService.
+ *  The Projects card is a Book and Quill too, but as a closed item with a list; this one is the open page you write on.
  */
 WidgetCard {
     id: card
     title: "Notes"
-    guiW: 190
-    guiH: 130
+    guiW: 160
+    guiH: 204
 
     property string screenName: ""             // WidgetLayout: which output's rectangle this card publishes
     property bool pinHover: false              // previews only: draw the ✕ as if hovered
+    property bool pinArrow: false              // previews only: draw the ▶ arrow as if hovered
     readonly property var svc: NotesService
     readonly property var note: svc.current
     readonly property bool hot: hoverer.hovered || pinHover
-    readonly property string age: note ? svc.relTime(note.updated, svc.nowTick) : ""
+    // when it was last touched, short enough to sit left of "Page 12 of 12": now · 5 min · 3 h · 2 d
+    readonly property string age: {
+        const t = note ? Date.parse(note.updated || "") : NaN;
+        if (isNaN(t)) return "";
+        const min = Math.floor((svc.nowTick - t) / 60000);
+        return min < 1 ? "just now" : min < 60 ? min + " min" : min < 1440 ? Math.floor(min / 60) + " h" : Math.floor(min / 1440) + " d";
+    }
+    readonly property alias page: page
+    readonly property alias bookItem: page
 
     function tearOff() {
         if (!note) return;
@@ -42,8 +53,8 @@ WidgetCard {
         flipBy(d);
     }
 
-    // where the paper is on the output: the editor opens right over it
-    readonly property var paperRect: ({ x: card.x + paper.x + Theme.px(7), y: card.y + paper.y + Theme.px(17), w: paper.width, h: paper.height, shown: card.shown })
+    // where the page is on the output: the editor opens right over it
+    readonly property var paperRect: ({ x: card.x + page.x + Theme.px(7), y: card.y + page.y + Theme.px(17), w: page.width, h: page.height, shown: card.shown })
     onPaperRectChanged: svc.setCardRect(screenName, paperRect)
     onScreenNameChanged: svc.setCardRect(screenName, paperRect)
 
@@ -54,80 +65,66 @@ WidgetCard {
         onWheel: wheel => card.wheelBy(wheel.angleDelta.y)
     }
 
-    // ---- the sheet
-    PaperSheet {
-        id: paper
-        width: Theme.px(172); height: Theme.px(86)
-        fillAlpha: Math.max(0.9, WidgetsState.cardOpacity)
-        behind: Math.min(2, Math.max(0, card.svc.count - 1))
-        seed: card.note ? (card.note.id.charCodeAt(card.note.id.length - 1) + card.note.id.charCodeAt(card.note.id.length - 2) * 31) : 7
-
-        Item {
-            id: writing
-            x: Theme.px(6); y: Theme.px(6)
-            width: parent.width - Theme.px(12)
-            height: parent.height - Theme.px(6 + paper.fold + 1)
-            clip: true
-            readonly property bool overflows: card.note !== null && body.contentHeight > height
-            readonly property var bands: [0.7, 0.45, 0.25, 0.1]
-            Item {
-                id: bodyClip
-                width: parent.width
-                height: parent.height - (writing.overflows ? writing.bands.length * Theme.px(3) : 0)
-                clip: true
-                McText {
-                    id: body
-                    visible: card.note !== null
-                    width: writing.width
-                    text: card.note ? card.note.text : ""
-                    color: paper.ink
-                    shadow: false
-                    wrapMode: Text.Wrap
-                }
-            }
-            // a long note fades out in chunky steps: the same text again, in strips of falling opacity (nothing is laid over the paper)
-            Repeater {
-                model: writing.overflows ? writing.bands : []
-                Item {
-                    required property real modelData
-                    required property int index
-                    y: bodyClip.height + index * height
-                    width: writing.width; height: Theme.px(3)
-                    clip: true
-                    opacity: modelData
-                    McText {
-                        y: -parent.y
-                        width: writing.width
-                        text: body.text
-                        color: paper.ink
-                        shadow: false
-                        wrapMode: Text.Wrap
-                    }
-                }
-            }
-            McText {
-                visible: card.note === null
-                width: parent.width; height: parent.height
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                wrapMode: Text.Wrap
-                text: "Click to scribble a thought…"
-                color: paper.inkMuted
-                shadow: false
-            }
-        }
-        MouseArea {
+    // ---- the page
+    BookPage {
+        id: page
+        u: Theme.gui
+        MouseArea {                            // a click anywhere on the page writes
             anchors.fill: parent
             cursorShape: Qt.IBeamCursor
             onClicked: card.openSheet()
             Accessible.role: Accessible.Button
             Accessible.name: card.note ? "Edit this note" : "Write a note"
         }
-        // ✕ on hover: tear the sheet off
+        // the note, in the game's text box
+        Item {
+            id: box
+            x: page.bx(16); y: page.bx(29)
+            width: page.bx(114); height: page.bx(120)
+            clip: true
+            McText {
+                visible: card.note !== null
+                width: parent.width
+                height: parent.height
+                text: card.note ? card.note.text : ""
+                color: page.ink
+                shadow: false
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                maximumLineCount: 12
+                elide: Text.ElideRight
+            }
+            McText {
+                visible: card.note === null
+                width: parent.width
+                text: "Click to write a note…"
+                color: page.inkMuted
+                shadow: false
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+            }
+        }
+        // "Page 2 of 5", right edge at the game's x
+        McText {
+            visible: card.svc.count > 0
+            x: page.bx(128) - width; y: page.bx(15)
+            text: "Page " + (card.svc.currentIndex + 1) + " of " + card.svc.count
+            color: page.ink
+            shadow: false
+        }
+        // when it was last touched, top left (the ✕ takes its place while the page is hovered)
+        McText {
+            visible: card.svc.count > 0 && !(card.hot && card.note !== null)
+            x: page.bx(16); y: page.bx(15)
+            width: page.bx(40)
+            text: card.age
+            color: page.inkMuted
+            shadow: false
+            elide: Text.ElideRight
+        }
+        // ✕ on hover: tear the page out
         Item {
             visible: card.hot && card.note !== null
-            x: parent.width - Theme.px(12); y: Theme.px(3)
-            width: Theme.px(10); height: Theme.px(10)
+            x: page.bx(14); y: page.bx(13)
+            width: page.bx(11); height: page.bx(11)
             Rectangle {
                 anchors.fill: parent
                 color: tearArea.containsMouse ? "#C62B2B" : "transparent"
@@ -135,7 +132,7 @@ WidgetCard {
             PixelGlyph {
                 anchors.centerIn: parent
                 kind: "cross"
-                color: tearArea.containsMouse ? "#FFFFFF" : paper.outline
+                color: tearArea.containsMouse ? "#FFFFFF" : "#6B2B22"
             }
             MouseArea {
                 id: tearArea
@@ -144,102 +141,71 @@ WidgetCard {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: card.tearOff()
                 Accessible.role: Accessible.Button
-                Accessible.name: "Tear off this note"
+                Accessible.name: "Tear out this page"
             }
+        }
+        // the page-turn arrows (hidden at the ends, like the game's), with + for a new page between them
+        BookArrow {
+            visible: card.svc.currentIndex > 0
+            x: page.bx(23); y: page.bx(156)
+            u: page.u
+            forward: false
+            onClicked: card.flipBy(-1)
+        }
+        BookArrow {
+            id: fwd
+            visible: card.svc.count > 0 && card.svc.currentIndex < card.svc.count - 1
+            x: page.bx(96); y: page.bx(156)
+            u: page.u
+            forward: true
+            pinned: card.pinArrow
+            onClicked: card.flipBy(1)
+        }
+        BookButton {
+            x: page.bx(60); y: page.bx(156)
+            width: page.bx(26); height: page.bx(13)
+            u: page.u
+            text: "+"
+            tooltip: "New page"
+            tooltipDescription: "SUPER+ALT+N, or /note <text> in the chat"
+            onClicked: card.newSheet()
         }
         PaperCrumbs {
             id: crumbs
             anchors.fill: parent
             z: 20
-            colorA: paper.face
-            colorB: paper.edge
+            colorA: "#FFFAEE"
+            colorB: "#E2CF9E"
+            colorC: "#7B4A2B"
+        }
+        // undo bar (5 s after a tear-out), over the arrow row
+        Rectangle {
+            visible: card.svc.undo !== null
+            x: page.bx(15); y: page.bx(154)
+            width: page.bx(116); height: page.bx(17)
+            color: "#F0201810"
+            border.width: Theme.gui; border.color: "#000000"
+            MouseArea { anchors.fill: parent }     // clicks on the bar don't reach the arrows under it
+            McText {
+                x: page.bx(4); y: 0
+                width: parent.width - page.bx(4 + 34)
+                height: parent.height
+                verticalAlignment: Text.AlignVCenter
+                text: card.svc.undo ? (card.svc.undo.count > 1 ? "Tore out " + card.svc.undo.count + " pages" : "Tore out " + (card.svc.undo.preview || "a page")) : ""
+                color: "#ffffff"
+                elide: Text.ElideRight
+            }
+            BookButton {
+                x: parent.width - page.bx(33); y: page.bx(2)
+                width: page.bx(32); height: page.bx(13)
+                u: page.u
+                text: "Undo"
+                onClicked: card.svc.undoRemove()
+            }
         }
     }
     Connections {
         target: card.svc
         function onSheetTorn() { if (card.shown) crumbs.burst(); }
-    }
-
-    // ---- the footer: ◀ 2/5 ▶  3 min ago  +
-    Item {
-        x: 0; y: Theme.px(92)
-        width: Theme.px(176); height: Theme.px(14)
-        McButton {
-            id: prevB
-            visible: card.svc.count > 1
-            x: 0; width: Theme.px(14); height: parent.height
-            horizontalPadding: 0
-            enabled: card.svc.currentIndex > 0
-            soundId: ""
-            activeFocusOnTab: false
-            onClicked: card.flipBy(-1)
-            PixelGlyph { anchors.centerIn: parent; kind: "left"; color: prevB.labelColor }
-        }
-        McText {
-            id: pager
-            visible: card.svc.count > 0
-            x: card.svc.count > 1 ? Theme.px(16) : 0
-            width: Theme.px(card.svc.count > 1 ? 26 : 24); height: parent.height
-            horizontalAlignment: card.svc.count > 1 ? Text.AlignHCenter : Text.AlignLeft
-            verticalAlignment: Text.AlignVCenter
-            text: (card.svc.currentIndex + 1) + "/" + card.svc.count
-            color: Theme.guiText
-        }
-        McButton {
-            id: nextB
-            visible: card.svc.count > 1
-            x: Theme.px(44); width: Theme.px(14); height: parent.height
-            horizontalPadding: 0
-            enabled: card.svc.currentIndex < card.svc.count - 1
-            soundId: ""
-            activeFocusOnTab: false
-            onClicked: card.flipBy(1)
-            PixelGlyph { anchors.centerIn: parent; kind: "right"; color: nextB.labelColor }
-        }
-        McText {
-            x: Theme.px(card.svc.count > 1 ? 62 : 26)
-            width: Theme.px(162) - x - Theme.px(2); height: parent.height
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
-            text: card.age
-            color: Theme.textMuted
-            elide: Text.ElideRight
-        }
-        McButton {
-            x: Theme.px(162); width: Theme.px(14); height: parent.height
-            horizontalPadding: 0
-            text: "+"
-            tooltip: "New sheet"
-            tooltipDescription: "SUPER+ALT+N, or /note <text> in the chat"
-            activeFocusOnTab: false
-            onClicked: card.newSheet()
-        }
-    }
-
-    // ---- undo bar (5 s after a tear-off)
-    Rectangle {
-        visible: card.svc.undo !== null
-        x: 0; y: Theme.px(91)
-        width: Theme.px(176); height: Theme.px(15)
-        color: Theme.isDark ? "#e0101010" : "#f0373737"
-        border.width: Theme.gui; border.color: "#000000"
-        MouseArea { anchors.fill: parent }     // clicks on the bar don't reach the pager under it
-        McText {
-            x: Theme.px(4); y: 0
-            width: parent.width - Theme.px(4 + 34)
-            height: parent.height
-            verticalAlignment: Text.AlignVCenter
-            text: card.svc.undo ? (card.svc.undo.count > 1 ? "Tore off " + card.svc.undo.count + " notes" : "Tore off " + (card.svc.undo.preview || "a note")) : ""
-            color: "#ffffff"
-            elide: Text.ElideRight
-        }
-        McButton {
-            x: parent.width - Theme.px(33); y: Theme.px(1)
-            width: Theme.px(32); height: Theme.px(13)
-            horizontalPadding: 0
-            text: "Undo"
-            activeFocusOnTab: false
-            onClicked: card.svc.undoRemove()
-        }
     }
 }

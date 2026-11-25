@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Notes card: the Book and Quill writing screen (notes-book)
+- The Notes card is now the **open page of Minecraft's Book and Quill** instead of a pinned sheet of Paper: the real `book.png` page at the GUI scale (read from `assets/mc`, never copied; a drawn page stands in without it), your note in black Minecraft text inside the game's text box, **"Page 2 of 5"** top right, the real **page-turn arrows** (hover = the highlighted sprite) at the bottom, **+** for a new page, the wheel still flips. Hover the page: **✕** tears it out (bits of the page fall, Undo for 5 s). The card is 160×204 GUI px; saved positions are kept and clamped onto the screen. The Projects card is unchanged.
+- The editor is the game's **Book and Quill edit screen**, one scale step bigger over the card: the game's cursor (`_` / thin bar), page arrows (▶ on the last page starts a new page), and under the book **New page · Tear out · Done** in the game's button style. **Esc** = Done, **PgUp / PgDn** or **Alt+←/→** flip pages. Saving, the 4000-character limit, the CLI, IPC and the data file are unchanged.
+- Tests: `preview/notes-render.qml act` gained 16 checks for the book screen (arrows, PgUp/PgDn, Alt+arrows, New page / Tear out / Done); `tests/widgets-layout.test.js` uses the new card size. `PaperSheet.qml` is gone.
+
+### Clock & Calendar card: interactive, with your Google Calendar events (calendar-interactive)
+- The card (now 190×182 GUI px) shows the events of your Google Calendar. **Hover** a day: slot highlight and a Minecraft tooltip with that day's events (time, coloured tag, title). Days with events carry a **stack count** in the slot's corner. **Click** a day: the month folds into its week and the **agenda** opens below (scroll with the wheel, hover a row for the details, click an event to open it in the browser). **Double-click** a day or press **+**: a quick-add panel over the card takes a natural line (`14:00 Meeting @MMW2450`, `9:30-11 Lab`, `all day Exam`) with a live preview, and creates the event. Month arrows and the wheel change month (week in the agenda view); the month name = today.
+- Under the clock: "Next: 14:00 Lab" and how many events are left today, yellow when one starts within 15 minutes; the CityU teaching week ("Wk 13") next to "Day N". Footer states: synced / last sync / grey "offline · last sync 14:02" (the cached events stay) / "Not connected".
+- New shared CLI **`hypr-gcal`** (`sync list today next status add parse open`, one copy per theme repo, `~/.local/bin/hypr-gcal` linked by `install.sh`) and `overworld calendar|gcal …` (+ `overworld help calendar`). It only **reads** Google (the only write is `add`; `HYPR_GCAL_DRYRUN=1` prints the command instead); event titles are cached locally in `~/.cache/hypr-gcal/events.json` and go nowhere else. The cache is written in place under a lock and a failed sync (offline, VPN) keeps the last good events. The default backend is Hermes' `google_api.py`, run with a Python that has the Google libraries; `HYPR_GCAL_BACKEND` or `~/.config/hypr-gcal/config.json` point it elsewhere.
+- IPC target `calendar` (`sync day today next prev add status list upcoming open close newEvent openEvent`), the quick-add layer `overworld-calendar` (keyboard Exclusive like the Notes editor; one modal at a time), `CalendarService` syncs every 10 min, after a resume and after an add.
+- Tests: `tests/hypr-gcal.test.sh` (CLI), `Widgets/preview/calendar-test.qml` and `calendar-render.qml` through `calendar-render.sh` (service, renders, real clicks / keys), `tests/widgets-layout.test.js` (the taller card still fits at GUI 1–2).
+
 ### Day cycle: pin dawn or dusk
 - `/time set dawn|dusk`, `overworld daycycle dawn|dusk`, IPC `world daycycle dawn|dusk`, and the Options button (Auto → Day →
   Dusk → Night → Dawn) pin the current scene's dawn or dusk picture with Day (dawn) or Night (dusk) mode. Before, those
@@ -89,7 +101,7 @@
 
 First release. Overworld Hyprland is a fork of the Apothecary Hyprland theme (commit 26a8391), renamed and rebuilt as a Minecraft-inspired
 desktop in one overnight, multi-agent build, then QA-tested live. Everything from Apothecary is kept; the two themes coexist and the CLI
-switches between them. Details per area are in `docs/agent-reports/` and `qa/REPORT.md`.
+switches between them. QA details are in `qa/REPORT.md`.
 
 ### Theme system
 - `overworld on | off | status | light | dark | toggle | reload | repair`. `on` switches Apothecary off first and remembers it; `off` restores

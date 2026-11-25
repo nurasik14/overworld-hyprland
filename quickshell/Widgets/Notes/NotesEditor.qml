@@ -6,10 +6,10 @@ import qs.Widgets.Services
 import "NotesPlace.js" as NotesPlace
 
 /*  NotesEditor — the layer you type on (namespace overworld-notes), a full-screen overlay like the brew dialog with the keyboard grabbed
- *  (Exclusive), because the widget layer never takes focus.  The dim is light and the sheet opens exactly over the card's
- *  paper, slightly larger, so it feels like writing on the note itself; with the card hidden it opens in the middle of the screen.
+ *  (Exclusive), because the widget layer never takes focus.  The dim is light and the book page opens exactly over the card's
+ *  page, one scale step larger, so it feels like writing on the note itself; with the card hidden it opens in the middle of the screen.
  *  Opened by a click on the card, its +, SUPER+ALT+N, /note, `ipc call notes open|newSheet`; NotesService.editorOpen drives it.
- *  The sheet itself is Notes/NotesForm.qml.
+ *  The book screen itself is Notes/NotesForm.qml.
  */
 Variants {
     id: root
@@ -32,6 +32,8 @@ Variants {
         readonly property var rect: NotesService.cardRects[modelData.name] || null
 
         NotesForm {
+            // the book one step bigger than on the card, as far as book and buttons still fit this output
+            u: Math.max(Theme.gui, Math.min(Theme.gui + 1, Math.floor((parent.height - Theme.px(8)) / unitsH)))
             readonly property var place: NotesPlace.place(win.rect, parent.width, parent.height, width, height, Theme.gui, Theme.px(6))
             x: place.x; y: place.y
             active: win.shown
